@@ -4,12 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ML Analyzer — RealEcom</title>
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
-  <!-- React + Babel -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -19,15 +17,12 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #111827; }
     ::-webkit-scrollbar-thumb { background: #1E2D45; border-radius: 3px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
     input:focus, textarea:focus { border-color: #3B82F6 !important; }
   </style>
 </head>
 <body>
   <div id="root"></div>
-
   <script>
-    // ─── FIREBASE CONFIG ─────────────────────────────────────────
     const firebaseConfig = {
       apiKey: "AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",
       authDomain: "calculadora-real-ecom.firebaseapp.com",
@@ -39,15 +34,12 @@
     firebase.initializeApp(firebaseConfig);
     const auth      = firebase.auth();
     const db        = firebase.firestore();
-    // Cloud Functions na mesma região do seu projeto (southamerica-east1)
     const functions = firebase.app().functions('southamerica-east1');
 
-    // ─── ML CONFIG (Client ID é público — Client Secret fica na Cloud Function) ──
     const ML_CLIENT_ID = '3936370948601703';
-    const ML_REDIRECT  = 'https://www.google.com';
+    const ML_REDIRECT  = 'https://ollmestorerj.github.io/ml-analyzer/';
     const ML_API       = 'https://api.mercadolibre.com';
 
-    // ─── HELPERS ─────────────────────────────────────────────────
     const BRL  = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
     const NUM  = v => new Intl.NumberFormat("pt-BR").format(v||0);
     const hoje = () => new Date().toISOString().split("T")[0];
@@ -62,7 +54,6 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // ─── DESIGN TOKENS ───────────────────────────────────────────
     const C = {
       bg:"#0B1120", surface:"#111827", surfaceHi:"#172032",
       border:"#1E2D45", yellow:"#FFE600", green:"#10B981",
@@ -72,21 +63,19 @@
 
     const base = {
       card: { background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:20 },
-      input: { background:C.surfaceHi, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", color:C.text, width:"100%", fontSize:14, outline:"none", transition:"border .15s" },
+      input: { background:C.surfaceHi, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", color:C.text, width:"100%", fontSize:14, outline:"none" },
       btnBlue: { background:C.blue, color:"#fff", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:700, cursor:"pointer", fontSize:14 },
       btnYellow: { background:C.yellow, color:"#111", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:700, cursor:"pointer", fontSize:14 },
-      errBox: { background:"#2D0E0E", border:`1px solid ${C.red}55`, borderRadius:8, padding:"12px 16px", color:"#FCA5A5", fontSize:13, marginBottom:14, lineHeight:1.5 },
+      errBox: { background:"#2D0E0E", border:`1px solid ${C.red}55`, borderRadius:8, padding:"12px 16px", color:"#FCA5A5", fontSize:13, marginBottom:14 },
     };
 
-    // ─── BASE COMPONENTS ─────────────────────────────────────────
     const Err = ({msg}) => msg ? <div style={base.errBox}>{msg}</div> : null;
 
-    function Field({ label, type="text", placeholder, value, onChange, mono }) {
+    function Field({ label, type="text", placeholder, value, onChange }) {
       return (
         <div style={{marginBottom:14}}>
           {label && <label style={{fontSize:13,color:C.dim,display:"block",marginBottom:6,fontWeight:500}}>{label}</label>}
-          <input type={type} placeholder={placeholder} value={value} onChange={onChange}
-            style={{...base.input, fontFamily: mono?"monospace":"inherit"}} />
+          <input type={type} placeholder={placeholder} value={value} onChange={onChange} style={base.input} />
         </div>
       );
     }
@@ -97,7 +86,7 @@
 
     function MetricCard({ icon, label, value, sub, accent }) {
       return (
-        <div style={{...base.card, borderTop:`3px solid ${accent}`, borderTopLeftRadius:12, borderTopRightRadius:12}}>
+        <div style={{...base.card, borderTop:`3px solid ${accent}`}}>
           <div style={{fontSize:12,color:C.muted,fontWeight:500,marginBottom:10}}>{icon} {label}</div>
           <div style={{fontSize:26,fontWeight:800,color:C.text,lineHeight:1.1}}>{value}</div>
           {sub && <div style={{fontSize:12,color:C.dim,marginTop:6}}>{sub}</div>}
@@ -109,7 +98,7 @@
       <button onClick={onClick} style={{
         background:active?C.blue:"transparent", border:`1px solid ${active?C.blue:C.border}`,
         borderRadius:8, padding:"7px 16px", color:active?"#fff":C.muted,
-        cursor:"pointer", fontSize:13, fontWeight:active?600:400, transition:"all .15s"
+        cursor:"pointer", fontSize:13, fontWeight:active?600:400
       }}>{children}</button>
     );
 
@@ -119,7 +108,7 @@
       </div>
     );
 
-    // ─── TELA: LOGIN ─────────────────────────────────────────────
+    // ─── TELA LOGIN ───────────────────────────────────────────────
     function TelaLogin() {
       const [email, setEmail] = useState("");
       const [senha, setSenha] = useState("");
@@ -166,61 +155,57 @@
       );
     }
 
-    // ─── TELA: CONECTAR ML ───────────────────────────────────────
+    // ─── TELA CONECTAR ML ─────────────────────────────────────────
     function TelaConectarML({ user, onConectado }) {
-      const [code, setCode] = useState("");
-      const [loading, setLoading] = useState(false);
+      const [conectando, setConectando] = useState(false);
       const [err, setErr] = useState("");
+
+      // Detecta o code na URL automaticamente quando o ML redirecionar
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        if (code) {
+          // Limpa o code da URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          conectarComCode(code);
+        }
+      }, []);
+
+      async function conectarComCode(code) {
+        setConectando(true); setErr("");
+        try {
+          const trocarToken = functions.httpsCallable('mlTokenExchange');
+          const result = await trocarToken({ code });
+          if (result.data.success) onConectado();
+        } catch(e) {
+          setErr("Erro ao conectar: " + (e.message || "Tente novamente"));
+          setConectando(false);
+        }
+      }
 
       function abrirOAuth() {
         const url = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`;
-        window.open(url, "_blank");
+        window.location.href = url;
       }
 
-      async function conectar() {
-        if (!code.trim()) { setErr("Cole o código de autorização"); return; }
-        setLoading(true); setErr("");
-        try {
-          // Chama Cloud Function — Client Secret fica seguro no servidor
-          const trocarToken = functions.httpsCallable('mlTokenExchange');
-          const result = await trocarToken({ code: code.trim() });
-          if (result.data.success) onConectado(result.data.user_id);
-        } catch(e) {
-          setErr("Erro ao conectar: " + (e.message || "Tente novamente"));
-        } finally { setLoading(false); }
-      }
+      if (conectando) return <Loading msg="Conectando sua conta do Mercado Livre..." />;
 
       return (
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:24,background:C.bg}}>
-          <div style={{maxWidth:480,width:"100%"}}>
-            <div style={{textAlign:"center",marginBottom:28}}>
-              <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:2,marginBottom:10}}>REALECOM</div>
-              <div style={{fontSize:26,fontWeight:800,color:C.yellow}}>Conectar Mercado Livre</div>
-              <div style={{fontSize:13,color:C.muted,marginTop:6}}>
-                Olá, <strong style={{color:C.text}}>{user.email?.split("@")[0]}</strong>. Conecte sua conta do ML.
-              </div>
+          <div style={{maxWidth:440,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:2,marginBottom:10}}>REALECOM</div>
+            <div style={{fontSize:26,fontWeight:800,color:C.yellow,marginBottom:8}}>Conectar Mercado Livre</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:28}}>
+              Olá, <strong style={{color:C.text}}>{user.email?.split("@")[0]}</strong>. Conecte sua conta do ML para começar.
             </div>
             <div style={base.card}>
-              <div style={{marginBottom:20}}>
-                <div style={{fontSize:12,color:C.muted,fontWeight:600,marginBottom:8}}>PASSO 1</div>
-                <p style={{fontSize:13,color:C.dim,marginBottom:12,lineHeight:1.6}}>
-                  Clique abaixo para autorizar o acesso. Você vai para o Google — copie o código da URL após <span style={{color:C.yellow}}>?code=</span>
-                </p>
-                <button style={{...base.btnYellow,width:"100%"}} onClick={abrirOAuth}>
-                  Autorizar com Mercado Livre
-                </button>
+              <div style={{fontSize:13,color:C.dim,marginBottom:20,lineHeight:1.6}}>
+                Clique no botão abaixo para autorizar. Você será redirecionado ao Mercado Livre e voltará automaticamente.
               </div>
-              <div style={{borderTop:`1px solid ${C.border}`,paddingTop:20}}>
-                <div style={{fontSize:12,color:C.muted,fontWeight:600,marginBottom:8}}>PASSO 2</div>
-                <p style={{fontSize:12,color:C.muted,marginBottom:10}}>
-                  Exemplo: <span style={{color:C.yellow}}>https://www.google.com/?code=</span><span style={{color:C.dim}}>TG-XXXXX...</span>
-                </p>
-                <Field placeholder="Cole o código aqui (TG-XXXXX...)" value={code} onChange={e=>setCode(e.target.value)} />
-                <Err msg={err} />
-                <button style={{...base.btnBlue,width:"100%",opacity:loading?.7:1}} onClick={conectar} disabled={loading}>
-                  {loading?"Conectando...":"Conectar"}
-                </button>
-              </div>
+              <Err msg={err} />
+              <button style={{...base.btnYellow,width:"100%",padding:"14px 20px",fontSize:16}} onClick={abrirOAuth}>
+                Autorizar com Mercado Livre
+              </button>
               <div style={{borderTop:`1px solid ${C.border}`,marginTop:16,paddingTop:12,textAlign:"right"}}>
                 <button style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:12}} onClick={()=>auth.signOut()}>
                   Sair da conta
@@ -232,7 +217,7 @@
       );
     }
 
-    // ─── ANÚNCIO ROW ─────────────────────────────────────────────
+    // ─── ANÚNCIO ROW ──────────────────────────────────────────────
     function AnuncioRow({ a, idx }) {
       return (
         <div style={{display:"flex",gap:14,alignItems:"center",padding:"14px 20px",background:idx%2===0?C.surface:C.surfaceHi,borderBottom:`1px solid ${C.border}`}}>
@@ -267,7 +252,7 @@
       );
     }
 
-    // ─── DASHBOARD ───────────────────────────────────────────────
+    // ─── DASHBOARD ────────────────────────────────────────────────
     function Dashboard({ user, mlUserId, mlToken, onSair }) {
       const [dados,      setDados]      = useState(null);
       const [loading,    setLoading]    = useState(true);
@@ -308,30 +293,21 @@
           } catch {}
 
           const anuncios = items.map(it => ({
-            id:        it.id,
-            titulo:    it.title,
-            preco:     it.price,
-            foto:      it.pictures?.[0]?.url || "",
-            status:    it.status,
-            estoque:   it.available_quantity,
-            vendas:    it.sold_quantity,
-            tipo:      it.listing_type_id,
-            permalink: it.permalink,
-            visitas:   visitas[it.id] || 0,
-            fatDia: pedidos.filter(p=>p.order_items?.some(oi=>oi.item?.id===it.id))
-                           .reduce((a,p)=>a+(p.total_amount||0),0),
-            qtdDia: pedidos.filter(p=>p.order_items?.some(oi=>oi.item?.id===it.id))
-                           .reduce((a,p)=>a+(p.order_items?.find(oi=>oi.item?.id===it.id)?.quantity||0),0),
+            id:it.id, titulo:it.title, preco:it.price, foto:it.pictures?.[0]?.url||"",
+            status:it.status, estoque:it.available_quantity, vendas:it.sold_quantity,
+            tipo:it.listing_type_id, permalink:it.permalink,
+            visitas: visitas[it.id]||0,
+            fatDia: pedidos.filter(p=>p.order_items?.some(oi=>oi.item?.id===it.id)).reduce((a,p)=>a+(p.total_amount||0),0),
+            qtdDia: pedidos.filter(p=>p.order_items?.some(oi=>oi.item?.id===it.id)).reduce((a,p)=>a+(p.order_items?.find(oi=>oi.item?.id===it.id)?.quantity||0),0),
           })).sort((a,b)=>b.visitas-a.visitas);
 
           setDados({
             seller, anuncios,
             metricas: {
-              fat:        pedidos.reduce((a,p)=>a+(p.total_amount||0),0),
-              qtd:        pedidos.reduce((a,p)=>a+(p.order_items?.reduce((b,i)=>b+i.quantity,0)||0),0),
-              vis:        Object.values(visitas).reduce((a,b)=>a+b,0),
-              totalAds:   ids.length,
-              pedidosDia: pedidos.length,
+              fat: pedidos.reduce((a,p)=>a+(p.total_amount||0),0),
+              qtd: pedidos.reduce((a,p)=>a+(p.order_items?.reduce((b,i)=>b+i.quantity,0)||0),0),
+              vis: Object.values(visitas).reduce((a,b)=>a+b,0),
+              totalAds: ids.length, pedidosDia: pedidos.length,
             },
             hora: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),
           });
@@ -353,9 +329,9 @@
             body:JSON.stringify({
               model:"claude-sonnet-4-6", max_tokens:1000,
               system:`Você é especialista em Mercado Livre. Analise a conta e entregue:
-🎯 DIAGNÓSTICO DO DIA (2 pontos fortes + 2 pontos de atenção)
-🔥 TOP 3 ANÚNCIOS PARA FOCAR (com razão específica baseada nos dados)
-⚠️ ALERTAS (estoque crítico, anúncios sem visitas, quedas)
+🎯 DIAGNÓSTICO DO DIA (2 pontos fortes + 2 de atenção)
+🔥 TOP 3 ANÚNCIOS PARA FOCAR (com razão baseada nos dados)
+⚠️ ALERTAS (estoque crítico, anúncios sem visitas)
 💡 3 AÇÕES PARA AMANHÃ (práticas e diretas)
 Use os dados reais. Seja objetivo.`,
               messages:[{role:"user",content:`Conta: ${dados.seller.nickname}\nData: ${hoje()}\nMétricas: ${JSON.stringify(dados.metricas)}\nAnúncios:\n${JSON.stringify(topAds,null,2)}`}]
@@ -391,7 +367,6 @@ Use os dados reais. Seja objetivo.`,
 
       return (
         <div style={{minHeight:"100vh",background:C.bg}}>
-          {/* Header */}
           <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:20}}>
             <div style={{display:"flex",alignItems:"center",gap:14}}>
               <div>
@@ -407,9 +382,7 @@ Use os dados reais. Seja objetivo.`,
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {loading && <span style={{fontSize:12,color:C.muted}}>↻ Atualizando...</span>}
-              <button style={{...base.btnBlue,padding:"7px 14px",fontSize:12}} onClick={carregarDados} disabled={loading}>
-                ↻ Atualizar
-              </button>
+              <button style={{...base.btnBlue,padding:"7px 14px",fontSize:12}} onClick={carregarDados} disabled={loading}>↻ Atualizar</button>
               <button style={{background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 14px",color:C.muted,cursor:"pointer",fontSize:12}} onClick={onSair}>
                 {user.email?.split("@")[0]} · Sair
               </button>
@@ -419,7 +392,6 @@ Use os dados reais. Seja objetivo.`,
           <div style={{padding:24,maxWidth:1140,margin:"0 auto"}}>
             <Err msg={err} />
 
-            {/* Tabs */}
             <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap"}}>
               <Tab active={tab==="overview"} onClick={()=>setTab("overview")}>📊 Visão Geral</Tab>
               <Tab active={tab==="anuncios"} onClick={()=>setTab("anuncios")}>📦 Anúncios ({metricas?.totalAds||0})</Tab>
@@ -427,7 +399,6 @@ Use os dados reais. Seja objetivo.`,
               <Tab active={tab==="manual"} onClick={()=>setTab("manual")}>📋 Upload Manual</Tab>
             </div>
 
-            {/* ── OVERVIEW ── */}
             {tab==="overview" && dados && (
               <>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:24}}>
@@ -442,53 +413,32 @@ Use os dados reais. Seja objetivo.`,
                     <div style={{fontSize:12,color:C.muted}}>{new Date().toLocaleDateString("pt-BR")}</div>
                   </div>
                   {anuncios?.slice(0,8).map((a,i)=><AnuncioRow key={a.id} a={a} idx={i} />)}
-                  {(!anuncios||anuncios.length===0) && <div style={{padding:40,textAlign:"center",color:C.muted}}>Sem dados de anúncios</div>}
+                  {(!anuncios||anuncios.length===0)&&<div style={{padding:40,textAlign:"center",color:C.muted}}>Sem dados</div>}
                 </div>
               </>
             )}
 
-            {/* ── ANÚNCIOS ── */}
             {tab==="anuncios" && (
               <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                <div style={{display:"flex",padding:"10px 20px",background:C.surfaceHi,borderBottom:`1px solid ${C.border}`}}>
-                  <div style={{flex:1,fontSize:11,color:C.muted,fontWeight:600}}>ANÚNCIO</div>
-                  <div style={{display:"flex",gap:16,fontSize:11,color:C.muted,fontWeight:600}}>
-                    <span style={{width:55,textAlign:"center"}}>VISITAS</span>
-                    <span style={{width:80,textAlign:"center"}}>FATURADO</span>
-                    <span style={{width:40,textAlign:"center"}}>VENDAS</span>
-                  </div>
-                  <div style={{width:32}}></div>
-                </div>
                 {anuncios?.map((a,i)=><AnuncioRow key={a.id} a={a} idx={i} />)}
-                {(!anuncios||anuncios.length===0) && <div style={{padding:40,textAlign:"center",color:C.muted}}>Sem anúncios ativos</div>}
+                {(!anuncios||anuncios.length===0)&&<div style={{padding:40,textAlign:"center",color:C.muted}}>Sem anúncios ativos</div>}
               </div>
             )}
 
-            {/* ── ANÁLISE IA ── */}
             {tab==="analise" && (
               <div>
                 {!analisando && !analise && (
-                  <div style={{...base.card,textAlign:"center",marginBottom:16}}>
-                    <div style={{fontSize:13,color:C.dim,marginBottom:16,maxWidth:480,margin:"0 auto 16px"}}>
-                      Diagnóstico completo da conta: performance, alertas, oportunidades e ações para amanhã
-                    </div>
-                    <button style={{...base.btnYellow,padding:"12px 32px",fontSize:15}} onClick={gerarAnalise}>
-                      🤖 Gerar Análise do Dia
-                    </button>
+                  <div style={{...base.card,textAlign:"center"}}>
+                    <div style={{fontSize:13,color:C.dim,marginBottom:16}}>Diagnóstico completo da conta com IA especializada em Mercado Livre</div>
+                    <button style={{...base.btnYellow,padding:"12px 32px",fontSize:15}} onClick={gerarAnalise}>🤖 Gerar Análise do Dia</button>
                   </div>
                 )}
-                {analisando && (
-                  <div style={{...base.card,textAlign:"center",padding:40}}>
-                    <div style={{color:C.dim}}>🤖 Analisando sua conta...</div>
-                  </div>
-                )}
+                {analisando && <div style={{...base.card,textAlign:"center",padding:40}}><div style={{color:C.dim}}>🤖 Analisando sua conta...</div></div>}
                 {analise && (
                   <div style={base.card}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                       <div style={{fontSize:12,color:C.muted,fontWeight:600}}>DIAGNÓSTICO — {new Date().toLocaleDateString("pt-BR")}</div>
-                      <button style={{...base.btnYellow,padding:"6px 14px",fontSize:12}} onClick={gerarAnalise} disabled={analisando}>
-                        Reanalisar
-                      </button>
+                      <button style={{...base.btnYellow,padding:"6px 14px",fontSize:12}} onClick={gerarAnalise} disabled={analisando}>Reanalisar</button>
                     </div>
                     <div style={{fontSize:14,color:C.dim,lineHeight:1.9,whiteSpace:"pre-wrap"}}>{analise}</div>
                   </div>
@@ -496,15 +446,12 @@ Use os dados reais. Seja objetivo.`,
               </div>
             )}
 
-            {/* ── MANUAL ── */}
             {tab==="manual" && (
               <div style={base.card}>
                 <div style={{fontWeight:700,color:C.text,marginBottom:6,fontSize:14}}>Análise de Dados Manuais</div>
-                <div style={{fontSize:13,color:C.dim,marginBottom:16,lineHeight:1.6}}>
-                  Cole aqui relatórios exportados do ML: CSV de publicidade, relatório de impressões, dados de campanhas de ads.
-                </div>
+                <div style={{fontSize:13,color:C.dim,marginBottom:16,lineHeight:1.6}}>Cole aqui relatórios exportados do ML: CSV de publicidade, impressões, campanhas de ads.</div>
                 <textarea value={uploadData} onChange={e=>setUploadData(e.target.value)}
-                  placeholder="Cole dados do ML aqui (CSV, métricas de ads, relatório de publicidade...)"
+                  placeholder="Cole dados do ML aqui..."
                   style={{...base.input,height:160,resize:"vertical",fontFamily:"monospace",fontSize:12,lineHeight:1.5}} />
                 <button style={{...base.btnYellow,width:"100%",marginTop:12}} onClick={analisarManual} disabled={analisando}>
                   {analisando?"Analisando...":"🤖 Analisar com IA"}
@@ -516,9 +463,9 @@ Use os dados reais. Seja objetivo.`,
       );
     }
 
-    // ─── APP ROOT ────────────────────────────────────────────────
+    // ─── APP ROOT ─────────────────────────────────────────────────
     function App() {
-      const [user,      setUser]      = useState(undefined); // undefined = carregando
+      const [user,      setUser]      = useState(undefined);
       const [mlConfig,  setMlConfig]  = useState(null);
       const [mlLoading, setMlLoading] = useState(false);
 
@@ -534,10 +481,8 @@ Use os dados reais. Seja objetivo.`,
                 const data = snap.data();
                 const expiresAt = data.expires_at?.toMillis?.() || 0;
                 if (expiresAt > Date.now() + 60000) {
-                  // Token válido por pelo menos 1 min
                   setMlConfig({ token: data.access_token, userId: String(data.user_id) });
                 } else {
-                  // Token expirado — precisa reconectar
                   setMlConfig(null);
                 }
               } else {
@@ -551,9 +496,10 @@ Use os dados reais. Seja objetivo.`,
         });
       }, []);
 
-      async function handleConectado(mlUserId) {
-        // Relê o token do Firestore após a Cloud Function salvar
-        const snap = await db.collection("users").doc(user.uid)
+      async function handleConectado() {
+        const u = auth.currentUser;
+        if (!u) return;
+        const snap = await db.collection("users").doc(u.uid)
                              .collection("mlTokens").doc("main").get();
         if (snap.exists) {
           const data = snap.data();
@@ -561,16 +507,10 @@ Use os dados reais. Seja objetivo.`,
         }
       }
 
-      // Carregando auth
       if (user === undefined || mlLoading) return <Loading />;
-
-      // Não logado
       if (!user) return <TelaLogin />;
-
-      // Logado mas sem ML conectado
       if (!mlConfig) return <TelaConectarML user={user} onConectado={handleConectado} />;
 
-      // Tudo pronto
       return (
         <Dashboard
           user={user}
