@@ -17,7 +17,6 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #111827; }
     ::-webkit-scrollbar-thumb { background: #1E2D45; border-radius: 3px; }
-    input:focus, textarea:focus { border-color: #3B82F6 !important; }
   </style>
 </head>
 <body>
@@ -38,17 +37,9 @@
 
     const ML_CLIENT_ID = '3936370948601703';
     const ML_REDIRECT  = 'https://ollmestorerj.github.io/ml-analyzer/';
-    const ML_API       = 'https://api.mercadolibre.com';
 
-    const BRL  = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
-    const NUM  = v => new Intl.NumberFormat("pt-BR").format(v||0);
-    const hoje = () => new Date().toISOString().split("T")[0];
-
-    async function mlGet(path, token) {
-      const r = await fetch(`${ML_API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!r.ok) { const e = await r.text().catch(()=>""); throw new Error(`${r.status}: ${e}`); }
-      return r.json();
-    }
+    const BRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
+    const NUM = v => new Intl.NumberFormat("pt-BR").format(v||0);
   </script>
 
   <script type="text/babel">
@@ -62,14 +53,19 @@
     };
 
     const base = {
-      card: { background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:20 },
-      input: { background:C.surfaceHi, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", color:C.text, width:"100%", fontSize:14, outline:"none" },
-      btnBlue: { background:C.blue, color:"#fff", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:700, cursor:"pointer", fontSize:14 },
+      card:      { background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:20 },
+      input:     { background:C.surfaceHi, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", color:C.text, width:"100%", fontSize:14, outline:"none" },
+      btnBlue:   { background:C.blue, color:"#fff", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:700, cursor:"pointer", fontSize:14 },
       btnYellow: { background:C.yellow, color:"#111", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:700, cursor:"pointer", fontSize:14 },
-      errBox: { background:"#2D0E0E", border:`1px solid ${C.red}55`, borderRadius:8, padding:"12px 16px", color:"#FCA5A5", fontSize:13, marginBottom:14 },
+      errBox:    { background:"#2D0E0E", border:`1px solid ${C.red}55`, borderRadius:8, padding:"12px 16px", color:"#FCA5A5", fontSize:13, marginBottom:14 },
     };
 
-    const Err = ({msg}) => msg ? <div style={base.errBox}>{msg}</div> : null;
+    const Err  = ({msg}) => msg ? <div style={base.errBox}>{msg}</div> : null;
+    const Load = ({msg="Carregando..."}) => (
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:C.bg}}>
+        <div style={{color:C.muted,fontSize:14}}>{msg}</div>
+      </div>
+    );
 
     function Field({ label, type="text", placeholder, value, onChange }) {
       return (
@@ -80,21 +76,11 @@
       );
     }
 
-    const Badge = ({color, children}) => (
+    const Badge = ({color,children}) => (
       <span style={{background:color+"22",color,fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,display:"inline-block"}}>{children}</span>
     );
 
-    function MetricCard({ icon, label, value, sub, accent }) {
-      return (
-        <div style={{...base.card, borderTop:`3px solid ${accent}`}}>
-          <div style={{fontSize:12,color:C.muted,fontWeight:500,marginBottom:10}}>{icon} {label}</div>
-          <div style={{fontSize:26,fontWeight:800,color:C.text,lineHeight:1.1}}>{value}</div>
-          {sub && <div style={{fontSize:12,color:C.dim,marginTop:6}}>{sub}</div>}
-        </div>
-      );
-    }
-
-    const Tab = ({active, onClick, children}) => (
+    const Tab = ({active,onClick,children}) => (
       <button onClick={onClick} style={{
         background:active?C.blue:"transparent", border:`1px solid ${active?C.blue:C.border}`,
         borderRadius:8, padding:"7px 16px", color:active?"#fff":C.muted,
@@ -102,18 +88,22 @@
       }}>{children}</button>
     );
 
-    const Loading = ({msg="Carregando..."}) => (
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:C.bg}}>
-        <div style={{color:C.muted,fontSize:14}}>{msg}</div>
-      </div>
-    );
+    function MetricCard({icon,label,value,sub,accent}) {
+      return (
+        <div style={{...base.card,borderTop:`3px solid ${accent}`}}>
+          <div style={{fontSize:12,color:C.muted,fontWeight:500,marginBottom:10}}>{icon} {label}</div>
+          <div style={{fontSize:26,fontWeight:800,color:C.text,lineHeight:1.1}}>{value}</div>
+          {sub && <div style={{fontSize:12,color:C.dim,marginTop:6}}>{sub}</div>}
+        </div>
+      );
+    }
 
-    // ─── TELA LOGIN ───────────────────────────────────────────────
+    // ── TELA LOGIN ──────────────────────────────────────────────
     function TelaLogin() {
-      const [email, setEmail] = useState("");
-      const [senha, setSenha] = useState("");
+      const [email,   setEmail]   = useState("");
+      const [senha,   setSenha]   = useState("");
       const [loading, setLoading] = useState(false);
-      const [err, setErr] = useState("");
+      const [err,     setErr]     = useState("");
 
       async function login() {
         if (!email||!senha) { setErr("Preencha email e senha"); return; }
@@ -125,8 +115,6 @@
             "auth/user-not-found":"Email não encontrado",
             "auth/wrong-password":"Senha incorreta",
             "auth/invalid-credential":"Email ou senha incorretos",
-            "auth/invalid-email":"Email inválido",
-            "auth/too-many-requests":"Muitas tentativas. Aguarde.",
           };
           setErr(msgs[e.code] || e.message);
         } finally { setLoading(false); }
@@ -137,35 +125,32 @@
           <div style={{maxWidth:400,width:"100%"}}>
             <div style={{textAlign:"center",marginBottom:32}}>
               <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:2,marginBottom:10}}>REALECOM</div>
-              <div style={{fontSize:32,fontWeight:800,color:C.yellow,lineHeight:1}}>ML Analyzer</div>
-              <div style={{fontSize:14,color:C.muted,marginTop:10}}>Análise diária inteligente da sua conta</div>
+              <div style={{fontSize:32,fontWeight:800,color:C.yellow}}>ML Analyzer</div>
+              <div style={{fontSize:14,color:C.muted,marginTop:10}}>Análise diária da sua conta do Mercado Livre</div>
             </div>
             <div style={base.card}>
               <Field label="Email" type="email" placeholder="seu@email.com" value={email} onChange={e=>setEmail(e.target.value)} />
               <Field label="Senha" type="password" placeholder="Sua senha" value={senha} onChange={e=>setSenha(e.target.value)} />
               <Err msg={err} />
-              <button style={{...base.btnYellow,width:"100%",padding:"12px 20px",fontSize:15,opacity:loading?.7:1}}
-                onClick={login} disabled={loading}>{loading?"Entrando...":"Entrar"}</button>
-              <div style={{textAlign:"center",marginTop:14,fontSize:12,color:C.muted}}>
-                Use o mesmo login da Calculadora REAL
-              </div>
+              <button style={{...base.btnYellow,width:"100%",padding:"12px 20px",fontSize:15,opacity:loading?.7:1}} onClick={login} disabled={loading}>
+                {loading?"Entrando...":"Entrar"}
+              </button>
+              <div style={{textAlign:"center",marginTop:14,fontSize:12,color:C.muted}}>Use o mesmo login da Calculadora REAL</div>
             </div>
           </div>
         </div>
       );
     }
 
-    // ─── TELA CONECTAR ML ─────────────────────────────────────────
+    // ── TELA CONECTAR ML ────────────────────────────────────────
     function TelaConectarML({ user, onConectado }) {
       const [conectando, setConectando] = useState(false);
-      const [err, setErr] = useState("");
+      const [err,        setErr]        = useState("");
 
-      // Detecta o code na URL automaticamente quando o ML redirecionar
       useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
+        const code   = params.get("code");
         if (code) {
-          // Limpa o code da URL
           window.history.replaceState({}, document.title, window.location.pathname);
           conectarComCode(code);
         }
@@ -174,8 +159,8 @@
       async function conectarComCode(code) {
         setConectando(true); setErr("");
         try {
-          const trocarToken = functions.httpsCallable('mlTokenExchange');
-          const result = await trocarToken({ code });
+          const fn     = functions.httpsCallable('mlTokenExchange');
+          const result = await fn({ code });
           if (result.data.success) onConectado();
         } catch(e) {
           setErr("Erro ao conectar: " + (e.message || "Tente novamente"));
@@ -184,11 +169,10 @@
       }
 
       function abrirOAuth() {
-        const url = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`;
-        window.location.href = url;
+        window.location.href = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`;
       }
 
-      if (conectando) return <Loading msg="Conectando sua conta do Mercado Livre..." />;
+      if (conectando) return <Load msg="Conectando sua conta do Mercado Livre..." />;
 
       return (
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:24,background:C.bg}}>
@@ -200,13 +184,13 @@
             </div>
             <div style={base.card}>
               <div style={{fontSize:13,color:C.dim,marginBottom:20,lineHeight:1.6}}>
-                Clique no botão abaixo para autorizar. Você será redirecionado ao Mercado Livre e voltará automaticamente.
+                Clique no botão abaixo. Você será redirecionado ao Mercado Livre e voltará automaticamente.
               </div>
               <Err msg={err} />
               <button style={{...base.btnYellow,width:"100%",padding:"14px 20px",fontSize:16}} onClick={abrirOAuth}>
                 Autorizar com Mercado Livre
               </button>
-              <div style={{borderTop:`1px solid ${C.border}`,marginTop:16,paddingTop:12,textAlign:"right"}}>
+              <div style={{marginTop:14,textAlign:"right"}}>
                 <button style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:12}} onClick={()=>auth.signOut()}>
                   Sair da conta
                 </button>
@@ -217,8 +201,8 @@
       );
     }
 
-    // ─── ANÚNCIO ROW ──────────────────────────────────────────────
-    function AnuncioRow({ a, idx }) {
+    // ── ANÚNCIO ROW ─────────────────────────────────────────────
+    function AnuncioRow({a,idx}) {
       return (
         <div style={{display:"flex",gap:14,alignItems:"center",padding:"14px 20px",background:idx%2===0?C.surface:C.surfaceHi,borderBottom:`1px solid ${C.border}`}}>
           <div style={{width:56,height:56,borderRadius:8,overflow:"hidden",flexShrink:0,background:C.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
@@ -226,7 +210,7 @@
           </div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:13,fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>{a.titulo}</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:12,color:C.dim}}>{BRL(a.preco)}</span>
               <Badge color={a.estoque<=3?C.red:C.muted}>{a.estoque<=3?"⚠ ":""}Est: {a.estoque}</Badge>
               <Badge color={a.status==="active"?C.green:C.red}>{a.status==="active"?"Ativo":a.status}</Badge>
@@ -252,8 +236,8 @@
       );
     }
 
-    // ─── DASHBOARD ────────────────────────────────────────────────
-    function Dashboard({ user, mlUserId, mlToken, onSair }) {
+    // ── DASHBOARD ───────────────────────────────────────────────
+    function Dashboard({user, onSair}) {
       const [dados,      setDados]      = useState(null);
       const [loading,    setLoading]    = useState(true);
       const [err,        setErr]        = useState("");
@@ -267,50 +251,9 @@
       async function carregarDados() {
         setLoading(true); setErr("");
         try {
-          const seller  = await mlGet(`/users/${mlUserId}`, mlToken);
-          const ir      = await mlGet(`/users/${mlUserId}/items/search?status=active&limit=50`, mlToken);
-          const ids     = ir.results || [];
-
-          let items = [];
-          for (let i = 0; i < ids.length; i += 20) {
-            const br = await mlGet(`/items?ids=${ids.slice(i,i+20).join(",")}`, mlToken);
-            items.push(...br.filter(x=>x.code===200).map(x=>x.body));
-          }
-
-          const dh = hoje();
-          let visitas = {};
-          if (ids.length > 0) {
-            try {
-              const vr = await mlGet(`/visits/items?item_id=${ids.slice(0,50).join(",")}&date_from=${dh}&date_to=${dh}`, mlToken);
-              (Array.isArray(vr)?vr:[]).forEach(v=>{ visitas[v.item_id]=v.total_visits; });
-            } catch {}
-          }
-
-          let pedidos = [];
-          try {
-            const pr = await mlGet(`/orders/search?seller=${mlUserId}&order.date_created.from=${dh}T00:00:00.000-03:00&sort=date_desc&limit=50`, mlToken);
-            pedidos = pr.results || [];
-          } catch {}
-
-          const anuncios = items.map(it => ({
-            id:it.id, titulo:it.title, preco:it.price, foto:it.pictures?.[0]?.url||"",
-            status:it.status, estoque:it.available_quantity, vendas:it.sold_quantity,
-            tipo:it.listing_type_id, permalink:it.permalink,
-            visitas: visitas[it.id]||0,
-            fatDia: pedidos.filter(p=>p.order_items?.some(oi=>oi.item?.id===it.id)).reduce((a,p)=>a+(p.total_amount||0),0),
-            qtdDia: pedidos.filter(p=>p.order_items?.some(oi=>oi.item?.id===it.id)).reduce((a,p)=>a+(p.order_items?.find(oi=>oi.item?.id===it.id)?.quantity||0),0),
-          })).sort((a,b)=>b.visitas-a.visitas);
-
-          setDados({
-            seller, anuncios,
-            metricas: {
-              fat: pedidos.reduce((a,p)=>a+(p.total_amount||0),0),
-              qtd: pedidos.reduce((a,p)=>a+(p.order_items?.reduce((b,i)=>b+i.quantity,0)||0),0),
-              vis: Object.values(visitas).reduce((a,b)=>a+b,0),
-              totalAds: ids.length, pedidosDia: pedidos.length,
-            },
-            hora: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),
-          });
+          const fn     = functions.httpsCallable('mlGetDados');
+          const result = await fn({});
+          setDados({ ...result.data, hora: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) });
         } catch(e) { setErr("Erro ao carregar: " + e.message); }
         finally { setLoading(false); }
       }
@@ -334,7 +277,7 @@
 ⚠️ ALERTAS (estoque crítico, anúncios sem visitas)
 💡 3 AÇÕES PARA AMANHÃ (práticas e diretas)
 Use os dados reais. Seja objetivo.`,
-              messages:[{role:"user",content:`Conta: ${dados.seller.nickname}\nData: ${hoje()}\nMétricas: ${JSON.stringify(dados.metricas)}\nAnúncios:\n${JSON.stringify(topAds,null,2)}`}]
+              messages:[{role:"user",content:`Conta: ${dados.seller.nickname}\nData: ${new Date().toLocaleDateString("pt-BR")}\nMétricas: ${JSON.stringify(dados.metricas)}\nAnúncios:\n${JSON.stringify(topAds,null,2)}`}]
             })
           });
           const d = await r.json();
@@ -361,7 +304,7 @@ Use os dados reais. Seja objetivo.`,
         finally { setAnalisando(false); }
       }
 
-      if (loading && !dados) return <Loading msg="Buscando dados da conta..." />;
+      if (loading && !dados) return <Load msg="Buscando dados da conta..." />;
 
       const { metricas, anuncios, seller } = dados || {};
 
@@ -408,7 +351,7 @@ Use os dados reais. Seja objetivo.`,
                   <MetricCard icon="🏆" label="Unid. Vendidas" value={NUM(metricas.qtd)} sub="hoje" accent={C.orange} />
                 </div>
                 <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                  <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between"}}>
                     <div style={{fontWeight:700,color:C.text,fontSize:14}}>Top Anúncios por Visitas — Hoje</div>
                     <div style={{fontSize:12,color:C.muted}}>{new Date().toLocaleDateString("pt-BR")}</div>
                   </div>
@@ -421,7 +364,7 @@ Use os dados reais. Seja objetivo.`,
             {tab==="anuncios" && (
               <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
                 {anuncios?.map((a,i)=><AnuncioRow key={a.id} a={a} idx={i} />)}
-                {(!anuncios||anuncios.length===0)&&<div style={{padding:40,textAlign:"center",color:C.muted}}>Sem anúncios ativos</div>}
+                {(!anuncios||anuncios.length===0)&&<div style={{padding:40,textAlign:"center",color:C.muted}}>Sem anúncios</div>}
               </div>
             )}
 
@@ -429,16 +372,16 @@ Use os dados reais. Seja objetivo.`,
               <div>
                 {!analisando && !analise && (
                   <div style={{...base.card,textAlign:"center"}}>
-                    <div style={{fontSize:13,color:C.dim,marginBottom:16}}>Diagnóstico completo da conta com IA especializada em Mercado Livre</div>
+                    <div style={{fontSize:13,color:C.dim,marginBottom:16}}>Diagnóstico completo com IA especializada em Mercado Livre</div>
                     <button style={{...base.btnYellow,padding:"12px 32px",fontSize:15}} onClick={gerarAnalise}>🤖 Gerar Análise do Dia</button>
                   </div>
                 )}
                 {analisando && <div style={{...base.card,textAlign:"center",padding:40}}><div style={{color:C.dim}}>🤖 Analisando sua conta...</div></div>}
                 {analise && (
                   <div style={base.card}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
                       <div style={{fontSize:12,color:C.muted,fontWeight:600}}>DIAGNÓSTICO — {new Date().toLocaleDateString("pt-BR")}</div>
-                      <button style={{...base.btnYellow,padding:"6px 14px",fontSize:12}} onClick={gerarAnalise} disabled={analisando}>Reanalisar</button>
+                      <button style={{...base.btnYellow,padding:"6px 14px",fontSize:12}} onClick={gerarAnalise}>Reanalisar</button>
                     </div>
                     <div style={{fontSize:14,color:C.dim,lineHeight:1.9,whiteSpace:"pre-wrap"}}>{analise}</div>
                   </div>
@@ -448,8 +391,8 @@ Use os dados reais. Seja objetivo.`,
 
             {tab==="manual" && (
               <div style={base.card}>
-                <div style={{fontWeight:700,color:C.text,marginBottom:6,fontSize:14}}>Análise de Dados Manuais</div>
-                <div style={{fontSize:13,color:C.dim,marginBottom:16,lineHeight:1.6}}>Cole aqui relatórios exportados do ML: CSV de publicidade, impressões, campanhas de ads.</div>
+                <div style={{fontWeight:700,color:C.text,marginBottom:6}}>Análise de Dados Manuais</div>
+                <div style={{fontSize:13,color:C.dim,marginBottom:16,lineHeight:1.6}}>Cole relatórios exportados do ML: CSV de publicidade, impressões, campanhas de ads.</div>
                 <textarea value={uploadData} onChange={e=>setUploadData(e.target.value)}
                   placeholder="Cole dados do ML aqui..."
                   style={{...base.input,height:160,resize:"vertical",fontFamily:"monospace",fontSize:12,lineHeight:1.5}} />
@@ -463,7 +406,7 @@ Use os dados reais. Seja objetivo.`,
       );
     }
 
-    // ─── APP ROOT ─────────────────────────────────────────────────
+    // ── APP ROOT ────────────────────────────────────────────────
     function App() {
       const [user,      setUser]      = useState(undefined);
       const [mlConfig,  setMlConfig]  = useState(null);
@@ -475,13 +418,11 @@ Use os dados reais. Seja objetivo.`,
           if (u) {
             setMlLoading(true);
             try {
-              const snap = await db.collection("users").doc(u.uid)
-                                   .collection("mlTokens").doc("main").get();
+              const snap = await db.collection("users").doc(u.uid).collection("mlTokens").doc("main").get();
               if (snap.exists) {
                 const data = snap.data();
-                const expiresAt = data.expires_at?.toMillis?.() || 0;
-                if (expiresAt > Date.now() + 60000) {
-                  setMlConfig({ token: data.access_token, userId: String(data.user_id) });
+                if ((data.expires_at?.toMillis?.() || 0) > Date.now() + 60000) {
+                  setMlConfig(true);
                 } else {
                   setMlConfig(null);
                 }
@@ -497,28 +438,14 @@ Use os dados reais. Seja objetivo.`,
       }, []);
 
       async function handleConectado() {
-        const u = auth.currentUser;
-        if (!u) return;
-        const snap = await db.collection("users").doc(u.uid)
-                             .collection("mlTokens").doc("main").get();
-        if (snap.exists) {
-          const data = snap.data();
-          setMlConfig({ token: data.access_token, userId: String(data.user_id) });
-        }
+        setMlConfig(true);
       }
 
-      if (user === undefined || mlLoading) return <Loading />;
+      if (user === undefined || mlLoading) return <Load />;
       if (!user) return <TelaLogin />;
       if (!mlConfig) return <TelaConectarML user={user} onConectado={handleConectado} />;
 
-      return (
-        <Dashboard
-          user={user}
-          mlUserId={mlConfig.userId}
-          mlToken={mlConfig.token}
-          onSair={() => auth.signOut()}
-        />
-      );
+      return <Dashboard user={user} onSair={() => { setMlConfig(null); auth.signOut(); }} />;
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
