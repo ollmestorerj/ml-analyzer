@@ -223,51 +223,23 @@ function TelaConectar({user,onOk}){
   );
 }
 
-/* ══ EDITOR DE CUSTO INLINE ═════════════════════════════════ */
-function CustoInline({sku,valorInicial,impostoInicial,onSalvo}){
-  const [editing,setEditing]=useState(false);
-  const [custo,setCusto]=useState(valorInicial||'');
-  const [imposto,setImposto]=useState(impostoInicial||'');
-  const [saving,setSaving]=useState(false);
-
-  async function salvar(){
-    setSaving(true);
-    try{await call('mlSalvarCusto',{sku,custo:parseFloat(custo)||0,imposto:parseFloat(imposto)||0});
-      setEditing(false);onSalvo&&onSalvo();}
-    catch(e){alert('Erro: '+e.message);}
-    finally{setSaving(false);}
-  }
-
-  if(!editing)return (
-    <button onClick={()=>setEditing(true)} style={{display:'inline-flex',alignItems:'center',gap:5,background:'transparent',border:'none',cursor:'pointer',padding:0,fontFamily:'var(--f-sans)'}}>
-      <span className="tab" style={{fontSize:13,fontWeight:600,color:valorInicial?'var(--txt)':'var(--txt3)'}}>
-        {valorInicial?BRL(valorInicial):'—'}
-      </span>
-      <Icon name="pencil" size={11} color="rgba(0,0,0,.3)"/>
+/* ══ EXIBIÇÃO DE CUSTO (somente leitura) ════════════════════ */
+function CustoDisplay({valor,onIrParaAnuncios}){
+  if(!valor) return (
+    <button onClick={onIrParaAnuncios} title="Cadastrar custo em Anúncios"
+      style={{display:'inline-flex',alignItems:'center',gap:4,background:'transparent',border:'none',cursor:'pointer',padding:0,fontFamily:'var(--f-sans)'}}>
+      <span style={{fontSize:11,color:'var(--amber)',fontWeight:700}}>definir</span>
+      <Icon name="pencil" size={10} color="var(--amber)"/>
     </button>
   );
-
-  return (
-    <div style={{display:'flex',gap:4,alignItems:'center'}} onClick={e=>e.stopPropagation()}>
-      <input type="number" step="0.01" value={custo} onChange={e=>setCusto(e.target.value)} placeholder="Custo"
-        style={{width:64,padding:'4px 6px',fontSize:12,border:'1px solid var(--bd2)',borderRadius:4,fontFamily:'var(--f-mono)'}}/>
-      <input type="number" step="0.1" value={imposto} onChange={e=>setImposto(e.target.value)} placeholder="%"
-        style={{width:44,padding:'4px 6px',fontSize:12,border:'1px solid var(--bd2)',borderRadius:4,fontFamily:'var(--f-mono)'}}/>
-      <button onClick={salvar} disabled={saving} style={{background:'var(--green)',border:'none',borderRadius:4,width:24,height:24,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <Icon name="check" size={12} color="#fff"/>
-      </button>
-      <button onClick={()=>setEditing(false)} style={{background:'transparent',border:'none',cursor:'pointer',width:20,height:24,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <Icon name="x" size={12} color="rgba(0,0,0,.4)"/>
-      </button>
-    </div>
-  );
+  return <span className="tab" style={{fontSize:12.5,fontWeight:600,color:'var(--txt)'}}>{BRL(valor)}</span>;
 }
 
 /* ══ TABELA DE PEDIDOS ══════════════════════════════════════ */
-function TabelaPedidos({pedidos,loading,multiConta,onRefresh}){
+function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios}){
   const GRID=multiConta
-    ? '48px 1fr 74px 88px 84px 42px 86px 76px 76px 92px 104px'
-    : '48px 1fr 74px 88px 42px 86px 76px 76px 92px 104px';
+    ? '48px 1fr 74px 88px 84px 42px 88px 76px 76px 72px 100px'
+    : '48px 1fr 74px 88px 42px 88px 76px 76px 72px 100px';
   const HEADS=multiConta
     ? ['','Título','Conta','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro']
     : ['','Título','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro'];
@@ -305,7 +277,7 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh}){
             <div className="tab" style={{fontSize:12.5,fontWeight:700,color:'var(--orange)'}}>{BRL(p.valor)}</div>
             <div className="tab" style={{fontSize:12,color:'var(--txt2)'}}>{BRL(p.tarifa)}</div>
             <div className="tab" style={{fontSize:12,color:'var(--txt2)'}}>{BRL(p.frete)}</div>
-            <div><CustoInline sku={p.sku} valorInicial={p.custo/(p.qtde||1)} impostoInicial={p.valor>0?(p.imposto/p.valor*100).toFixed(1):''} onSalvo={onRefresh}/></div>
+            <div><CustoDisplay valor={p.custo} onIrParaAnuncios={onIrParaAnuncios}/></div>
             <div style={{display:'flex',flexDirection:'column',gap:1}}>
               {p.temCusto?(
                 <>
@@ -400,7 +372,7 @@ function PainelAds({ads,metricas,dataRef,onSalvo}){
 }
 
 /* ══ VIEW: DASHBOARD ════════════════════════════════════════ */
-function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleConta,onRefresh}){
+function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios}){
   const m=dados?.metricas||{},ads=dados?.ads||{};
   const multiConta=(dados?.contasUsadas?.length||0)>1;
 
@@ -475,18 +447,97 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
           <div style={{fontSize:15,fontWeight:700,color:'rgba(255,255,255,.88)'}}>Últimos pedidos</div>
           <Badge>{dados?.pedidos?.length||0} no período</Badge>
         </div>
-        <TabelaPedidos pedidos={dados?.pedidos?.slice(0,15)} loading={loading} multiConta={multiConta} onRefresh={onRefresh}/>
+        <TabelaPedidos pedidos={dados?.pedidos?.slice(0,15)} loading={loading} multiConta={multiConta} onRefresh={onRefresh} onIrParaAnuncios={onIrParaAnuncios}/>
       </div>
     </div>
   );
 }
 
-/* ══ VIEW: ANÚNCIOS ═════════════════════════════════════════ */
+/* ══ VIEW: ANÚNCIOS (edição em lote) ════════════════════════ */
 function ViewAnuncios({dados,loading,onRefresh}){
   const [busca,setBusca]=useState('');
-  const anuncios=(dados?.anuncios||[]).filter(a=>!busca||a.titulo.toLowerCase().includes(busca.toLowerCase())||String(a.sku).toLowerCase().includes(busca.toLowerCase()));
+  const [rascunho,setRascunho]=useState({});   // {sku:{custo,imposto}}
+  const [salvando,setSalvando]=useState(false);
+  const [msg,setMsg]=useState('');
+  const [soSemCusto,setSoSemCusto]=useState(false);
+  const [impostoGlobal,setImpostoGlobal]=useState('');
+
+  const todos=dados?.anuncios||[];
   const multiConta=(dados?.contasUsadas?.length||0)>1;
-  const GRID=multiConta?'52px 1fr 76px 88px 70px 66px 66px 104px':'52px 1fr 88px 70px 66px 66px 104px';
+
+  // Reseta rascunho quando os dados recarregam
+  useEffect(()=>{setRascunho({});setMsg('');},[dados]);
+
+  const anuncios=todos.filter(a=>{
+    if(soSemCusto){
+      const r=rascunho[a.sku];
+      const custoAtual=r?parseFloat(r.custo)||0:a.custo;
+      if(custoAtual>0)return false;
+    }
+    if(!busca)return true;
+    const q=busca.toLowerCase();
+    return a.titulo.toLowerCase().includes(q)||String(a.sku).toLowerCase().includes(q);
+  });
+
+  // Valor atual de um campo: rascunho tem prioridade sobre o dado salvo
+  const val=(a,campo)=>{
+    const r=rascunho[a.sku];
+    if(r&&r[campo]!==undefined)return r[campo];
+    return a[campo]||'';
+  };
+
+  const setCampo=(sku,campo,v)=>{
+    setRascunho(d=>({...d,[sku]:{...(d[sku]||{}),[campo]:v}}));
+    setMsg('');
+  };
+
+  // Quantas linhas foram alteradas
+  const alterados=Object.keys(rascunho).filter(sku=>{
+    const a=todos.find(x=>String(x.sku)===String(sku));
+    if(!a)return false;
+    const r=rascunho[sku];
+    const c=r.custo!==undefined?parseFloat(r.custo)||0:a.custo;
+    const i=r.imposto!==undefined?parseFloat(r.imposto)||0:a.imposto;
+    return c!==(a.custo||0)||i!==(a.imposto||0);
+  });
+
+  function aplicarImpostoTodos(){
+    const v=parseFloat(impostoGlobal);
+    if(isNaN(v)){setMsg('Digite uma porcentagem válida');return;}
+    const novo={...rascunho};
+    anuncios.forEach(a=>{novo[a.sku]={...(novo[a.sku]||{}),imposto:v};});
+    setRascunho(novo);setMsg('');
+  }
+
+  async function salvarTudo(){
+    if(alterados.length===0)return;
+    setSalvando(true);setMsg('');
+    try{
+      const itens=alterados.map(sku=>{
+        const a=todos.find(x=>String(x.sku)===String(sku));
+        const r=rascunho[sku];
+        return {
+          sku,
+          custo:   r.custo!==undefined?parseFloat(r.custo)||0:a.custo,
+          imposto: r.imposto!==undefined?parseFloat(r.imposto)||0:a.imposto,
+        };
+      });
+      await call('mlSalvarCustosLote',{itens});
+      setMsg(`${itens.length} ${itens.length===1?'produto salvo':'produtos salvos'}`);
+      setRascunho({});
+      onRefresh();
+    }catch(e){setMsg('Erro: '+e.message);}
+    finally{setSalvando(false);}
+  }
+
+  const GRID=multiConta
+    ? '52px 1fr 74px 84px 78px 58px 62px 96px 74px 92px'
+    : '52px 1fr 84px 78px 58px 62px 96px 74px 92px';
+  const HEADS=multiConta
+    ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','Margem']
+    : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','Margem'];
+
+  const inputStyle={width:'100%',padding:'6px 8px',fontSize:12,border:'1px solid var(--bd2)',borderRadius:'var(--r-sm)',fontFamily:'var(--f-mono)',background:'#fff'};
 
   if(loading)return (
     <div style={{display:'flex',flexDirection:'column',gap:6}}>
@@ -498,50 +549,125 @@ function ViewAnuncios({dados,loading,onRefresh}){
     </div>
   );
 
+  const semCustoTotal=todos.filter(a=>!a.custo).length;
+
   return (
-    <div>
-      <div style={{marginBottom:14,position:'relative'}}>
-        <div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}>
-          <Icon name="search" size={15} color="rgba(255,255,255,.35)"/>
+    <div style={{paddingBottom:alterados.length>0?78:0}}>
+
+      {/* Barra de ferramentas */}
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
+        <div style={{position:'relative',flex:'1 1 260px',maxWidth:360}}>
+          <div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}>
+            <Icon name="search" size={15} color="rgba(255,255,255,.35)"/>
+          </div>
+          <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por título ou SKU..."
+            style={{width:'100%',padding:'9px 12px 9px 36px',fontSize:13,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',color:'#fff',fontFamily:'var(--f-sans)'}}/>
         </div>
-        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por título ou SKU..."
-          style={{width:'100%',maxWidth:380,padding:'9px 12px 9px 36px',fontSize:13,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',color:'#fff',fontFamily:'var(--f-sans)'}}/>
+
+        <button onClick={()=>setSoSemCusto(v=>!v)} style={{display:'inline-flex',alignItems:'center',gap:6,height:36,padding:'0 13px',borderRadius:'var(--r-md)',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'var(--f-sans)',
+          background:soSemCusto?'rgba(245,158,11,.18)':'transparent',border:`1px solid ${soSemCusto?'var(--amber)':'rgba(255,255,255,.12)'}`,color:soSemCusto?'#fbbf24':'rgba(255,255,255,.55)'}}>
+          <Icon name="alert-triangle" size={13}/>Sem custo ({semCustoTotal})
+        </button>
+
+        <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto'}}>
+          <input type="number" step="0.1" value={impostoGlobal} onChange={e=>setImpostoGlobal(e.target.value)} placeholder="Imposto %"
+            style={{width:96,padding:'8px 10px',fontSize:12,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',color:'#fff',fontFamily:'var(--f-mono)'}}/>
+          <Btn variant="dark" size="sm" onClick={aplicarImpostoTodos}>Aplicar a todos</Btn>
+        </div>
       </div>
 
+      {/* Tabela */}
       <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',overflow:'auto',boxShadow:'var(--sh-sm)'}}>
-        <div style={{minWidth:multiConta?860:800}}>
-          <div style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'10px 18px',background:'var(--sunken)',borderBottom:'1px solid var(--bd)'}}>
-            {(multiConta?['','Título','Conta','SKU','Preço','Est.','Visitas','Custo']:['','Título','SKU','Preço','Est.','Visitas','Custo']).map((h,i)=>
-              <div key={i} style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em',textTransform:'uppercase'}}>{h}</div>)}
+        <div style={{minWidth:multiConta?960:900}}>
+          <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'10px 18px',background:'var(--sunken)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:2}}>
+            {HEADS.map((h,i)=><div key={i} style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em',textTransform:'uppercase'}}>{h}</div>)}
           </div>
-          {anuncios.map((a,i)=>(
-            <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'11px 18px',alignItems:'center',borderBottom:'1px solid var(--bd)',background:i%2?'var(--sunken)':'var(--card)'}}>
-              <div style={{width:48,height:48,borderRadius:9,overflow:'hidden',background:'var(--sunken)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19}}>
-                {a.foto?<img src={a.foto} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:'📦'}
-              </div>
-              <div style={{minWidth:0}}>
-                <div style={{fontSize:12.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={a.titulo}>{a.titulo}</div>
-                <div style={{marginTop:3,display:'flex',gap:5,alignItems:'center'}}>
-                  <Badge tone={a.status==='active'?'success':'danger'}>{a.status==='active'?'Ativo':'Inativo'}</Badge>
-                  <span style={{fontSize:10.5,color:'var(--txt3)'}}>{NUM(a.vendas)} vendas totais</span>
+
+          {anuncios.map((a,i)=>{
+            const custoV=val(a,'custo'),impV=val(a,'imposto');
+            const c=parseFloat(custoV)||0,imp=parseFloat(impV)||0;
+            const editado=rascunho[a.sku]!==undefined;
+            // margem estimada: preço - custo - imposto - ~13% tarifa média
+            const tarifaEst=a.preco*0.13;
+            const lucroEst=a.preco-c-(a.preco*imp/100)-tarifaEst;
+            const margemEst=a.preco>0?(lucroEst/a.preco)*100:0;
+
+            return (
+              <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'10px 18px',alignItems:'center',borderBottom:'1px solid var(--bd)',
+                background:editado?'rgba(255,82,0,.05)':(i%2?'var(--sunken)':'var(--card)')}}>
+                <div style={{width:48,height:48,borderRadius:9,overflow:'hidden',background:'var(--sunken)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19}}>
+                  {a.foto?<img src={a.foto} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:'📦'}
+                </div>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:12.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={a.titulo}>{a.titulo}</div>
+                  <div style={{marginTop:3,display:'flex',gap:5,alignItems:'center'}}>
+                    <Badge tone={a.status==='active'?'success':'danger'}>{a.status==='active'?'Ativo':'Inativo'}</Badge>
+                    <span style={{fontSize:10.5,color:'var(--txt3)'}}>{NUM(a.vendas)} vendas</span>
+                  </div>
+                </div>
+                {multiConta&&<div style={{fontSize:11,color:'var(--txt2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.conta}</div>}
+                <div style={{fontSize:10.5,color:'var(--txt3)',fontFamily:'var(--f-mono)',overflow:'hidden',textOverflow:'ellipsis'}} title={a.sku}>{a.sku}</div>
+                <div className="tab" style={{fontSize:12.5,fontWeight:700,color:'var(--orange)'}}>{BRL(a.preco)}</div>
+                <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.estoque<=3?'var(--red)':'var(--txt)'}}>{a.estoque}</div>
+                <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.visitas>0?'var(--amber)':'var(--txt3)'}}>{NUM(a.visitas)}</div>
+                <div>
+                  <input type="number" step="0.01" value={custoV} placeholder="0,00"
+                    onChange={e=>setCampo(a.sku,'custo',e.target.value)} style={inputStyle}/>
+                </div>
+                <div>
+                  <input type="number" step="0.1" value={impV} placeholder="0"
+                    onChange={e=>setCampo(a.sku,'imposto',e.target.value)} style={inputStyle}/>
+                </div>
+                <div>
+                  {c>0?(
+                    <div style={{display:'flex',flexDirection:'column',gap:1}}>
+                      <span className="tab" style={{fontSize:12.5,fontWeight:800,color:lucroEst>=0?'var(--green)':'var(--red)'}}>{BRL(lucroEst)}</span>
+                      <span className="tab" style={{fontSize:10,color:'var(--txt3)'}}>{PCT(margemEst)}</span>
+                    </div>
+                  ):<span style={{fontSize:11,color:'var(--txt3)'}}>—</span>}
                 </div>
               </div>
-              {multiConta&&<div style={{fontSize:11,color:'var(--txt2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.conta}</div>}
-              <div style={{fontSize:10.5,color:'var(--txt3)',fontFamily:'var(--f-mono)',overflow:'hidden',textOverflow:'ellipsis'}}>{a.sku}</div>
-              <div className="tab" style={{fontSize:12.5,fontWeight:700,color:'var(--orange)'}}>{BRL(a.preco)}</div>
-              <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.estoque<=3?'var(--red)':'var(--txt)'}}>{a.estoque}</div>
-              <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.visitas>0?'var(--amber)':'var(--txt3)'}}>{NUM(a.visitas)}</div>
-              <div><CustoInline sku={a.sku} valorInicial={a.custo} impostoInicial={a.imposto} onSalvo={onRefresh}/></div>
-            </div>
-          ))}
+            );
+          })}
+
           {anuncios.length===0&&(
             <div style={{padding:44,textAlign:'center'}}>
               <Icon name="package" size={30} color="rgba(0,0,0,.18)"/>
-              <div style={{fontSize:13,color:'var(--txt3)',marginTop:10}}>{busca?'Nenhum anúncio encontrado':'Nenhum anúncio ativo'}</div>
+              <div style={{fontSize:13,color:'var(--txt3)',marginTop:10}}>{busca||soSemCusto?'Nenhum anúncio encontrado':'Nenhum anúncio ativo'}</div>
             </div>
           )}
         </div>
       </div>
+
+      <div style={{fontSize:11,color:'var(--txt-dark3)',marginTop:10,lineHeight:1.5}}>
+        A margem exibida é uma estimativa usando tarifa média de 13%. A margem real de cada venda aparece na tela de Pedidos.
+      </div>
+
+      {/* Barra fixa de salvar */}
+      {alterados.length>0&&(
+        <div style={{position:'fixed',bottom:0,left:0,right:0,background:'var(--sidebar)',borderTop:'1px solid var(--bd-dark)',padding:'14px var(--gutter)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,zIndex:50,boxShadow:'0 -4px 16px rgba(0,0,0,.3)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <Icon name="pencil" size={15} color="var(--orange)"/>
+            <span style={{fontSize:13,fontWeight:700,color:'#fff'}}>
+              {alterados.length} {alterados.length===1?'produto alterado':'produtos alterados'}
+            </span>
+            {msg&&<span style={{fontSize:12,color:msg.startsWith('Erro')?'#f87171':'#4ade80'}}>{msg}</span>}
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <Btn variant="dark" size="md" onClick={()=>{setRascunho({});setMsg('');}}>Descartar</Btn>
+            <Btn size="md" icon="check" onClick={salvarTudo} disabled={salvando}>
+              {salvando?'Salvando...':'Salvar tudo'}
+            </Btn>
+          </div>
+        </div>
+      )}
+
+      {/* Mensagem de sucesso sem alterações pendentes */}
+      {alterados.length===0&&msg&&(
+        <div style={{marginTop:12,padding:'10px 14px',background:msg.startsWith('Erro')?'var(--red-bg)':'var(--green-bg)',borderRadius:'var(--r-md)',fontSize:12.5,fontWeight:600,color:msg.startsWith('Erro')?'#f87171':'#4ade80',display:'inline-flex',alignItems:'center',gap:7}}>
+          <Icon name={msg.startsWith('Erro')?'alert-triangle':'check-circle-2'} size={14}/>{msg}
+        </div>
+      )}
     </div>
   );
 }
@@ -740,7 +866,7 @@ function AppLogado({user}){
         <main style={{flex:1,padding:'var(--gutter)',maxWidth:1440,width:'100%'}}>
           {err&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.2)',borderRadius:'var(--r-lg)',padding:'12px 16px',color:'#f87171',fontSize:13,marginBottom:16}}>{err}</div>}
 
-          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={setPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar}/>}
+          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={setPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')}/>}
 
           {view==='pedidos'&&(
             <div>
@@ -751,7 +877,7 @@ function AppLogado({user}){
                   <PeriodFilter value={periodo} onChange={setPeriodo}/>
                 </div>
               </div>
-              <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar}/>
+              <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')}/>
             </div>
           )}
 
