@@ -1,454 +1,268 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ML Analyzer — RealEcom</title>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0B1120; color: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; min-height: 100vh; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #111827; }
-    ::-webkit-scrollbar-thumb { background: #1E2D45; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",
-      authDomain: "calculadora-real-ecom.firebaseapp.com",
-      projectId: "calculadora-real-ecom",
-      storageBucket: "calculadora-real-ecom.firebasestorage.app",
-      messagingSenderId: "845239286688",
-      appId: "1:845239286688:web:71018a44cabee0025842c5"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth      = firebase.auth();
-    const db        = firebase.firestore();
-    const functions = firebase.app().functions('southamerica-east1');
+// v5 - RealEcom ML Analyzer — multi-período, pedidos detalhados
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const fetch = require('node-fetch');
 
-    const ML_CLIENT_ID = '3936370948601703';
-    const ML_REDIRECT  = 'https://ollmestorerj.github.io/ml-analyzer/';
+admin.initializeApp();
+const db = admin.firestore();
 
-    const BRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
-    const NUM = v => new Intl.NumberFormat("pt-BR").format(v||0);
-  </script>
+const ZAPI_INSTANCE     = '3F3C2AB974BDA13591CC6627BE24201D';
+const ZAPI_TOKEN        = '6C654631A8EC0C05995F885C';
+const ZAPI_CLIENT_TOKEN = 'F229439fc0a6e46ba859cd5887b6ff58dS';
+const ZAPI_URL          = `https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`;
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+const ML_CLIENT_ID = '3936370948601703';
+const ML_REDIRECT  = 'https://ollmestorerj.github.io/ml-analyzer/';
+const ML_TOKEN_URL = 'https://api.mercadolibre.com/oauth/token';
+const ML_API       = 'https://api.mercadolibre.com';
 
-    const C = {
-      bg:"#0B1120", surface:"#111827", surfaceHi:"#172032",
-      border:"#1E2D45", yellow:"#FFE600", green:"#10B981",
-      blue:"#3B82F6", orange:"#F59E0B", red:"#EF4444",
-      text:"#F1F5F9", muted:"#64748B", dim:"#94A3B8",
-    };
+// ── HELPERS ──────────────────────────────────────────────────────
+async function enviarWhatsApp(telefone, mensagem) {
+  let numero = telefone.replace(/\D/g, '');
+  if (!numero.startsWith('55')) numero = '55' + numero;
+  try {
+    const resp = await fetch(ZAPI_URL, {
+      method: 'POST',
+      headers: { "Content-Type": "application/json", "Client-Token": ZAPI_CLIENT_TOKEN },
+      body: JSON.stringify({ phone: numero, message: mensagem })
+    });
+    return true;
+  } catch (e) { return false; }
+}
 
-    const base = {
-      card:      { background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:20 },
-      input:     { background:C.surfaceHi, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", color:C.text, width:"100%", fontSize:14, outline:"none" },
-      btnBlue:   { background:C.blue, color:"#fff", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:700, cursor:"pointer", fontSize:14 },
-      btnYellow: { background:C.yellow, color:"#111", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:700, cursor:"pointer", fontSize:14 },
-      errBox:    { background:"#2D0E0E", border:`1px solid ${C.red}55`, borderRadius:8, padding:"12px 16px", color:"#FCA5A5", fontSize:13, marginBottom:14 },
-    };
+function diasAte(dataStr) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  return Math.round((new Date(dataStr+'T00:00:00') - hoje) / 86400000);
+}
 
-    const Err  = ({msg}) => msg ? <div style={base.errBox}>{msg}</div> : null;
-    const Load = ({msg="Carregando..."}) => (
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:C.bg}}>
-        <div style={{color:C.muted,fontSize:14}}>{msg}</div>
-      </div>
-    );
+function montarMensagem(ev, d) {
+  const full = {5:`📦 *RealEcom* — Coleta Full em 5 dias!`,4:`📦 *RealEcom* — Coleta Full em 4 dias!`,3:`📦 *RealEcom* — Coleta Full em 3 dias!`,2:`📦 *RealEcom* — Coleta Full em 2 dias!`,1:`📦 *RealEcom* — Coleta Full amanhã!`,0:`📦 *RealEcom* — Coleta Full hoje! 🚛`};
+  if (ev.tipo==='full' && full[d]) return full[d];
+  if (ev.titulo==='Pagamento DAS') return {0:`💰 *RealEcom* — DAS vence hoje!`,1:`💰 *RealEcom* — DAS vence amanhã!`,2:`💰 *RealEcom* — DAS vence em 2 dias.`,3:`💰 *RealEcom* — DAS vence em 3 dias.`,4:`💰 *RealEcom* — DAS vence em 4 dias.`,5:`💰 *RealEcom* — DAS vence em 5 dias.`}[d];
+  const ic = {conta:'💰',entrega:'🚚',outro:'📌',sazonal:'📅',giro_pedido:'🛒',giro_entrega:'📦'}[ev.tipo]||'📌';
+  if (d===0) return `${ic} *RealEcom* — ${ev.titulo} é hoje!`;
+  if (d===1) return `${ic} *RealEcom* — ${ev.titulo} é amanhã!`;
+  return `${ic} *RealEcom* — ${ev.titulo} em ${d} dias.`;
+}
 
-    function Field({ label, type="text", placeholder, value, onChange }) {
-      return (
-        <div style={{marginBottom:14}}>
-          {label && <label style={{fontSize:13,color:C.dim,display:"block",marginBottom:6,fontWeight:500}}>{label}</label>}
-          <input type={type} placeholder={placeholder} value={value} onChange={onChange} style={base.input} />
-        </div>
-      );
+async function mlGet(path, token) {
+  const r = await fetch(`${ML_API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) { const e = await r.text().catch(()=>''); throw new Error(`ML ${r.status}: ${e}`); }
+  return r.json();
+}
+
+async function getToken(uid) {
+  const snap = await db.collection('users').doc(uid).collection('mlTokens').doc('main').get();
+  if (!snap.exists) throw new Error('Token ML não encontrado. Reconecte sua conta.');
+  return snap.data();
+}
+
+// Calcula from/to no horário de Brasília baseado no período
+function calcularPeriodo(periodo) {
+  const agora = new Date();
+  // Ajusta para Brasília (UTC-3)
+  const bsb = (offset) => {
+    const d = new Date(agora.getTime() + (offset - 3) * 3600000 * 0 - 3 * 3600000);
+    return new Date(agora.getTime() - 3 * 3600000);
+  };
+
+  const hoje = new Date(agora.getTime() - 3 * 3600000);
+  const dataStr = (d) => d.toISOString().split('T')[0];
+
+  switch(periodo) {
+    case 'hoje':
+      return { from: dataStr(hoje), to: dataStr(hoje) };
+    case 'ontem': {
+      const ontem = new Date(hoje); ontem.setDate(ontem.getDate()-1);
+      return { from: dataStr(ontem), to: dataStr(ontem) };
     }
-
-    const Badge = ({color,children}) => (
-      <span style={{background:color+"22",color,fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,display:"inline-block"}}>{children}</span>
-    );
-
-    const Tab = ({active,onClick,children}) => (
-      <button onClick={onClick} style={{
-        background:active?C.blue:"transparent", border:`1px solid ${active?C.blue:C.border}`,
-        borderRadius:8, padding:"7px 16px", color:active?"#fff":C.muted,
-        cursor:"pointer", fontSize:13, fontWeight:active?600:400
-      }}>{children}</button>
-    );
-
-    function MetricCard({icon,label,value,sub,accent}) {
-      return (
-        <div style={{...base.card,borderTop:`3px solid ${accent}`}}>
-          <div style={{fontSize:12,color:C.muted,fontWeight:500,marginBottom:10}}>{icon} {label}</div>
-          <div style={{fontSize:26,fontWeight:800,color:C.text,lineHeight:1.1}}>{value}</div>
-          {sub && <div style={{fontSize:12,color:C.dim,marginTop:6}}>{sub}</div>}
-        </div>
-      );
+    case '7d': {
+      const ini = new Date(hoje); ini.setDate(ini.getDate()-6);
+      return { from: dataStr(ini), to: dataStr(hoje) };
     }
-
-    // ── TELA LOGIN ──────────────────────────────────────────────
-    function TelaLogin() {
-      const [email,   setEmail]   = useState("");
-      const [senha,   setSenha]   = useState("");
-      const [loading, setLoading] = useState(false);
-      const [err,     setErr]     = useState("");
-
-      async function login() {
-        if (!email||!senha) { setErr("Preencha email e senha"); return; }
-        setLoading(true); setErr("");
-        try {
-          await auth.signInWithEmailAndPassword(email, senha);
-        } catch(e) {
-          const msgs = {
-            "auth/user-not-found":"Email não encontrado",
-            "auth/wrong-password":"Senha incorreta",
-            "auth/invalid-credential":"Email ou senha incorretos",
-          };
-          setErr(msgs[e.code] || e.message);
-        } finally { setLoading(false); }
-      }
-
-      return (
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:24,background:C.bg}}>
-          <div style={{maxWidth:400,width:"100%"}}>
-            <div style={{textAlign:"center",marginBottom:32}}>
-              <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:2,marginBottom:10}}>REALECOM</div>
-              <div style={{fontSize:32,fontWeight:800,color:C.yellow}}>ML Analyzer</div>
-              <div style={{fontSize:14,color:C.muted,marginTop:10}}>Análise diária da sua conta do Mercado Livre</div>
-            </div>
-            <div style={base.card}>
-              <Field label="Email" type="email" placeholder="seu@email.com" value={email} onChange={e=>setEmail(e.target.value)} />
-              <Field label="Senha" type="password" placeholder="Sua senha" value={senha} onChange={e=>setSenha(e.target.value)} />
-              <Err msg={err} />
-              <button style={{...base.btnYellow,width:"100%",padding:"12px 20px",fontSize:15,opacity:loading?.7:1}} onClick={login} disabled={loading}>
-                {loading?"Entrando...":"Entrar"}
-              </button>
-              <div style={{textAlign:"center",marginTop:14,fontSize:12,color:C.muted}}>Use o mesmo login da Calculadora REAL</div>
-            </div>
-          </div>
-        </div>
-      );
+    case '30d': {
+      const ini = new Date(hoje); ini.setDate(ini.getDate()-29);
+      return { from: dataStr(ini), to: dataStr(hoje) };
     }
+    case 'mes': {
+      const ini = new Date(hoje); ini.setDate(1);
+      return { from: dataStr(ini), to: dataStr(hoje) };
+    }
+    default:
+      return { from: dataStr(hoje), to: dataStr(hoje) };
+  }
+}
 
-    // ── TELA CONECTAR ML ────────────────────────────────────────
-    function TelaConectarML({ user, onConectado }) {
-      const [conectando, setConectando] = useState(false);
-      const [err,        setErr]        = useState("");
-
-      useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const code   = params.get("code");
-        if (code) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-          conectarComCode(code);
+// ── CRON WhatsApp ─────────────────────────────────────────────────
+exports.notificacoesWhatsApp = functions
+  .region('southamerica-east1')
+  .pubsub.schedule('0 11 * * *')
+  .timeZone('America/Sao_Paulo')
+  .onRun(async () => {
+    const snapshot = await db.collection('usuarios').get();
+    let total = 0;
+    for (const doc of snapshot.docs) {
+      const u = doc.data();
+      if (!u.telefone || u.ativo===false) continue;
+      try {
+        const evDoc = await db.collection('usuarios').doc(doc.id).collection('eventos').doc('data').get();
+        if (!evDoc.exists) continue;
+        const eventos = JSON.parse(evDoc.data().payload||'[]');
+        for (const ev of eventos) {
+          if (!ev.data) continue;
+          const d = diasAte(ev.data);
+          let notif = false;
+          if (ev.titulo==='Pagamento DAS' && d>=0 && d<=5) notif=true;
+          else if (ev.tipo==='full' && d>=0 && d<=5) notif=true;
+          else if (ev.tipo!=='full' && ev.titulo!=='Pagamento DAS' && (d===0||d===1)) notif=true;
+          else if ((ev.tipo==='giro_pedido'||ev.tipo==='giro_entrega') && d>=0 && d<=3) notif=true;
+          if (!notif) continue;
+          const msg = montarMensagem(ev, d);
+          if (msg) { await enviarWhatsApp(u.telefone, msg); total++; }
+          await new Promise(r=>setTimeout(r,300));
         }
-      }, []);
+      } catch{}
+    }
+    return null;
+  });
 
-      async function conectarComCode(code) {
-        setConectando(true); setErr("");
-        try {
-          const fn     = functions.httpsCallable('mlTokenExchange');
-          const result = await fn({ code });
-          if (result.data.success) onConectado();
-        } catch(e) {
-          setErr("Erro ao conectar: " + (e.message || "Tente novamente"));
-          setConectando(false);
-        }
-      }
+// ── mlTokenExchange ───────────────────────────────────────────────
+exports.mlTokenExchange = functions
+  .region('southamerica-east1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Faça login primeiro');
+    const { code } = data;
+    if (!code) throw new functions.https.HttpsError('invalid-argument','Código obrigatório');
+    const SECRET = process.env.ML_CLIENT_SECRET;
+    if (!SECRET) throw new functions.https.HttpsError('internal','Client Secret não configurado');
 
-      function abrirOAuth() {
-        window.location.href = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`;
-      }
+    const resp = await fetch(ML_TOKEN_URL, {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ grant_type:'authorization_code', client_id:ML_CLIENT_ID, client_secret:SECRET, code, redirect_uri:ML_REDIRECT }).toString(),
+    });
+    if (!resp.ok) { const e=await resp.text().catch(()=>''); throw new functions.https.HttpsError('internal',`Erro ML ${resp.status}: ${e}`); }
+    const t = await resp.json();
 
-      if (conectando) return <Load msg="Conectando sua conta do Mercado Livre..." />;
+    await db.collection('users').doc(context.auth.uid).collection('mlTokens').doc('main').set({
+      access_token: t.access_token, refresh_token: t.refresh_token, user_id: t.user_id,
+      expires_at: admin.firestore.Timestamp.fromMillis(Date.now()+t.expires_in*1000),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { success:true, user_id:t.user_id };
+  });
 
-      return (
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",padding:24,background:C.bg}}>
-          <div style={{maxWidth:440,width:"100%",textAlign:"center"}}>
-            <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:2,marginBottom:10}}>REALECOM</div>
-            <div style={{fontSize:26,fontWeight:800,color:C.yellow,marginBottom:8}}>Conectar Mercado Livre</div>
-            <div style={{fontSize:13,color:C.muted,marginBottom:28}}>
-              Olá, <strong style={{color:C.text}}>{user.email?.split("@")[0]}</strong>. Conecte sua conta do ML para começar.
-            </div>
-            <div style={base.card}>
-              <div style={{fontSize:13,color:C.dim,marginBottom:20,lineHeight:1.6}}>
-                Clique no botão abaixo. Você será redirecionado ao Mercado Livre e voltará automaticamente.
-              </div>
-              <Err msg={err} />
-              <button style={{...base.btnYellow,width:"100%",padding:"14px 20px",fontSize:16}} onClick={abrirOAuth}>
-                Autorizar com Mercado Livre
-              </button>
-              <div style={{marginTop:14,textAlign:"right"}}>
-                <button style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:12}} onClick={()=>auth.signOut()}>
-                  Sair da conta
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+// ── mlTokenRefresh ────────────────────────────────────────────────
+exports.mlTokenRefresh = functions
+  .region('southamerica-east1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Faça login primeiro');
+    const SECRET = process.env.ML_CLIENT_SECRET;
+    const td = await getToken(context.auth.uid);
+    const resp = await fetch(ML_TOKEN_URL, {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ grant_type:'refresh_token', client_id:ML_CLIENT_ID, client_secret:SECRET, refresh_token:td.refresh_token }).toString(),
+    });
+    if (!resp.ok) throw new functions.https.HttpsError('internal','Erro ao renovar token');
+    const t = await resp.json();
+    await db.collection('users').doc(context.auth.uid).collection('mlTokens').doc('main').update({
+      access_token:t.access_token, refresh_token:t.refresh_token,
+      expires_at:admin.firestore.Timestamp.fromMillis(Date.now()+t.expires_in*1000),
+      updated_at:admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { success:true };
+  });
+
+// ── mlGetDados ────────────────────────────────────────────────────
+exports.mlGetDados = functions
+  .region('southamerica-east1')
+  .runWith({ timeoutSeconds:120, memory:'256MB' })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated','Faça login primeiro');
+
+    const td     = await getToken(context.auth.uid);
+    const token  = td.access_token;
+    const userId = String(td.user_id);
+    const periodo = data.periodo || 'hoje';
+    const { from, to } = calcularPeriodo(periodo);
+
+    // 1. Seller
+    const seller = await mlGet(`/users/${userId}`, token);
+
+    // 2. Anúncios ativos
+    const ir  = await mlGet(`/users/${userId}/items/search?status=active&limit=50`, token);
+    const ids = ir.results || [];
+
+    // 3. Detalhes dos anúncios em lotes
+    let items = [];
+    for (let i=0; i<ids.length; i+=20) {
+      const br = await mlGet(`/items?ids=${ids.slice(i,i+20).join(',')}`, token);
+      items.push(...br.filter(x=>x.code===200).map(x=>x.body));
+    }
+
+    // 4. Visitas (só para hoje/ontem — API não suporta range)
+    let visitas = {};
+    if ((periodo==='hoje'||periodo==='ontem') && ids.length>0) {
+      try {
+        const vr = await mlGet(`/visits/items?item_id=${ids.slice(0,50).join(',')}&date_from=${from}&date_to=${to}`, token);
+        (Array.isArray(vr)?vr:[]).forEach(v=>{ visitas[v.item_id]=v.total_visits; });
+      } catch{}
+    }
+
+    // 5. Pedidos do período
+    let pedidosRaw = [];
+    try {
+      const pr = await mlGet(
+        `/orders/search?seller=${userId}&order.date_created.from=${from}T00:00:00.000-03:00&order.date_created.to=${to}T23:59:59.000-03:00&sort=date_desc&limit=50`,
+        token
       );
-    }
+      pedidosRaw = pr.results || [];
+    } catch{}
 
-    // ── ANÚNCIO ROW ─────────────────────────────────────────────
-    function AnuncioRow({a,idx}) {
-      return (
-        <div style={{display:"flex",gap:14,alignItems:"center",padding:"14px 20px",background:idx%2===0?C.surface:C.surfaceHi,borderBottom:`1px solid ${C.border}`}}>
-          <div style={{width:56,height:56,borderRadius:8,overflow:"hidden",flexShrink:0,background:C.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
-            {a.foto ? <img src={a.foto} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "📦"}
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:13,fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>{a.titulo}</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              <span style={{fontSize:12,color:C.dim}}>{BRL(a.preco)}</span>
-              <Badge color={a.estoque<=3?C.red:C.muted}>{a.estoque<=3?"⚠ ":""}Est: {a.estoque}</Badge>
-              <Badge color={a.status==="active"?C.green:C.red}>{a.status==="active"?"Ativo":a.status}</Badge>
-              <Badge color={C.muted}>{NUM(a.vendas)} vendas</Badge>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:16,flexShrink:0}}>
-            <div style={{textAlign:"center",minWidth:55}}>
-              <div style={{fontSize:17,fontWeight:800,color:a.visitas>0?C.yellow:C.muted}}>{NUM(a.visitas)}</div>
-              <div style={{fontSize:10,color:C.muted}}>visitas</div>
-            </div>
-            <div style={{textAlign:"center",minWidth:80}}>
-              <div style={{fontSize:17,fontWeight:800,color:a.fatDia>0?C.green:C.muted}}>{BRL(a.fatDia)}</div>
-              <div style={{fontSize:10,color:C.muted}}>faturado</div>
-            </div>
-            <div style={{textAlign:"center",minWidth:40}}>
-              <div style={{fontSize:17,fontWeight:800,color:a.qtdDia>0?C.blue:C.muted}}>{a.qtdDia}</div>
-              <div style={{fontSize:10,color:C.muted}}>vendas</div>
-            </div>
-          </div>
-          {a.permalink && <a href={a.permalink} target="_blank" rel="noreferrer" style={{color:C.blue,fontSize:12,flexShrink:0}}>Ver →</a>}
-        </div>
-      );
-    }
+    // 6. Montar pedidos detalhados
+    const pedidos = pedidosRaw.map(p => {
+      const item    = p.order_items?.[0];
+      const foto    = items.find(it=>it.id===item?.item?.id)?.pictures?.[0]?.url || '';
+      const tarifa  = p.payments?.reduce((a,pay)=>a+(pay.marketplace_fee||0),0) || 0;
+      const frete   = p.shipping ? (p.order_items?.reduce((a,oi)=>a+(oi.shipping_cost||0),0)||0) : 0;
+      const dataFmt = p.date_created ? new Date(p.date_created).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
 
-    // ── DASHBOARD ───────────────────────────────────────────────
-    function Dashboard({user, onSair}) {
-      const [dados,      setDados]      = useState(null);
-      const [loading,    setLoading]    = useState(true);
-      const [err,        setErr]        = useState("");
-      const [tab,        setTab]        = useState("overview");
-      const [analise,    setAnalise]    = useState("");
-      const [analisando, setAnalisando] = useState(false);
-      const [uploadData, setUploadData] = useState("");
+      return {
+        id:     p.id,
+        titulo: item?.item?.title || '—',
+        foto,
+        sku:    item?.item?.seller_sku || '—',
+        data:   dataFmt,
+        qtde:   item?.quantity || 1,
+        valor:  p.total_amount || 0,
+        tarifa,
+        frete,
+      };
+    });
 
-      useEffect(() => { carregarDados(); }, []);
+    // 7. Métricas
+    const fat      = pedidosRaw.reduce((a,p)=>a+(p.total_amount||0),0);
+    const qtd      = pedidosRaw.reduce((a,p)=>a+(p.order_items?.reduce((b,i)=>b+i.quantity,0)||0),0);
+    const tarifas  = pedidos.reduce((a,p)=>a+p.tarifa,0);
+    const frete    = pedidos.reduce((a,p)=>a+p.frete,0);
+    const vis      = Object.values(visitas).reduce((a,b)=>a+b,0);
 
-      async function carregarDados() {
-        setLoading(true); setErr("");
-        try {
-          const fn     = functions.httpsCallable('mlGetDados');
-          const result = await fn({});
-          setDados({ ...result.data, hora: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) });
-        } catch(e) { setErr("Erro ao carregar: " + e.message); }
-        finally { setLoading(false); }
-      }
+    // 8. Anúncios enriquecidos
+    const anuncios = items.map(it=>({
+      id:it.id, titulo:it.title, preco:it.price, foto:it.pictures?.[0]?.url||'',
+      status:it.status, estoque:it.available_quantity, vendas:it.sold_quantity,
+      permalink:it.permalink, visitas:visitas[it.id]||0,
+    })).sort((a,b)=>b.visitas-a.visitas);
 
-      async function gerarAnalise() {
-        if (!dados) return;
-        setAnalisando(true); setAnalise(""); setTab("analise");
-        const topAds = dados.anuncios.slice(0,15).map(a=>({
-          titulo:a.titulo, preco:BRL(a.preco), visitas:a.visitas,
-          faturado_hoje:BRL(a.fatDia), unidades_hoje:a.qtdDia,
-          estoque:a.estoque, total_vendas:a.vendas,
-        }));
-        try {
-          const r = await fetch("https://api.anthropic.com/v1/messages",{
-            method:"POST", headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
-              model:"claude-sonnet-4-6", max_tokens:1000,
-              system:`Você é especialista em Mercado Livre. Analise a conta e entregue:
-🎯 DIAGNÓSTICO DO DIA (2 pontos fortes + 2 de atenção)
-🔥 TOP 3 ANÚNCIOS PARA FOCAR (com razão baseada nos dados)
-⚠️ ALERTAS (estoque crítico, anúncios sem visitas)
-💡 3 AÇÕES PARA AMANHÃ (práticas e diretas)
-Use os dados reais. Seja objetivo.`,
-              messages:[{role:"user",content:`Conta: ${dados.seller.nickname}\nData: ${new Date().toLocaleDateString("pt-BR")}\nMétricas: ${JSON.stringify(dados.metricas)}\nAnúncios:\n${JSON.stringify(topAds,null,2)}`}]
-            })
-          });
-          const d = await r.json();
-          setAnalise(d.content?.[0]?.text || "Erro ao gerar análise");
-        } catch(e) { setAnalise("Erro: "+e.message); }
-        finally { setAnalisando(false); }
-      }
-
-      async function analisarManual() {
-        if (!uploadData.trim()) return;
-        setAnalisando(true); setAnalise(""); setTab("analise");
-        try {
-          const r = await fetch("https://api.anthropic.com/v1/messages",{
-            method:"POST", headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
-              model:"claude-sonnet-4-6", max_tokens:1000,
-              system:`Especialista em Mercado Livre. Analise os dados e entregue diagnóstico, alertas e 3 ações práticas.`,
-              messages:[{role:"user",content:`Analise estes dados do ML:\n\n${uploadData}`}]
-            })
-          });
-          const d = await r.json();
-          setAnalise(d.content?.[0]?.text || "Erro");
-        } catch(e) { setAnalise("Erro: "+e.message); }
-        finally { setAnalisando(false); }
-      }
-
-      if (loading && !dados) return <Load msg="Buscando dados da conta..." />;
-
-      const { metricas, anuncios, seller } = dados || {};
-
-      return (
-        <div style={{minHeight:"100vh",background:C.bg}}>
-          <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:20}}>
-            <div style={{display:"flex",alignItems:"center",gap:14}}>
-              <div>
-                <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:2}}>REALECOM</div>
-                <div style={{fontSize:17,fontWeight:800,color:C.yellow,lineHeight:1.1}}>ML Analyzer</div>
-              </div>
-              {seller && (
-                <div style={{paddingLeft:14,borderLeft:`1px solid ${C.border}`}}>
-                  <div style={{fontSize:13,fontWeight:600,color:C.text}}>{seller.nickname}</div>
-                  <div style={{fontSize:11,color:C.muted}}>{new Date().toLocaleDateString("pt-BR")} · att {dados.hora}</div>
-                </div>
-              )}
-            </div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              {loading && <span style={{fontSize:12,color:C.muted}}>↻ Atualizando...</span>}
-              <button style={{...base.btnBlue,padding:"7px 14px",fontSize:12}} onClick={carregarDados} disabled={loading}>↻ Atualizar</button>
-              <button style={{background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 14px",color:C.muted,cursor:"pointer",fontSize:12}} onClick={onSair}>
-                {user.email?.split("@")[0]} · Sair
-              </button>
-            </div>
-          </div>
-
-          <div style={{padding:24,maxWidth:1140,margin:"0 auto"}}>
-            <Err msg={err} />
-
-            <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap"}}>
-              <Tab active={tab==="overview"} onClick={()=>setTab("overview")}>📊 Visão Geral</Tab>
-              <Tab active={tab==="anuncios"} onClick={()=>setTab("anuncios")}>📦 Anúncios ({metricas?.totalAds||0})</Tab>
-              <Tab active={tab==="analise"} onClick={()=>setTab("analise")}>🤖 Análise IA</Tab>
-              <Tab active={tab==="manual"} onClick={()=>setTab("manual")}>📋 Upload Manual</Tab>
-            </div>
-
-            {tab==="overview" && dados && (
-              <>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:24}}>
-                  <MetricCard icon="💰" label="Faturamento do Dia" value={BRL(metricas.fat)} sub={`${metricas.pedidosDia} pedidos`} accent={C.green} />
-                  <MetricCard icon="👁️" label="Visitas do Dia" value={NUM(metricas.vis)} sub="todos os anúncios" accent={C.yellow} />
-                  <MetricCard icon="📦" label="Anúncios Ativos" value={NUM(metricas.totalAds)} accent={C.blue} />
-                  <MetricCard icon="🏆" label="Unid. Vendidas" value={NUM(metricas.qtd)} sub="hoje" accent={C.orange} />
-                </div>
-                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                  <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between"}}>
-                    <div style={{fontWeight:700,color:C.text,fontSize:14}}>Top Anúncios por Visitas — Hoje</div>
-                    <div style={{fontSize:12,color:C.muted}}>{new Date().toLocaleDateString("pt-BR")}</div>
-                  </div>
-                  {anuncios?.slice(0,8).map((a,i)=><AnuncioRow key={a.id} a={a} idx={i} />)}
-                  {(!anuncios||anuncios.length===0)&&<div style={{padding:40,textAlign:"center",color:C.muted}}>Sem dados</div>}
-                </div>
-              </>
-            )}
-
-            {tab==="anuncios" && (
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                {anuncios?.map((a,i)=><AnuncioRow key={a.id} a={a} idx={i} />)}
-                {(!anuncios||anuncios.length===0)&&<div style={{padding:40,textAlign:"center",color:C.muted}}>Sem anúncios</div>}
-              </div>
-            )}
-
-            {tab==="analise" && (
-              <div>
-                {!analisando && !analise && (
-                  <div style={{...base.card,textAlign:"center"}}>
-                    <div style={{fontSize:13,color:C.dim,marginBottom:16}}>Diagnóstico completo com IA especializada em Mercado Livre</div>
-                    <button style={{...base.btnYellow,padding:"12px 32px",fontSize:15}} onClick={gerarAnalise}>🤖 Gerar Análise do Dia</button>
-                  </div>
-                )}
-                {analisando && <div style={{...base.card,textAlign:"center",padding:40}}><div style={{color:C.dim}}>🤖 Analisando sua conta...</div></div>}
-                {analise && (
-                  <div style={base.card}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-                      <div style={{fontSize:12,color:C.muted,fontWeight:600}}>DIAGNÓSTICO — {new Date().toLocaleDateString("pt-BR")}</div>
-                      <button style={{...base.btnYellow,padding:"6px 14px",fontSize:12}} onClick={gerarAnalise}>Reanalisar</button>
-                    </div>
-                    <div style={{fontSize:14,color:C.dim,lineHeight:1.9,whiteSpace:"pre-wrap"}}>{analise}</div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {tab==="manual" && (
-              <div style={base.card}>
-                <div style={{fontWeight:700,color:C.text,marginBottom:6}}>Análise de Dados Manuais</div>
-                <div style={{fontSize:13,color:C.dim,marginBottom:16,lineHeight:1.6}}>Cole relatórios exportados do ML: CSV de publicidade, impressões, campanhas de ads.</div>
-                <textarea value={uploadData} onChange={e=>setUploadData(e.target.value)}
-                  placeholder="Cole dados do ML aqui..."
-                  style={{...base.input,height:160,resize:"vertical",fontFamily:"monospace",fontSize:12,lineHeight:1.5}} />
-                <button style={{...base.btnYellow,width:"100%",marginTop:12}} onClick={analisarManual} disabled={analisando}>
-                  {analisando?"Analisando...":"🤖 Analisar com IA"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ── APP ROOT ────────────────────────────────────────────────
-    function App() {
-      const [user,      setUser]      = useState(undefined);
-      const [mlConfig,  setMlConfig]  = useState(null);
-      const [mlLoading, setMlLoading] = useState(false);
-
-      useEffect(() => {
-        return auth.onAuthStateChanged(async (u) => {
-          setUser(u);
-          if (u) {
-            setMlLoading(true);
-            try {
-              const snap = await db.collection("users").doc(u.uid).collection("mlTokens").doc("main").get();
-              if (snap.exists) {
-                const data = snap.data();
-                if ((data.expires_at?.toMillis?.() || 0) > Date.now() + 60000) {
-                  setMlConfig(true);
-                } else {
-                  setMlConfig(null);
-                }
-              } else {
-                setMlConfig(null);
-              }
-            } catch { setMlConfig(null); }
-            finally { setMlLoading(false); }
-          } else {
-            setMlConfig(null);
-          }
-        });
-      }, []);
-
-      async function handleConectado() {
-        setMlConfig(true);
-      }
-
-      if (user === undefined || mlLoading) return <Load />;
-      if (!user) return <TelaLogin />;
-      if (!mlConfig) return <TelaConectarML user={user} onConectado={handleConectado} />;
-
-      return <Dashboard user={user} onSair={() => { setMlConfig(null); auth.signOut(); }} />;
-    }
-
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  </script>
-</body>
-</html>
+    return {
+      seller: { nickname:seller.nickname, id:seller.id },
+      pedidos,
+      anuncios,
+      metricas: {
+        fat, qtd, tarifas, frete, vis,
+        totalAds:ids.length,
+        pedidosDia:pedidosRaw.length,
+        canceladas:0,
+        periodo,
+      },
+    };
+  });
