@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ML Analyzer — RealEcom</title>
+  <title>realecom · ML Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -12,496 +16,846 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0D0D0D; color: #fff; font-family: Tahoma, Geneva, sans-serif; min-height: 100vh; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #111; }
-    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    /* ── RESET ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+
+    /* ── DESIGN TOKENS ───────────────────────────────────────── */
+    :root {
+      --orange-500: #FF5200;
+      --orange-600: #E04900;
+      --purple-500: #7B2ECC;
+      --purple-100: rgba(123,46,204,.12);
+      --green-500:  #16a34a;
+      --green-100:  rgba(34,197,94,.12);
+      --red-500:    #dc2626;
+      --red-100:    rgba(239,68,68,.12);
+
+      --surface-page:     #111111;
+      --surface-sidebar:  #0D0D0D;
+      --surface-card:     #FFFFFF;
+      --surface-sunken:   #F7F7F7;
+      --surface-hover:    rgba(0,0,0,.04);
+      --surface-selected: rgba(255,82,0,.08);
+      --neutral-1000:     #0D0D0D;
+
+      --text-primary:  #0D0D0D;
+      --text-secondary:#4B4B4B;
+      --text-muted:    rgba(0,0,0,.45);
+      --text-disabled: rgba(0,0,0,.28);
+      --text-on-dark:  #FFFFFF;
+      --text-on-dark-muted: rgba(255,255,255,.52);
+
+      --border-subtle:  rgba(0,0,0,.08);
+      --border-default: rgba(0,0,0,.14);
+      --border-sidebar: rgba(255,255,255,.08);
+
+      --radius-sm:   6px;
+      --radius-md:   8px;
+      --radius-lg:   14px;
+      --radius-xl:   18px;
+      --radius-2xl:  24px;
+      --radius-pill: 999px;
+
+      --font-sans:    'Manrope', system-ui, sans-serif;
+      --font-display: 'Anton', system-ui, sans-serif;
+      --font-mono:    'JetBrains Mono', monospace;
+
+      --text-xs:   11px;
+      --text-sm:   13px;
+      --text-base: 15px;
+      --text-lg:   17px;
+      --text-xl:   20px;
+      --text-2xl:  24px;
+      --text-3xl:  30px;
+      --text-4xl:  38px;
+
+      --weight-regular:   400;
+      --weight-medium:    500;
+      --weight-semi:      600;
+      --weight-bold:      700;
+      --weight-extrabold: 800;
+
+      --space-1: 4px; --space-2: 8px; --space-3: 12px;
+      --space-4: 16px; --space-5: 20px; --space-6: 24px;
+      --space-8: 32px; --space-9: 36px; --space-12: 48px;
+
+      --layout-page-gutter: 24px;
+      --layout-card-pad:    20px;
+      --layout-card-pad-lg: 24px;
+      --layout-grid-gap:    16px;
+      --layout-sidebar:     248px;
+      --layout-sidebar-col: 72px;
+      --layout-topbar:      64px;
+      --layout-bottomnav:   64px;
+      --layout-max-content: 1440px;
+
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.04), 0 2px 6px -2px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 4px -2px rgba(0,0,0,.06);
+
+      --tracking-wide:    0.06em;
+      --tracking-caps:    0.08em;
+      --tracking-tight:   -0.01em;
+      --tracking-display: -0.02em;
+      --transition-control: 140ms ease;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      font-size: var(--text-base);
+      color: var(--text-primary);
+      background: var(--surface-page);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .rl-tabular { font-variant-numeric: tabular-nums; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 3px; }
+
+    /* lucide icon helper */
+    [data-lucide] { display: inline-block; vertical-align: middle; }
+
+    @media (max-width: 768px) {
+      .desktop-only { display: none !important; }
+    }
+    @media (min-width: 769px) {
+      .mobile-only { display: none !important; }
+    }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+<div id="root"></div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",
-      authDomain: "calculadora-real-ecom.firebaseapp.com",
-      projectId: "calculadora-real-ecom",
-      storageBucket: "calculadora-real-ecom.firebasestorage.app",
-      messagingSenderId: "845239286688",
-      appId: "1:845239286688:web:71018a44cabee0025842c5"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth      = firebase.auth();
-    const db        = firebase.firestore();
-    const functions = firebase.app().functions('southamerica-east1');
+<script>
+  /* ── FIREBASE ──────────────────────────────────────────────── */
+  const firebaseConfig = {
+    apiKey: "AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",
+    authDomain: "calculadora-real-ecom.firebaseapp.com",
+    projectId: "calculadora-real-ecom",
+    storageBucket: "calculadora-real-ecom.firebasestorage.app",
+    messagingSenderId: "845239286688",
+    appId: "1:845239286688:web:71018a44cabee0025842c5"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth      = firebase.auth();
+  const db        = firebase.firestore();
+  const functions = firebase.app().functions('southamerica-east1');
 
-    const ML_CLIENT_ID = '3936370948601703';
-    const ML_REDIRECT  = 'https://ollmestorerj.github.io/ml-analyzer/';
+  const ML_CLIENT_ID = '3936370948601703';
+  const ML_REDIRECT  = 'https://ollmestorerj.github.io/ml-analyzer/';
 
-    const BRL = v => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
-    const NUM = v => new Intl.NumberFormat("pt-BR").format(v||0);
-    const PCT = v => `${(v||0).toFixed(1)}%`;
+  /* ── FORMATTERS ─────────────────────────────────────────────── */
+  const BRL = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+  const NUM = v => new Intl.NumberFormat('pt-BR').format(v||0);
+  const PCT = v => `${(+(v||0)).toFixed(1)}%`;
 
-    // Cores RealEcom
-    const C = {
-      bg:     "#0D0D0D",
-      bg2:    "#111111",
-      bgRoxo: "#0f0920",
-      orange: "#FF5200",
-      purple: "#6B0AC9",
-      purple2:"#9333ea",
-      text:   "#ffffff",
-      muted:  "rgba(255,255,255,0.58)",
-      dim:    "rgba(255,255,255,0.28)",
-      border: "rgba(255,255,255,0.08)",
-    };
-  </script>
+  /* ── LUCIDE RENDER ──────────────────────────────────────────── */
+  function renderLucide() {
+    if (window.lucide) setTimeout(() => lucide.createIcons(), 50);
+  }
+</script>
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
 
-    // ── LOGO ─────────────────────────────────────────────────────
-    const Logo = ({size=22}) => (
-      <span style={{fontFamily:"Impact,sans-serif",fontSize:size,fontWeight:900,letterSpacing:-0.5}}>
-        <span style={{color:C.purple2}}>real</span><span style={{color:C.orange}}>ecom</span>
-      </span>
-    );
+/* ════════════════════════════════════════════════════════════
+   DS PRIMITIVES
+   ════════════════════════════════════════════════════════════ */
 
-    // ── PERIOD PILLS ─────────────────────────────────────────────
-    const PERIODOS = [
-      { id:"hoje",    label:"Hoje" },
-      { id:"ontem",   label:"Ontem" },
-      { id:"7d",      label:"7 dias" },
-      { id:"30d",     label:"30 dias" },
-      { id:"mes",     label:"Mês Atual" },
-    ];
+/* Wordmark */
+const Wordmark = ({ size = 18, dark = false }) => (
+  <span style={{ fontFamily:'Anton,sans-serif', fontSize:size, letterSpacing:-0.3, userSelect:'none' }}>
+    <span style={{ color: dark ? '#fff' : '#9333ea' }}>real</span>
+    <span style={{ color:'#FF5200' }}>ecom</span>
+  </span>
+);
 
-    function PeriodPill({active, onClick, children}) {
-      return (
-        <button onClick={onClick} style={{
-          background: active ? C.orange : "transparent",
-          border: `1px solid ${active ? C.orange : C.border}`,
-          borderRadius: 50, padding: "5px 14px",
-          color: active ? "#fff" : C.muted,
-          cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 400,
-          transition: "all .15s", whiteSpace: "nowrap",
-        }}>{children}</button>
-      );
+/* Icon (Lucide) */
+const Icon = ({ name, size=18, color='currentColor', style={} }) => {
+  const ref = React.useRef(null);
+  useEffect(() => {
+    if (ref.current && window.lucide) {
+      ref.current.innerHTML = '';
+      const svg = lucide.icons[name];
+      if (svg) {
+        const el = document.createElement('i');
+        el.setAttribute('data-lucide', name);
+        ref.current.appendChild(el);
+        lucide.createIcons({ nodes: [el] });
+        const s = ref.current.querySelector('svg');
+        if (s) { s.setAttribute('width', size); s.setAttribute('height', size); s.style.color = color; }
+      }
     }
+  }, [name, size, color]);
+  return <span ref={ref} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', ...style }} />;
+};
 
-    // ── METRIC CARD ──────────────────────────────────────────────
-    function MetricCard({label, value, sub, accent=C.orange, icon}) {
-      return (
-        <div style={{
-          background: C.bg2, borderRadius: 10,
-          border: `1px solid ${C.border}`,
-          borderLeft: `3px solid ${accent}`,
-          padding: "16px 18px",
+/* Badge */
+const Badge = ({ children, tone='default', pill=false }) => {
+  const tones = {
+    default: { bg:'rgba(0,0,0,.06)', color:'#4B4B4B' },
+    success: { bg:'rgba(34,197,94,.12)', color:'#16a34a' },
+    danger:  { bg:'rgba(239,68,68,.12)', color:'#dc2626' },
+    warning: { bg:'rgba(245,158,11,.12)', color:'#d97706' },
+    brand:   { bg:'rgba(255,82,0,.12)', color:'#FF5200' },
+  };
+  const t = tones[tone] || tones.default;
+  return (
+    <span style={{
+      display:'inline-flex', alignItems:'center', gap:4,
+      background:t.bg, color:t.color,
+      fontSize:11, fontWeight:600, letterSpacing:'0.04em',
+      padding: pill ? '3px 10px' : '2px 7px',
+      borderRadius: pill ? 999 : 6,
+    }}>{children}</span>
+  );
+};
+
+/* Button */
+const Btn = ({ children, variant='primary', size='md', onClick, disabled, full, icon, style={} }) => {
+  const variants = {
+    primary:   { bg:'#FF5200', color:'#fff', border:'none' },
+    secondary: { bg:'transparent', color:'#0D0D0D', border:'1px solid rgba(0,0,0,.14)' },
+    ghost:     { bg:'transparent', color:'#4B4B4B', border:'none' },
+    danger:    { bg:'rgba(239,68,68,.1)', color:'#dc2626', border:'none' },
+  };
+  const sizes = { sm:{h:32,px:12,fs:12}, md:{h:40,px:16,fs:13}, lg:{h:48,px:20,fs:15} };
+  const v = variants[variant]; const s = sizes[size];
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+      height:s.h, padding:`0 ${s.px}px`, borderRadius:'var(--radius-md)',
+      fontSize:s.fs, fontWeight:700, fontFamily:'var(--font-sans)',
+      cursor:disabled?'not-allowed':'pointer', width:full?'100%':'auto',
+      opacity:disabled?.6:1, transition:'var(--transition-control)',
+      ...v, ...style,
+    }}>{icon && <Icon name={icon} size={s.fs+2} />}{children}</button>
+  );
+};
+
+/* StatCard */
+const StatCard = ({ label, value, caption, delta, deltaDir, icon, accent='brand', style={} }) => {
+  const up = deltaDir ? deltaDir==='up' : String(delta||'').startsWith('+');
+  const good = deltaDir==='down-good' ? !up : up;
+  const deltaColor = delta==null ? null : good ? '#16a34a' : '#dc2626';
+  const accentColor = { brand:'#FF5200', accent:'#7B2ECC', success:'#16a34a', info:'#3b82f6' }[accent];
+  return (
+    <div style={{
+      background:'var(--surface-card)', border:'1px solid var(--border-subtle)',
+      borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-sm)',
+      padding:'var(--layout-card-pad)', display:'flex', flexDirection:'column',
+      gap:'var(--space-3)', minWidth:0, ...style
+    }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+        <span style={{ fontSize:'var(--text-xs)', fontWeight:600, color:'var(--text-muted)', letterSpacing:'var(--tracking-wide)' }}>
+          {label}
+        </span>
+        {icon && (
+          <span style={{ width:28, height:28, borderRadius:'var(--radius-sm)', background:'var(--surface-sunken)', display:'inline-flex', alignItems:'center', justifyContent:'center' }}>
+            <Icon name={icon} size={14} color={accentColor} />
+          </span>
+        )}
+      </div>
+      <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
+        <span className="rl-tabular" style={{ fontSize:'var(--text-3xl)', fontWeight:'var(--weight-extrabold)', letterSpacing:'var(--tracking-tight)', color:'var(--text-primary)' }}>
+          {value}
+        </span>
+        {delta != null && (
+          <span style={{ fontSize:'var(--text-xs)', fontWeight:700, color:deltaColor,
+            background:good?'var(--green-100)':'var(--red-100)', borderRadius:999, padding:'2px 7px' }}>
+            {delta}
+          </span>
+        )}
+      </div>
+      {caption && (
+        <span style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)', lineHeight:1.4 }}>{caption}</span>
+      )}
+    </div>
+  );
+};
+
+/* Skeleton */
+const Skeleton = ({ w='100%', h=16, radius=6 }) => (
+  <div style={{ width:w, height:h, borderRadius:radius, background:'linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)', backgroundSize:'200% 100%', animation:'shimmer 1.5s infinite' }} />
+);
+
+/* ════════════════════════════════════════════════════════════
+   PERIOD FILTER
+   ════════════════════════════════════════════════════════════ */
+const PERIODOS = ['hoje','ontem','7d','30d','mes'];
+const PERIODO_LABELS = { hoje:'Hoje', ontem:'Ontem', '7d':'7 dias', '30d':'30 dias', mes:'Mês atual' };
+
+const PeriodFilter = ({ value, onChange }) => (
+  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+    {PERIODOS.map(p => (
+      <button key={p} onClick={() => onChange(p)} style={{
+        height:32, padding:'0 14px', borderRadius:'var(--radius-pill)',
+        fontSize:'var(--text-xs)', fontWeight:600,
+        cursor:'pointer', transition:'var(--transition-control)',
+        background: value===p ? '#FF5200' : 'transparent',
+        color: value===p ? '#fff' : 'rgba(255,255,255,.6)',
+        border: `1px solid ${value===p ? '#FF5200' : 'rgba(255,255,255,.14)'}`,
+      }}>{PERIODO_LABELS[p]}</button>
+    ))}
+  </div>
+);
+
+/* ════════════════════════════════════════════════════════════
+   TELA LOGIN
+   ════════════════════════════════════════════════════════════ */
+function TelaLogin() {
+  const [email,setEmail]=useState(''); const [senha,setSenha]=useState('');
+  const [loading,setLoading]=useState(false); const [err,setErr]=useState('');
+
+  async function login() {
+    if (!email||!senha) { setErr('Preencha email e senha'); return; }
+    setLoading(true); setErr('');
+    try { await auth.signInWithEmailAndPassword(email,senha); }
+    catch(e) {
+      const m={'auth/invalid-credential':'Email ou senha incorretos','auth/too-many-requests':'Muitas tentativas. Aguarde.'};
+      setErr(m[e.code]||e.message);
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ width:360 }}>
+        <div style={{ textAlign:'center', marginBottom:36 }}>
+          <Wordmark size={28} dark />
+          <div style={{ width:36, height:3, background:'linear-gradient(to right,#9333ea,#FF5200)', borderRadius:2, margin:'12px auto 12px' }} />
+          <div style={{ fontSize:11, color:'rgba(255,255,255,.38)', letterSpacing:'0.1em', textTransform:'uppercase' }}>ML Analyzer</div>
+        </div>
+        <div style={{ background:'#1a1a1a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'var(--radius-xl)', padding:24 }}>
+          {['Email','Senha'].map((lbl,i) => (
+            <div key={lbl} style={{ marginBottom:i===0?14:20 }}>
+              <label style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,.45)', display:'block', marginBottom:6, letterSpacing:'0.06em', textTransform:'uppercase' }}>{lbl}</label>
+              <input
+                type={i===1?'password':'email'}
+                placeholder={i===0?'seu@email.com':'••••••••'}
+                value={i===0?email:senha}
+                onChange={e => i===0?setEmail(e.target.value):setSenha(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&login()}
+                style={{ background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)', borderRadius:'var(--radius-md)', padding:'10px 14px', color:'#fff', width:'100%', fontSize:14, outline:'none', fontFamily:'var(--font-sans)' }}
+              />
+            </div>
+          ))}
+          {err && <div style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', color:'#f87171', fontSize:13, marginBottom:14 }}>{err}</div>}
+          <button onClick={login} disabled={loading} style={{ width:'100%', height:44, background:'#FF5200', color:'#fff', border:'none', borderRadius:'var(--radius-md)', fontSize:15, fontWeight:700, cursor:loading?'not-allowed':'pointer', opacity:loading?.7:1, fontFamily:'var(--font-sans)' }}>
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+          <div style={{ textAlign:'center', marginTop:14, fontSize:11, color:'rgba(255,255,255,.28)' }}>Mesmo login da Calculadora REAL</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   TELA CONECTAR ML
+   ════════════════════════════════════════════════════════════ */
+function TelaConectarML({ user, onConectado }) {
+  const [conectando,setConectando]=useState(false);
+  const [err,setErr]=useState('');
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const code = p.get('code');
+    if (code) { window.history.replaceState({},'',window.location.pathname); conectarComCode(code); }
+  }, []);
+
+  async function conectarComCode(code) {
+    setConectando(true); setErr('');
+    try {
+      const fn = functions.httpsCallable('mlTokenExchange');
+      const r  = await fn({ code });
+      if (r.data.success) onConectado();
+    } catch(e) { setErr('Erro: '+(e.message||'Tente novamente')); setConectando(false); }
+  }
+
+  if (conectando) return (
+    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
+      <Wordmark size={24} dark />
+      <div style={{ fontSize:13, color:'rgba(255,255,255,.45)' }}>Conectando sua conta do Mercado Livre...</div>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ width:420, textAlign:'center' }}>
+        <Wordmark size={24} dark />
+        <div style={{ fontSize:20, fontWeight:700, color:'#fff', margin:'20px 0 8px', fontFamily:'var(--font-sans)' }}>Conectar Mercado Livre</div>
+        <div style={{ fontSize:13, color:'rgba(255,255,255,.45)', marginBottom:28 }}>
+          Olá, <strong style={{ color:'#fff' }}>{user.email?.split('@')[0]}</strong>. Autorize o acesso à sua conta.
+        </div>
+        <div style={{ background:'#1a1a1a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'var(--radius-xl)', padding:24 }}>
+          <div style={{ fontSize:13, color:'rgba(255,255,255,.45)', marginBottom:20, lineHeight:1.6 }}>
+            Clique abaixo — você será redirecionado ao Mercado Livre e voltará automaticamente.
+          </div>
+          {err && <div style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', color:'#f87171', fontSize:13, marginBottom:14 }}>{err}</div>}
+          <button
+            onClick={() => { window.location.href = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`; }}
+            style={{ width:'100%', height:44, background:'#FF5200', color:'#fff', border:'none', borderRadius:'var(--radius-md)', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-sans)' }}>
+            Autorizar com Mercado Livre
+          </button>
+          <button onClick={() => auth.signOut()} style={{ background:'none', border:'none', color:'rgba(255,255,255,.3)', cursor:'pointer', fontSize:12, marginTop:14 }}>Sair</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   TABELA DE PEDIDOS
+   ════════════════════════════════════════════════════════════ */
+function TabelaPedidos({ pedidos, loading }) {
+  const cols = [
+    { key:'foto',   label:'',        w:52   },
+    { key:'titulo', label:'Título',  flex:1 },
+    { key:'sku',    label:'SKU',     w:90   },
+    { key:'data',   label:'Data',    w:110  },
+    { key:'qtde',   label:'Qtde',    w:52   },
+    { key:'valor',  label:'Valor',   w:100  },
+    { key:'tarifa', label:'Tarifa',  w:90   },
+    { key:'frete',  label:'Frete',   w:90   },
+  ];
+
+  const headerStyle = {
+    fontSize:'var(--text-xs)', fontWeight:700, color:'var(--text-muted)',
+    letterSpacing:'var(--tracking-caps)', textTransform:'uppercase',
+  };
+
+  const rowStyle = (i) => ({
+    display:'grid', gridTemplateColumns:'52px 1fr 90px 110px 52px 100px 90px 90px',
+    gap:8, padding:'12px 20px', alignItems:'center',
+    borderBottom:'1px solid var(--border-subtle)',
+    background: i%2===0 ? 'var(--surface-card)' : 'var(--surface-sunken)',
+  });
+
+  if (loading) return (
+    <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', border:'1px solid var(--border-subtle)', overflow:'hidden', boxShadow:'var(--shadow-sm)' }}>
+      {[...Array(4)].map((_,i) => (
+        <div key={i} style={{ padding:'16px 20px', borderBottom:'1px solid var(--border-subtle)', display:'flex', gap:12, alignItems:'center' }}>
+          <Skeleton w={48} h={48} radius={8} />
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}>
+            <Skeleton h={14} />
+            <Skeleton w="40%" h={11} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', border:'1px solid var(--border-subtle)', overflow:'hidden', boxShadow:'var(--shadow-sm)' }}>
+      {/* Header */}
+      <div style={{ display:'grid', gridTemplateColumns:'52px 1fr 90px 110px 52px 100px 90px 90px', gap:8, padding:'10px 20px', background:'var(--surface-sunken)', borderBottom:'1px solid var(--border-subtle)' }}>
+        {cols.map(c => <div key={c.key} style={headerStyle}>{c.label}</div>)}
+      </div>
+
+      {pedidos?.length > 0 ? pedidos.map((p,i) => (
+        <div key={p.id||i} style={rowStyle(i)}>
+          {/* Foto */}
+          <div style={{ width:48, height:48, borderRadius:8, overflow:'hidden', background:'var(--surface-sunken)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>
+            {p.foto ? <img src={p.foto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : '📦'}
+          </div>
+          {/* Título */}
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:'var(--text-sm)', fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
+            {p.sku && p.sku !== '—' && <div style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)', marginTop:2, fontFamily:'var(--font-mono)' }}>{p.sku}</div>}
+          </div>
+          {/* SKU */}
+          <div style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)', fontFamily:'var(--font-mono)' }}>{p.sku||'—'}</div>
+          {/* Data */}
+          <div style={{ fontSize:'var(--text-xs)', color:'var(--text-secondary)' }}>{p.data}</div>
+          {/* Qtde */}
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:'var(--text-primary)' }}>{p.qtde}</div>
+          {/* Valor */}
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:'#FF5200' }}>{BRL(p.valor)}</div>
+          {/* Tarifa */}
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)' }}>{BRL(p.tarifa)}</div>
+          {/* Frete */}
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)' }}>{BRL(p.frete)}</div>
+        </div>
+      )) : (
+        <div style={{ padding:48, textAlign:'center' }}>
+          <Icon name="package" size={32} color="rgba(0,0,0,.2)" />
+          <div style={{ fontSize:'var(--text-sm)', color:'var(--text-muted)', marginTop:12 }}>Nenhum pedido no período</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   SIDEBAR NAV
+   ════════════════════════════════════════════════════════════ */
+const NAV = [
+  { id:'dashboard', icon:'layout-dashboard', label:'Visão geral' },
+  { id:'pedidos',   icon:'shopping-cart',    label:'Pedidos' },
+  { id:'anuncios',  icon:'package',          label:'Anúncios' },
+];
+
+function SidebarNav({ active, onSelect, seller, onSair }) {
+  return (
+    <aside style={{
+      width:'var(--layout-sidebar)', minHeight:'100vh', background:'var(--surface-sidebar)',
+      display:'flex', flexDirection:'column', borderRight:'1px solid var(--border-sidebar)',
+      position:'fixed', top:0, left:0, zIndex:30,
+    }}>
+      {/* Logo */}
+      <div style={{ height:'var(--layout-topbar)', display:'flex', alignItems:'center', padding:'0 20px', borderBottom:'1px solid var(--border-sidebar)' }}>
+        <Wordmark size={20} dark />
+      </div>
+
+      {/* Nav items */}
+      <nav style={{ flex:1, padding:'8px 8px' }}>
+        {NAV.map(item => {
+          const isActive = active === item.id;
+          return (
+            <button key={item.id} onClick={() => onSelect(item.id)} style={{
+              display:'flex', alignItems:'center', gap:10, width:'100%', height:40,
+              padding:'0 12px', borderRadius:'var(--radius-md)', border:'none',
+              background: isActive ? 'rgba(255,82,0,.12)' : 'transparent',
+              color: isActive ? '#FF5200' : 'rgba(255,255,255,.55)',
+              cursor:'pointer', fontSize:'var(--text-sm)', fontWeight: isActive ? 700 : 500,
+              fontFamily:'var(--font-sans)', transition:'var(--transition-control)',
+              marginBottom:2,
+            }}>
+              <Icon name={item.icon} size={16} color={isActive ? '#FF5200' : 'rgba(255,255,255,.45)'} />
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* User footer */}
+      <div style={{ padding:'12px 16px', borderTop:'1px solid var(--border-sidebar)', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:'50%', background:'rgba(255,82,0,.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <Icon name="user" size={16} color="#FF5200" />
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:'var(--text-xs)', fontWeight:700, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {seller?.nickname || '...'}
+          </div>
+          <button onClick={onSair} style={{ background:'none', border:'none', color:'rgba(255,255,255,.35)', cursor:'pointer', fontSize:11, padding:0 }}>Sair</button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOP BAR
+   ════════════════════════════════════════════════════════════ */
+function TopBar({ hora, loading, onRefresh }) {
+  return (
+    <header style={{
+      height:'var(--layout-topbar)', background:'var(--surface-page)',
+      borderBottom:`1px solid ${getComputedStyle(document.documentElement).getPropertyValue('--border-sidebar')||'rgba(255,255,255,.08)'}`,
+      display:'flex', alignItems:'center', justifyContent:'flex-end',
+      padding:`0 var(--layout-page-gutter)`, gap:12,
+      position:'sticky', top:0, zIndex:20,
+    }}>
+      {hora && <span style={{ fontSize:'var(--text-xs)', color:'rgba(255,255,255,.35)' }}>Atualizado às {hora}</span>}
+      <button onClick={onRefresh} disabled={loading} style={{
+        display:'inline-flex', alignItems:'center', gap:6,
+        height:32, padding:'0 12px', borderRadius:'var(--radius-md)',
+        background:'transparent', border:'1px solid rgba(255,255,255,.1)',
+        color:'rgba(255,255,255,.55)', cursor:loading?'not-allowed':'pointer',
+        fontSize:'var(--text-xs)', fontWeight:600, fontFamily:'var(--font-sans)',
+      }}>
+        <Icon name="refresh-cw" size={12} color="currentColor" />
+        {loading ? 'Atualizando' : 'Atualizar'}
+      </button>
+    </header>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   DASHBOARD VIEW
+   ════════════════════════════════════════════════════════════ */
+function ViewDashboard({ dados, loading, periodo, onPeriodo }) {
+  const m = dados?.metricas || {};
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'var(--layout-grid-gap)' }}>
+
+      {/* Hero — faturamento */}
+      <section style={{
+        background:'var(--neutral-1000)', borderRadius:'var(--radius-2xl)',
+        padding:'22px var(--layout-card-pad-lg)',
+        display:'flex', gap:'var(--space-6)', flexWrap:'wrap', alignItems:'flex-start',
+        justifyContent:'space-between',
+      }}>
+        <div style={{ display:'flex', gap:'var(--space-9)', flexWrap:'wrap', flex:1, minWidth:220 }}>
+          <div>
+            <div style={{ fontSize:'var(--text-xs)', color:'rgba(255,255,255,.48)', letterSpacing:'var(--tracking-wide)', fontWeight:600 }}>FATURAMENTO</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:10, marginTop:4 }}>
+              {loading ? <Skeleton w={160} h={38} /> : (
+                <span className="rl-tabular" style={{ fontSize:'var(--text-4xl)', fontWeight:'var(--weight-extrabold)', color:'#fff', letterSpacing:'var(--tracking-display)', fontFamily:'var(--font-sans)' }}>
+                  {BRL(m.fat)}
+                </span>
+              )}
+            </div>
+            {!loading && <div style={{ fontSize:'var(--text-xs)', color:'rgba(255,255,255,.38)', marginTop:6 }}>{m.pedidosDia||0} pedidos · {m.qtd||0} unidades</div>}
+          </div>
+        </div>
+        <PeriodFilter value={periodo} onChange={onPeriodo} />
+      </section>
+
+      {/* KPI grid */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'var(--layout-grid-gap)' }}>
+        {loading ? [...Array(5)].map((_,i) => (
+          <div key={i} style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:'var(--layout-card-pad)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', gap:12 }}>
+            <Skeleton w="60%" h={11} /><Skeleton h={30} /><Skeleton w="80%" h={11} />
+          </div>
+        )) : [
+          { label:'VENDAS', value:NUM(m.pedidosDia), caption:`${m.qtd||0} unidades no período`, icon:'shopping-cart' },
+          { label:'TICKET MÉDIO', value:BRL(m.pedidosDia>0?m.fat/m.pedidosDia:0), icon:'tag', accent:'accent' },
+          { label:'TARIFAS ML', value:BRL(m.tarifas), caption:m.fat>0?PCT((m.tarifas/m.fat)*100):'—', icon:'percent' },
+          { label:'FRETE VENDEDOR', value:BRL(m.frete), caption:m.fat>0?PCT((m.frete/m.fat)*100):'—', icon:'truck', accent:'accent' },
+          { label:'ANÚNCIOS ATIVOS', value:NUM(m.totalAds), icon:'package' },
+        ].map(card => <StatCard key={card.label} {...card} />)}
+      </div>
+
+      {/* Tabela de pedidos */}
+      <div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+          <div style={{ fontSize:'var(--text-base)', fontWeight:700, color:'rgba(255,255,255,.85)' }}>Pedidos</div>
+          <Badge tone="default">{dados?.pedidos?.length||0} resultados</Badge>
+        </div>
+        <TabelaPedidos pedidos={dados?.pedidos} loading={loading} />
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   ANUNCIOS VIEW
+   ════════════════════════════════════════════════════════════ */
+function ViewAnuncios({ dados, loading }) {
+  const anuncios = dados?.anuncios || [];
+
+  if (loading) return (
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      {[...Array(5)].map((_,i) => (
+        <div key={i} style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:'var(--layout-card-pad)', display:'flex', gap:12, alignItems:'center', boxShadow:'var(--shadow-sm)' }}>
+          <Skeleton w={56} h={56} radius={10} />
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}><Skeleton h={14} /><Skeleton w="50%" h={11} /></div>
+          <Skeleton w={80} h={28} />
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+      {/* Header */}
+      <div style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 80px 80px', gap:8, padding:'10px 20px', borderRadius:'var(--radius-md)' }}>
+        {['','Título','Preço','Estoque','Visitas','Vendas'].map((h,i) => (
+          <div key={i} style={{ fontSize:'var(--text-xs)', fontWeight:700, color:'rgba(255,255,255,.38)', letterSpacing:'var(--tracking-caps)', textTransform:'uppercase' }}>{h}</div>
+        ))}
+      </div>
+
+      {anuncios.map((a,i) => (
+        <div key={a.id} style={{
+          display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 80px 80px',
+          gap:8, padding:'12px 20px', alignItems:'center',
+          background:'var(--surface-card)', borderRadius:'var(--radius-lg)',
+          boxShadow:'var(--shadow-sm)', border:'1px solid var(--border-subtle)',
+          marginBottom:4,
         }}>
-          <div style={{fontSize:11,color:C.dim,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>
-            {icon} {label}
+          <div style={{ width:52, height:52, borderRadius:10, overflow:'hidden', background:'var(--surface-sunken)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
+            {a.foto ? <img src={a.foto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : '📦'}
           </div>
-          <div style={{fontFamily:"Impact,sans-serif",fontSize:26,color:C.text,letterSpacing:-0.5}}>{value}</div>
-          {sub && <div style={{fontSize:11,color:C.muted,marginTop:4}}>{sub}</div>}
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:'var(--text-sm)', fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.titulo}</div>
+            <div style={{ marginTop:4, display:'flex', gap:6 }}>
+              <Badge tone={a.status==='active'?'success':'danger'}>{a.status==='active'?'Ativo':'Inativo'}</Badge>
+              {a.estoque <= 3 && <Badge tone="warning">⚠ Est: {a.estoque}</Badge>}
+              {a.estoque > 3 && <span style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)' }}>Est: {a.estoque}</span>}
+            </div>
+          </div>
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:'#FF5200' }}>{BRL(a.preco)}</div>
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:a.estoque<=3?'#dc2626':'var(--text-primary)' }}>{a.estoque}</div>
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:a.visitas>0?'#d97706':'var(--text-muted)' }}>{NUM(a.visitas)}</div>
+          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)' }}>{NUM(a.vendas)}</div>
         </div>
-      );
-    }
+      ))}
 
-    // ── TAB BUTTON ───────────────────────────────────────────────
-    function TabBtn({active, onClick, children}) {
-      return (
-        <button onClick={onClick} style={{
-          background:"transparent",
-          borderBottom: `2px solid ${active ? C.orange : "transparent"}`,
-          border:"none", borderRadius:0,
-          padding:"10px 16px", color: active ? C.orange : C.muted,
-          cursor:"pointer", fontSize:13, fontWeight: active ? 700 : 400,
-          transition:"all .15s",
-        }}>{children}</button>
-      );
-    }
-
-    // ── LOADING ──────────────────────────────────────────────────
-    const Load = ({msg="Carregando..."}) => (
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:C.bg}}>
-        <div style={{textAlign:"center"}}>
-          <Logo size={28} />
-          <div style={{color:C.muted,fontSize:13,marginTop:16}}>{msg}</div>
+      {anuncios.length === 0 && (
+        <div style={{ padding:48, textAlign:'center', background:'var(--surface-card)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-sm)' }}>
+          <Icon name="package" size={32} color="rgba(0,0,0,.2)" />
+          <div style={{ fontSize:'var(--text-sm)', color:'var(--text-muted)', marginTop:12 }}>Nenhum anúncio ativo</div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   ANÁLISE IA VIEW
+   ════════════════════════════════════════════════════════════ */
+function ViewIA({ dados, periodo }) {
+  const [analise,setAnalise]=useState(''); const [loading,setLoading]=useState(false);
+
+  async function gerar() {
+    if (!dados) return;
+    setLoading(true); setAnalise('');
+    const topAds = dados.anuncios?.slice(0,15).map(a=>({ titulo:a.titulo, preco:BRL(a.preco), visitas:a.visitas, faturado:BRL(a.fatDia||0), estoque:a.estoque, vendas_total:a.vendas }));
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-6', max_tokens:1000,
+          system:`Você é especialista em Mercado Livre. Analise e entregue:\n🎯 DIAGNÓSTICO (pontos fortes e de atenção)\n🔥 TOP 3 ANÚNCIOS PARA FOCAR\n⚠️ ALERTAS (estoque, visitas)\n💡 3 AÇÕES PRÁTICAS\nSeja direto e específico.`,
+          messages:[{role:'user',content:`Período: ${periodo}\nMétricas: ${JSON.stringify(dados.metricas)}\nAnúncios: ${JSON.stringify(topAds)}`}]
+        })
+      });
+      const d = await r.json();
+      setAnalise(d.content?.[0]?.text||'Erro ao gerar análise');
+    } catch(e) { setAnalise('Erro: '+e.message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div>
+      {!loading && !analise && (
+        <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:32, textAlign:'center', boxShadow:'var(--shadow-sm)', border:'1px solid var(--border-subtle)' }}>
+          <Icon name="sparkles" size={28} color="#FF5200" />
+          <div style={{ fontSize:'var(--text-base)', color:'var(--text-secondary)', margin:'12px 0 20px', lineHeight:1.6 }}>
+            Diagnóstico completo da conta com IA especializada em Mercado Livre
+          </div>
+          <Btn onClick={gerar} icon="sparkles">Gerar análise do dia</Btn>
+        </div>
+      )}
+      {loading && (
+        <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:48, textAlign:'center', boxShadow:'var(--shadow-sm)' }}>
+          <div style={{ fontSize:'var(--text-sm)', color:'var(--text-muted)' }}>Analisando sua conta...</div>
+        </div>
+      )}
+      {analise && (
+        <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:'var(--layout-card-pad)', boxShadow:'var(--shadow-sm)', border:'1px solid var(--border-subtle)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <div style={{ fontSize:'var(--text-xs)', fontWeight:700, color:'var(--text-muted)', letterSpacing:'var(--tracking-caps)', textTransform:'uppercase' }}>
+              Diagnóstico · {new Date().toLocaleDateString('pt-BR')}
+            </div>
+            <Btn variant="secondary" size="sm" onClick={gerar} icon="refresh-cw">Reanalisar</Btn>
+          </div>
+          <div style={{ fontSize:'var(--text-base)', color:'var(--text-secondary)', lineHeight:1.8, whiteSpace:'pre-wrap' }}>{analise}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   MAIN APP (LOGADO)
+   ════════════════════════════════════════════════════════════ */
+function AppLogado({ user }) {
+  const [view,   setView]   = useState('dashboard');
+  const [periodo,setPeriodo]= useState('hoje');
+  const [dados,  setDados]  = useState(null);
+  const [loading,setLoading]= useState(true);
+  const [err,    setErr]    = useState('');
+
+  useEffect(() => { carregarDados(periodo); }, [periodo]);
+  useEffect(() => { renderLucide(); }, [view, dados, loading]);
+
+  async function carregarDados(p) {
+    setLoading(true); setErr('');
+    try {
+      const fn = functions.httpsCallable('mlGetDados');
+      const r  = await fn({ periodo: p });
+      setDados({ ...r.data, hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) });
+    } catch(e) { setErr('Erro ao carregar: '+e.message); }
+    finally { setLoading(false); }
+  }
+
+  function handleSair() { auth.signOut(); }
+
+  return (
+    <div style={{ display:'flex', minHeight:'100vh', background:'var(--surface-page)' }}>
+      {/* Sidebar */}
+      <SidebarNav active={view} onSelect={setView} seller={dados?.seller} onSair={handleSair} />
+
+      {/* Main */}
+      <div style={{ marginLeft:'var(--layout-sidebar)', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh' }}>
+        <TopBar hora={dados?.hora} loading={loading} onRefresh={() => carregarDados(periodo)} />
+
+        <main style={{ flex:1, padding:'var(--layout-page-gutter)', maxWidth:'var(--layout-max-content)' }}>
+          {err && (
+            <div style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.2)', borderRadius:'var(--radius-lg)', padding:'12px 16px', color:'#f87171', fontSize:'var(--text-sm)', marginBottom:16 }}>
+              {err}
+            </div>
+          )}
+
+          {view === 'dashboard' && (
+            <ViewDashboard dados={dados} loading={loading} periodo={periodo} onPeriodo={p => { setPeriodo(p); }} />
+          )}
+          {view === 'pedidos' && (
+            <div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                <div style={{ fontSize:'var(--text-lg)', fontWeight:700, color:'rgba(255,255,255,.85)' }}>Pedidos</div>
+                <PeriodFilter value={periodo} onChange={setPeriodo} />
+              </div>
+              <TabelaPedidos pedidos={dados?.pedidos} loading={loading} />
+            </div>
+          )}
+          {view === 'anuncios' && (
+            <div>
+              <div style={{ fontSize:'var(--text-lg)', fontWeight:700, color:'rgba(255,255,255,.85)', marginBottom:16 }}>Anúncios</div>
+              <ViewAnuncios dados={dados} loading={loading} />
+            </div>
+          )}
+        </main>
       </div>
-    );
+    </div>
+  );
+}
 
-    // ── ERR BOX ──────────────────────────────────────────────────
-    const ErrBox = ({msg}) => msg ? (
-      <div style={{background:"#1a0a0a",border:"1px solid #FF520055",borderRadius:8,padding:"12px 16px",color:"#ff8866",fontSize:13,marginBottom:16}}>
-        {msg}
-      </div>
-    ) : null;
+/* ════════════════════════════════════════════════════════════
+   APP ROOT
+   ════════════════════════════════════════════════════════════ */
+function App() {
+  const [user,     setUser]     = useState(undefined);
+  const [mlOk,     setMlOk]     = useState(null);
+  const [mlLoading,setMlLoading]= useState(false);
 
-    // ── TELA LOGIN ───────────────────────────────────────────────
-    function TelaLogin() {
-      const [email,setEmail]=useState(""); const [senha,setSenha]=useState("");
-      const [loading,setLoading]=useState(false); const [err,setErr]=useState("");
-
-      async function login() {
-        if(!email||!senha){setErr("Preencha email e senha");return;}
-        setLoading(true);setErr("");
-        try { await auth.signInWithEmailAndPassword(email,senha); }
-        catch(e) {
-          const m={"auth/invalid-credential":"Email ou senha incorretos","auth/too-many-requests":"Muitas tentativas. Aguarde."};
-          setErr(m[e.code]||e.message);
-        } finally{setLoading(false);}
-      }
-
-      return (
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:C.bg,padding:24}}>
-          <div style={{maxWidth:380,width:"100%"}}>
-            {/* Logo + barra lateral */}
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:36}}>
-              <Logo size={32} />
-              <div style={{width:40,height:3,background:`linear-gradient(to right,${C.purple2},${C.orange})`,borderRadius:2,marginTop:10}}></div>
-              <div style={{fontSize:12,color:C.dim,marginTop:10,letterSpacing:2,textTransform:"uppercase"}}>ML Analyzer</div>
-            </div>
-
-            <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:12,padding:24}}>
-              <div style={{marginBottom:14}}>
-                <label style={{fontSize:11,color:C.dim,display:"block",marginBottom:6,letterSpacing:1,textTransform:"uppercase"}}>Email</label>
-                <input type="email" placeholder="seu@email.com" value={email} onChange={e=>setEmail(e.target.value)}
-                  style={{background:"#1a1a1a",border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 14px",color:C.text,width:"100%",fontSize:14,outline:"none"}} />
-              </div>
-              <div style={{marginBottom:20}}>
-                <label style={{fontSize:11,color:C.dim,display:"block",marginBottom:6,letterSpacing:1,textTransform:"uppercase"}}>Senha</label>
-                <input type="password" placeholder="••••••••" value={senha} onChange={e=>setSenha(e.target.value)}
-                  onKeyDown={e=>e.key==="Enter"&&login()}
-                  style={{background:"#1a1a1a",border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 14px",color:C.text,width:"100%",fontSize:14,outline:"none"}} />
-              </div>
-              <ErrBox msg={err} />
-              <button onClick={login} disabled={loading} style={{
-                background:C.orange,color:"#fff",border:"none",borderRadius:6,
-                padding:"12px 20px",fontWeight:700,cursor:"pointer",fontSize:15,width:"100%",
-                opacity:loading?.7:1,fontFamily:"Tahoma,sans-serif",
-              }}>{loading?"Entrando...":"Entrar"}</button>
-              <div style={{textAlign:"center",marginTop:14,fontSize:11,color:C.dim}}>
-                Mesmo login da Calculadora REAL
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ── TELA CONECTAR ML ─────────────────────────────────────────
-    function TelaConectarML({user, onConectado}) {
-      const [conectando,setConectando]=useState(false);
-      const [err,setErr]=useState("");
-
-      useEffect(()=>{
-        const p=new URLSearchParams(window.location.search);
-        const code=p.get("code");
-        if(code){ window.history.replaceState({},"",window.location.pathname); conectarComCode(code); }
-      },[]);
-
-      async function conectarComCode(code) {
-        setConectando(true);setErr("");
+  useEffect(() => {
+    return auth.onAuthStateChanged(async u => {
+      setUser(u);
+      if (u) {
+        setMlLoading(true);
         try {
-          const fn=functions.httpsCallable("mlTokenExchange");
-          const r=await fn({code});
-          if(r.data.success) onConectado();
-        } catch(e){setErr("Erro: "+(e.message||"Tente novamente"));setConectando(false);}
-      }
+          const snap = await db.collection('users').doc(u.uid).collection('mlTokens').doc('main').get();
+          if (snap.exists) {
+            const d = snap.data();
+            setMlOk((d.expires_at?.toMillis?.()||0) > Date.now()+60000);
+          } else { setMlOk(false); }
+        } catch { setMlOk(false); }
+        finally { setMlLoading(false); }
+      } else { setMlOk(null); }
+    });
+  }, []);
 
-      function abrirOAuth(){
-        window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`;
-      }
+  useEffect(() => { renderLucide(); });
 
-      if(conectando) return <Load msg="Conectando sua conta do Mercado Livre..." />;
+  if (user === undefined || mlLoading) return (
+    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center' }}>
+      <Wordmark size={24} dark />
+    </div>
+  );
 
-      return (
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:C.bg,padding:24}}>
-          <div style={{maxWidth:440,width:"100%",textAlign:"center"}}>
-            <Logo size={28} />
-            <div style={{fontSize:20,fontWeight:700,color:C.text,margin:"20px 0 8px",fontFamily:"Georgia,serif"}}>Conectar Mercado Livre</div>
-            <div style={{fontSize:13,color:C.muted,marginBottom:28}}>
-              Olá, <strong style={{color:C.text}}>{user.email?.split("@")[0]}</strong>. Autorize o acesso à sua conta.
-            </div>
-            <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:12,padding:24}}>
-              <div style={{fontSize:13,color:C.muted,marginBottom:20,lineHeight:1.6}}>
-                Clique abaixo — você será redirecionado ao Mercado Livre e voltará automaticamente.
-              </div>
-              <ErrBox msg={err} />
-              <button onClick={abrirOAuth} style={{
-                background:C.orange,color:"#fff",border:"none",borderRadius:6,
-                padding:"14px 20px",fontWeight:700,cursor:"pointer",fontSize:15,width:"100%",fontFamily:"Tahoma,sans-serif",
-              }}>Autorizar com Mercado Livre</button>
-              <div style={{marginTop:14,textAlign:"right"}}>
-                <button onClick={()=>auth.signOut()} style={{background:"transparent",border:"none",color:C.dim,cursor:"pointer",fontSize:12}}>Sair</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
+  if (!user) return <TelaLogin />;
+  if (!mlOk) return <TelaConectarML user={user} onConectado={() => setMlOk(true)} />;
+  return <AppLogado user={user} />;
+}
 
-    // ── DASHBOARD ────────────────────────────────────────────────
-    function Dashboard({user, onSair}) {
-      const [dados,      setDados]      = useState(null);
-      const [loading,    setLoading]    = useState(true);
-      const [err,        setErr]        = useState("");
-      const [periodo,    setPeriodo]    = useState("hoje");
-      const [tab,        setTab]        = useState("vendas");
-      const [analise,    setAnalise]    = useState("");
-      const [analisando, setAnalisando] = useState(false);
-
-      useEffect(()=>{ carregarDados(periodo); },[periodo]);
-
-      async function carregarDados(p) {
-        setLoading(true);setErr("");
-        try {
-          const fn=functions.httpsCallable("mlGetDados");
-          const r=await fn({periodo:p});
-          setDados({...r.data, hora:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})});
-        } catch(e){setErr("Erro: "+e.message);}
-        finally{setLoading(false);}
-      }
-
-      async function gerarAnalise() {
-        if(!dados)return;
-        setAnalisando(true);setAnalise("");setTab("ia");
-        try {
-          const r=await fetch("https://api.anthropic.com/v1/messages",{
-            method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
-              model:"claude-sonnet-4-6",max_tokens:1000,
-              system:`Você é especialista em Mercado Livre. Analise os dados e entregue:
-🎯 DIAGNÓSTICO (pontos fortes e de atenção)
-🔥 TOP 3 ANÚNCIOS PARA FOCAR (com razão)
-⚠️ ALERTAS (estoque crítico, sem visitas)
-💡 3 AÇÕES PARA AMANHÃ
-Seja direto e específico.`,
-              messages:[{role:"user",content:`Período: ${periodo}\nMétricas: ${JSON.stringify(dados.metricas)}\nPedidos: ${JSON.stringify(dados.pedidos?.slice(0,10))}\nAnúncios: ${JSON.stringify(dados.anuncios?.slice(0,10))}`}]
-            })
-          });
-          const d=await r.json();
-          setAnalise(d.content?.[0]?.text||"Erro ao gerar análise");
-        } catch(e){setAnalise("Erro: "+e.message);}
-        finally{setAnalisando(false);}
-      }
-
-      const m = dados?.metricas || {};
-
-      return (
-        <div style={{minHeight:"100vh",background:C.bg}}>
-          {/* HEADER */}
-          <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:20}}>
-            <div style={{display:"flex",alignItems:"center",gap:16}}>
-              <Logo size={20} />
-              <div style={{width:1,height:24,background:C.border}}></div>
-              {/* Barra lateral acento estilo RealEcom */}
-              <div style={{fontSize:11,color:C.dim,letterSpacing:1,textTransform:"uppercase"}}>
-                {dados?.seller?.nickname || user.email?.split("@")[0]}
-              </div>
-            </div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              {loading&&<span style={{fontSize:11,color:C.dim}}>atualizando...</span>}
-              <button onClick={()=>carregarDados(periodo)} disabled={loading} style={{
-                background:"transparent",border:`1px solid ${C.border}`,borderRadius:6,
-                padding:"5px 12px",color:C.muted,cursor:"pointer",fontSize:12,
-              }}>↻</button>
-              <button onClick={onSair} style={{background:"transparent",border:"none",color:C.dim,cursor:"pointer",fontSize:12}}>
-                Sair
-              </button>
-            </div>
-          </div>
-
-          <div style={{padding:"20px 24px",maxWidth:1200,margin:"0 auto"}}>
-            <ErrBox msg={err} />
-
-            {/* FATURAMENTO HERO */}
-            <div style={{background:C.bg2,borderRadius:12,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.orange}`,padding:"20px 24px",marginBottom:16}}>
-              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
-                <div>
-                  <div style={{fontSize:11,color:C.dim,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Faturamento</div>
-                  <div style={{fontFamily:"Impact,sans-serif",fontSize:42,color:C.text,letterSpacing:-1}}>{BRL(m.fat)}</div>
-                  <div style={{fontSize:13,color:C.muted,marginTop:4}}>{m.pedidosDia||0} pedidos · {m.qtd||0} unidades</div>
-                </div>
-                {/* Filtros de período */}
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"flex-start"}}>
-                  {PERIODOS.map(p=>(
-                    <PeriodPill key={p.id} active={periodo===p.id} onClick={()=>setPeriodo(p.id)}>
-                      {p.label}
-                    </PeriodPill>
-                  ))}
-                </div>
-              </div>
-              <div style={{fontSize:11,color:C.dim,marginTop:12}}>
-                Última atualização: {dados?.hora||"—"} · {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})}
-              </div>
-            </div>
-
-            {/* CARDS DE MÉTRICAS */}
-            {dados && (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:20}}>
-                <MetricCard label="Vendas" value={NUM(m.pedidosDia)} sub={`${m.qtd||0} unidades`} accent={C.orange} icon="🛍️" />
-                <MetricCard label="Ticket Médio" value={BRL(m.pedidosDia>0?m.fat/m.pedidosDia:0)} accent={C.purple} icon="🏷️" />
-                <MetricCard label="Tarifas ML" value={BRL(m.tarifas)} sub={PCT(m.fat>0?(m.tarifas/m.fat)*100:0)} accent={C.orange} icon="📊" />
-                <MetricCard label="Frete Vendedor" value={BRL(m.frete)} sub={PCT(m.fat>0?(m.frete/m.fat)*100:0)} accent={C.purple} icon="🚚" />
-                <MetricCard label="Anúncios Ativos" value={NUM(m.totalAds)} accent={C.orange} icon="📦" />
-                <MetricCard label="Canceladas" value={NUM(m.canceladas||0)} accent="#555" icon="❌" />
-              </div>
-            )}
-
-            {/* TABS */}
-            <div style={{display:"flex",gap:0,borderBottom:`1px solid ${C.border}`,marginBottom:20}}>
-              <TabBtn active={tab==="vendas"} onClick={()=>setTab("vendas")}>Pedidos</TabBtn>
-              <TabBtn active={tab==="anuncios"} onClick={()=>setTab("anuncios")}>Anúncios</TabBtn>
-              <TabBtn active={tab==="ia"} onClick={()=>setTab("ia")}>Análise IA</TabBtn>
-            </div>
-
-            {/* TAB: PEDIDOS */}
-            {tab==="vendas" && (
-              <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-                {/* Header tabela */}
-                <div style={{display:"grid",gridTemplateColumns:"56px 1fr 90px 50px 100px 100px 100px",gap:8,padding:"10px 16px",borderBottom:`1px solid ${C.border}`,background:"#161616"}}>
-                  {["Foto","Título","Data","Qtde","Valor","Tarifa","Frete"].map(h=>(
-                    <div key={h} style={{fontSize:10,color:C.dim,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{h}</div>
-                  ))}
-                </div>
-                {/* Linhas */}
-                {dados?.pedidos?.length > 0 ? dados.pedidos.map((p,i)=>(
-                  <div key={p.id||i} style={{
-                    display:"grid",gridTemplateColumns:"56px 1fr 90px 50px 100px 100px 100px",
-                    gap:8,padding:"12px 16px",
-                    borderBottom:`1px solid ${C.border}`,
-                    background:i%2===0?C.bg2:"#131313",
-                    alignItems:"center",
-                  }}>
-                    <div style={{width:48,height:48,borderRadius:6,overflow:"hidden",background:"#1a1a1a",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
-                      {p.foto ? <img src={p.foto} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "📦"}
-                    </div>
-                    <div>
-                      <div style={{fontSize:12,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:500}}>{p.titulo}</div>
-                      <div style={{fontSize:11,color:C.dim,marginTop:2}}>{p.sku||"—"}</div>
-                    </div>
-                    <div style={{fontSize:11,color:C.muted}}>{p.data}</div>
-                    <div style={{fontSize:13,color:C.text,fontFamily:"Impact,sans-serif"}}>{p.qtde}</div>
-                    <div style={{fontSize:13,color:C.orange,fontFamily:"Impact,sans-serif"}}>{BRL(p.valor)}</div>
-                    <div style={{fontSize:12,color:C.muted}}>{BRL(p.tarifa)}</div>
-                    <div style={{fontSize:12,color:C.muted}}>{BRL(p.frete)}</div>
-                  </div>
-                )) : (
-                  <div style={{padding:48,textAlign:"center",color:C.dim}}>
-                    {loading ? "Carregando pedidos..." : "Nenhum pedido no período"}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB: ANÚNCIOS */}
-            {tab==="anuncios" && (
-              <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-                <div style={{display:"grid",gridTemplateColumns:"56px 1fr 80px 80px 80px 80px",gap:8,padding:"10px 16px",borderBottom:`1px solid ${C.border}`,background:"#161616"}}>
-                  {["Foto","Título","Preço","Estoque","Visitas","Vendas"].map(h=>(
-                    <div key={h} style={{fontSize:10,color:C.dim,fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>{h}</div>
-                  ))}
-                </div>
-                {dados?.anuncios?.map((a,i)=>(
-                  <div key={a.id} style={{
-                    display:"grid",gridTemplateColumns:"56px 1fr 80px 80px 80px 80px",
-                    gap:8,padding:"12px 16px",
-                    borderBottom:`1px solid ${C.border}`,
-                    background:i%2===0?C.bg2:"#131313",
-                    alignItems:"center",
-                  }}>
-                    <div style={{width:48,height:48,borderRadius:6,overflow:"hidden",background:"#1a1a1a",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
-                      {a.foto ? <img src={a.foto} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "📦"}
-                    </div>
-                    <div>
-                      <div style={{fontSize:12,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.titulo}</div>
-                      <div style={{fontSize:11,color:a.status==="active"?"#22c55e":"#ef4444",marginTop:2}}>{a.status==="active"?"● Ativo":"● Inativo"}</div>
-                    </div>
-                    <div style={{fontSize:13,color:C.orange,fontFamily:"Impact,sans-serif"}}>{BRL(a.preco)}</div>
-                    <div style={{fontSize:13,color:a.estoque<=3?"#ef4444":C.text,fontFamily:"Impact,sans-serif"}}>{a.estoque}</div>
-                    <div style={{fontSize:13,color:a.visitas>0?"#FFE600":C.dim,fontFamily:"Impact,sans-serif"}}>{NUM(a.visitas)}</div>
-                    <div style={{fontSize:13,color:C.muted,fontFamily:"Impact,sans-serif"}}>{NUM(a.vendas)}</div>
-                  </div>
-                ))}
-                {(!dados?.anuncios||dados.anuncios.length===0)&&(
-                  <div style={{padding:48,textAlign:"center",color:C.dim}}>Sem anúncios ativos</div>
-                )}
-              </div>
-            )}
-
-            {/* TAB: ANÁLISE IA */}
-            {tab==="ia" && (
-              <div>
-                {!analisando && !analise && (
-                  <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:10,padding:32,textAlign:"center"}}>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:16,color:C.muted,marginBottom:20,lineHeight:1.6}}>
-                      Diagnóstico completo da sua conta com IA especializada em Mercado Livre
-                    </div>
-                    <button onClick={gerarAnalise} style={{
-                      background:C.orange,color:"#fff",border:"none",borderRadius:6,
-                      padding:"12px 32px",fontWeight:700,cursor:"pointer",fontSize:15,fontFamily:"Tahoma,sans-serif",
-                    }}>Gerar Análise do Dia</button>
-                  </div>
-                )}
-                {analisando && (
-                  <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:10,padding:48,textAlign:"center",color:C.muted}}>
-                    Analisando sua conta...
-                  </div>
-                )}
-                {analise && (
-                  <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.purple}`,borderRadius:10,padding:24}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-                      <div style={{fontSize:11,color:C.dim,letterSpacing:1,textTransform:"uppercase"}}>
-                        Diagnóstico · {new Date().toLocaleDateString("pt-BR")}
-                      </div>
-                      <button onClick={gerarAnalise} style={{background:"transparent",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 12px",color:C.muted,cursor:"pointer",fontSize:11}}>
-                        Reanalisar
-                      </button>
-                    </div>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:14,color:C.muted,lineHeight:1.9,whiteSpace:"pre-wrap"}}>{analise}</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ── APP ROOT ─────────────────────────────────────────────────
-    function App() {
-      const [user,setUser]=useState(undefined);
-      const [mlOk,setMlOk]=useState(null);
-      const [mlLoading,setMlLoading]=useState(false);
-
-      useEffect(()=>{
-        return auth.onAuthStateChanged(async u=>{
-          setUser(u);
-          if(u){
-            setMlLoading(true);
-            try {
-              const snap=await db.collection("users").doc(u.uid).collection("mlTokens").doc("main").get();
-              if(snap.exists){
-                const d=snap.data();
-                setMlOk((d.expires_at?.toMillis?.()||0)>Date.now()+60000);
-              } else { setMlOk(false); }
-            } catch{setMlOk(false);}
-            finally{setMlLoading(false);}
-          } else{setMlOk(null);}
-        });
-      },[]);
-
-      if(user===undefined||mlLoading) return <Load />;
-      if(!user) return <TelaLogin />;
-      if(!mlOk) return <TelaConectarML user={user} onConectado={()=>setMlOk(true)} />;
-
-      return <Dashboard user={user} onSair={()=>{setMlOk(null);auth.signOut();}} />;
-    }
-
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  </script>
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
 </body>
 </html>
