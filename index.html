@@ -1,861 +1,799 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>realecom · ML Analyzer</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    /* ── RESET ───────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #root { height: 100%; }
-
-    /* ── DESIGN TOKENS ───────────────────────────────────────── */
-    :root {
-      --orange-500: #FF5200;
-      --orange-600: #E04900;
-      --purple-500: #7B2ECC;
-      --purple-100: rgba(123,46,204,.12);
-      --green-500:  #16a34a;
-      --green-100:  rgba(34,197,94,.12);
-      --red-500:    #dc2626;
-      --red-100:    rgba(239,68,68,.12);
-
-      --surface-page:     #111111;
-      --surface-sidebar:  #0D0D0D;
-      --surface-card:     #FFFFFF;
-      --surface-sunken:   #F7F7F7;
-      --surface-hover:    rgba(0,0,0,.04);
-      --surface-selected: rgba(255,82,0,.08);
-      --neutral-1000:     #0D0D0D;
-
-      --text-primary:  #0D0D0D;
-      --text-secondary:#4B4B4B;
-      --text-muted:    rgba(0,0,0,.45);
-      --text-disabled: rgba(0,0,0,.28);
-      --text-on-dark:  #FFFFFF;
-      --text-on-dark-muted: rgba(255,255,255,.52);
-
-      --border-subtle:  rgba(0,0,0,.08);
-      --border-default: rgba(0,0,0,.14);
-      --border-sidebar: rgba(255,255,255,.08);
-
-      --radius-sm:   6px;
-      --radius-md:   8px;
-      --radius-lg:   14px;
-      --radius-xl:   18px;
-      --radius-2xl:  24px;
-      --radius-pill: 999px;
-
-      --font-sans:    'Manrope', system-ui, sans-serif;
-      --font-display: 'Anton', system-ui, sans-serif;
-      --font-mono:    'JetBrains Mono', monospace;
-
-      --text-xs:   11px;
-      --text-sm:   13px;
-      --text-base: 15px;
-      --text-lg:   17px;
-      --text-xl:   20px;
-      --text-2xl:  24px;
-      --text-3xl:  30px;
-      --text-4xl:  38px;
-
-      --weight-regular:   400;
-      --weight-medium:    500;
-      --weight-semi:      600;
-      --weight-bold:      700;
-      --weight-extrabold: 800;
-
-      --space-1: 4px; --space-2: 8px; --space-3: 12px;
-      --space-4: 16px; --space-5: 20px; --space-6: 24px;
-      --space-8: 32px; --space-9: 36px; --space-12: 48px;
-
-      --layout-page-gutter: 24px;
-      --layout-card-pad:    20px;
-      --layout-card-pad-lg: 24px;
-      --layout-grid-gap:    16px;
-      --layout-sidebar:     248px;
-      --layout-sidebar-col: 72px;
-      --layout-topbar:      64px;
-      --layout-bottomnav:   64px;
-      --layout-max-content: 1440px;
-
-      --shadow-sm: 0 1px 2px rgba(0,0,0,.04), 0 2px 6px -2px rgba(0,0,0,.06);
-      --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 4px -2px rgba(0,0,0,.06);
-
-      --tracking-wide:    0.06em;
-      --tracking-caps:    0.08em;
-      --tracking-tight:   -0.01em;
-      --tracking-display: -0.02em;
-      --transition-control: 140ms ease;
-    }
-
-    body {
-      font-family: var(--font-sans);
-      font-size: var(--text-base);
-      color: var(--text-primary);
-      background: var(--surface-page);
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .rl-tabular { font-variant-numeric: tabular-nums; }
-
-    /* scrollbar */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 3px; }
-
-    /* lucide icon helper */
-    [data-lucide] { display: inline-block; vertical-align: middle; }
-
-    @media (max-width: 768px) {
-      .desktop-only { display: none !important; }
-    }
-    @media (min-width: 769px) {
-      .mobile-only { display: none !important; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>realecom · ML Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+:root{
+--orange:#FF5200;--orange-600:#E04900;--purple:#7B2ECC;--purple-dark:#4F0188;
+--green:#16a34a;--green-bg:rgba(34,197,94,.12);--red:#dc2626;--red-bg:rgba(239,68,68,.12);
+--amber:#d97706;--amber-bg:rgba(245,158,11,.12);
+--page:#111111;--sidebar:#0D0D0D;--card:#FFFFFF;--sunken:#F7F7F7;--hover:rgba(0,0,0,.04);
+--txt:#0D0D0D;--txt2:#4B4B4B;--txt3:rgba(0,0,0,.45);--txt-dark:#fff;--txt-dark2:rgba(255,255,255,.52);--txt-dark3:rgba(255,255,255,.32);
+--bd:rgba(0,0,0,.08);--bd2:rgba(0,0,0,.14);--bd-dark:rgba(255,255,255,.08);
+--r-sm:6px;--r-md:8px;--r-lg:14px;--r-xl:18px;--r-2xl:24px;--r-pill:999px;
+--f-sans:'Manrope',system-ui,sans-serif;--f-mono:'JetBrains Mono',monospace;--f-display:'Anton',sans-serif;
+--sh-sm:0 1px 2px rgba(0,0,0,.04),0 2px 6px -2px rgba(0,0,0,.06);
+--sh-md:0 4px 12px rgba(0,0,0,.08);
+--sidebar-w:248px;--topbar-h:64px;--gutter:24px;--gap:16px;--pad:20px;
+--tr:140ms ease;
+}
+body{font-family:var(--f-sans);font-size:15px;color:var(--txt);background:var(--page);-webkit-font-smoothing:antialiased}
+.tab{font-variant-numeric:tabular-nums}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+input:focus,select:focus{outline:none;border-color:var(--orange)!important;box-shadow:0 0 0 3px rgba(255,82,0,.15)}
+.hide-sm{display:block}
+@media(max-width:900px){
+  .hide-sm{display:none!important}
+  :root{--sidebar-w:0px;--gutter:14px}
+}
+</style>
 </head>
 <body>
 <div id="root"></div>
 
 <script>
-  /* ── FIREBASE ──────────────────────────────────────────────── */
-  const firebaseConfig = {
-    apiKey: "AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",
-    authDomain: "calculadora-real-ecom.firebaseapp.com",
-    projectId: "calculadora-real-ecom",
-    storageBucket: "calculadora-real-ecom.firebasestorage.app",
-    messagingSenderId: "845239286688",
-    appId: "1:845239286688:web:71018a44cabee0025842c5"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth      = firebase.auth();
-  const db        = firebase.firestore();
-  const functions = firebase.app().functions('southamerica-east1');
-
-  const ML_CLIENT_ID = '3936370948601703';
-  const ML_REDIRECT  = 'https://ollmestorerj.github.io/ml-analyzer/';
-
-  /* ── FORMATTERS ─────────────────────────────────────────────── */
-  const BRL = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
-  const NUM = v => new Intl.NumberFormat('pt-BR').format(v||0);
-  const PCT = v => `${(+(v||0)).toFixed(1)}%`;
-
-  /* ── LUCIDE RENDER ──────────────────────────────────────────── */
-  function renderLucide() {
-    if (window.lucide) setTimeout(() => lucide.createIcons(), 50);
-  }
+const firebaseConfig={apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(),db=firebase.firestore(),functions=firebase.app().functions('southamerica-east1');
+const ML_CLIENT_ID='3936370948601703',ML_REDIRECT='https://ollmestorerj.github.io/ml-analyzer/';
+const BRL=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+const NUM=v=>new Intl.NumberFormat('pt-BR').format(v||0);
+const PCT=v=>`${(+(v||0)).toFixed(1)}%`;
+const call=(fn,args={})=>functions.httpsCallable(fn)(args).then(r=>r.data);
 </script>
 
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
+const {useState,useEffect,useCallback,useRef}=React;
 
-/* ════════════════════════════════════════════════════════════
-   DS PRIMITIVES
-   ════════════════════════════════════════════════════════════ */
-
-/* Wordmark */
-const Wordmark = ({ size = 18, dark = false }) => (
-  <span style={{ fontFamily:'Anton,sans-serif', fontSize:size, letterSpacing:-0.3, userSelect:'none' }}>
-    <span style={{ color: dark ? '#fff' : '#9333ea' }}>real</span>
-    <span style={{ color:'#FF5200' }}>ecom</span>
+/* ══ DS PRIMITIVES ══════════════════════════════════════════ */
+const Wordmark=({size=18,dark=true})=>(
+  <span style={{fontFamily:'Anton,sans-serif',fontSize:size,letterSpacing:-.3,userSelect:'none',lineHeight:1}}>
+    <span style={{color:dark?'#fff':'#9333ea'}}>real</span><span style={{color:'#FF5200'}}>ecom</span>
   </span>
 );
 
-/* Icon (Lucide) */
-const Icon = ({ name, size=18, color='currentColor', style={} }) => {
-  const ref = React.useRef(null);
-  useEffect(() => {
-    if (ref.current && window.lucide) {
-      ref.current.innerHTML = '';
-      const svg = lucide.icons[name];
-      if (svg) {
-        const el = document.createElement('i');
-        el.setAttribute('data-lucide', name);
-        ref.current.appendChild(el);
-        lucide.createIcons({ nodes: [el] });
-        const s = ref.current.querySelector('svg');
-        if (s) { s.setAttribute('width', size); s.setAttribute('height', size); s.style.color = color; }
-      }
-    }
-  }, [name, size, color]);
-  return <span ref={ref} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', ...style }} />;
+const Icon=({name,size=18,color='currentColor'})=>{
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!ref.current||!window.lucide)return;
+    ref.current.innerHTML='';
+    const el=document.createElement('i');el.setAttribute('data-lucide',name);
+    ref.current.appendChild(el);
+    try{lucide.createIcons({nodes:[el]});}catch{}
+    const s=ref.current.querySelector('svg');
+    if(s){s.setAttribute('width',size);s.setAttribute('height',size);s.style.color=color;s.style.display='block';}
+  },[name,size,color]);
+  return <span ref={ref} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:size,height:size,flexShrink:0}}/>;
 };
 
-/* Badge */
-const Badge = ({ children, tone='default', pill=false }) => {
-  const tones = {
-    default: { bg:'rgba(0,0,0,.06)', color:'#4B4B4B' },
-    success: { bg:'rgba(34,197,94,.12)', color:'#16a34a' },
-    danger:  { bg:'rgba(239,68,68,.12)', color:'#dc2626' },
-    warning: { bg:'rgba(245,158,11,.12)', color:'#d97706' },
-    brand:   { bg:'rgba(255,82,0,.12)', color:'#FF5200' },
-  };
-  const t = tones[tone] || tones.default;
-  return (
-    <span style={{
-      display:'inline-flex', alignItems:'center', gap:4,
-      background:t.bg, color:t.color,
-      fontSize:11, fontWeight:600, letterSpacing:'0.04em',
-      padding: pill ? '3px 10px' : '2px 7px',
-      borderRadius: pill ? 999 : 6,
-    }}>{children}</span>
-  );
+const Badge=({children,tone='default',pill})=>{
+  const t={default:{bg:'rgba(0,0,0,.06)',c:'#4B4B4B'},success:{bg:'var(--green-bg)',c:'var(--green)'},
+    danger:{bg:'var(--red-bg)',c:'var(--red)'},warning:{bg:'var(--amber-bg)',c:'var(--amber)'},
+    brand:{bg:'rgba(255,82,0,.12)',c:'var(--orange)'},purple:{bg:'rgba(123,46,204,.12)',c:'var(--purple)'}}[tone];
+  return <span style={{display:'inline-flex',alignItems:'center',gap:4,background:t.bg,color:t.c,fontSize:11,fontWeight:700,padding:pill?'3px 10px':'2px 7px',borderRadius:pill?999:6,whiteSpace:'nowrap'}}>{children}</span>;
 };
 
-/* Button */
-const Btn = ({ children, variant='primary', size='md', onClick, disabled, full, icon, style={} }) => {
-  const variants = {
-    primary:   { bg:'#FF5200', color:'#fff', border:'none' },
-    secondary: { bg:'transparent', color:'#0D0D0D', border:'1px solid rgba(0,0,0,.14)' },
-    ghost:     { bg:'transparent', color:'#4B4B4B', border:'none' },
-    danger:    { bg:'rgba(239,68,68,.1)', color:'#dc2626', border:'none' },
-  };
-  const sizes = { sm:{h:32,px:12,fs:12}, md:{h:40,px:16,fs:13}, lg:{h:48,px:20,fs:15} };
-  const v = variants[variant]; const s = sizes[size];
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
-      height:s.h, padding:`0 ${s.px}px`, borderRadius:'var(--radius-md)',
-      fontSize:s.fs, fontWeight:700, fontFamily:'var(--font-sans)',
-      cursor:disabled?'not-allowed':'pointer', width:full?'100%':'auto',
-      opacity:disabled?.6:1, transition:'var(--transition-control)',
-      ...v, ...style,
-    }}>{icon && <Icon name={icon} size={s.fs+2} />}{children}</button>
-  );
+const Btn=({children,variant='primary',size='md',onClick,disabled,full,icon,style={}})=>{
+  const v={primary:{background:'var(--orange)',color:'#fff',border:'none'},
+    secondary:{background:'transparent',color:'var(--txt)',border:'1px solid var(--bd2)'},
+    dark:{background:'transparent',color:'rgba(255,255,255,.6)',border:'1px solid rgba(255,255,255,.12)'},
+    ghost:{background:'transparent',color:'var(--txt2)',border:'none'}}[variant];
+  const s={sm:{h:32,px:12,fs:12},md:{h:40,px:16,fs:13},lg:{h:46,px:20,fs:15}}[size];
+  return <button onClick={onClick} disabled={disabled} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,height:s.h,padding:`0 ${s.px}px`,borderRadius:'var(--r-md)',fontSize:s.fs,fontWeight:700,fontFamily:'var(--f-sans)',cursor:disabled?'not-allowed':'pointer',width:full?'100%':'auto',opacity:disabled?.55:1,transition:'var(--tr)',...v,...style}}>
+    {icon&&<Icon name={icon} size={s.fs+2}/>}{children}</button>;
 };
 
-/* StatCard */
-const StatCard = ({ label, value, caption, delta, deltaDir, icon, accent='brand', style={} }) => {
-  const up = deltaDir ? deltaDir==='up' : String(delta||'').startsWith('+');
-  const good = deltaDir==='down-good' ? !up : up;
-  const deltaColor = delta==null ? null : good ? '#16a34a' : '#dc2626';
-  const accentColor = { brand:'#FF5200', accent:'#7B2ECC', success:'#16a34a', info:'#3b82f6' }[accent];
+const Skel=({w='100%',h=16,r=6})=>(
+  <div style={{width:w,height:h,borderRadius:r,background:'linear-gradient(90deg,#f0f0f0 25%,#e4e4e4 50%,#f0f0f0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.4s infinite'}}/>
+);
+
+const StatCard=({label,value,caption,delta,tone,icon,accent='brand'})=>{
+  const ac={brand:'var(--orange)',accent:'var(--purple)',success:'var(--green)',danger:'var(--red)',amber:'var(--amber)'}[accent];
   return (
-    <div style={{
-      background:'var(--surface-card)', border:'1px solid var(--border-subtle)',
-      borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-sm)',
-      padding:'var(--layout-card-pad)', display:'flex', flexDirection:'column',
-      gap:'var(--space-3)', minWidth:0, ...style
-    }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
-        <span style={{ fontSize:'var(--text-xs)', fontWeight:600, color:'var(--text-muted)', letterSpacing:'var(--tracking-wide)' }}>
-          {label}
-        </span>
-        {icon && (
-          <span style={{ width:28, height:28, borderRadius:'var(--radius-sm)', background:'var(--surface-sunken)', display:'inline-flex', alignItems:'center', justifyContent:'center' }}>
-            <Icon name={icon} size={14} color={accentColor} />
-          </span>
-        )}
+    <div style={{background:'var(--card)',border:'1px solid var(--bd)',borderRadius:'var(--r-xl)',boxShadow:'var(--sh-sm)',padding:'var(--pad)',display:'flex',flexDirection:'column',gap:10,minWidth:0}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+        <span style={{fontSize:11,fontWeight:700,color:'var(--txt3)',letterSpacing:'.06em'}}>{label}</span>
+        {icon&&<span style={{width:28,height:28,borderRadius:'var(--r-sm)',background:'var(--sunken)',display:'inline-flex',alignItems:'center',justifyContent:'center'}}><Icon name={icon} size={14} color={ac}/></span>}
       </div>
-      <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
-        <span className="rl-tabular" style={{ fontSize:'var(--text-3xl)', fontWeight:'var(--weight-extrabold)', letterSpacing:'var(--tracking-tight)', color:'var(--text-primary)' }}>
-          {value}
-        </span>
-        {delta != null && (
-          <span style={{ fontSize:'var(--text-xs)', fontWeight:700, color:deltaColor,
-            background:good?'var(--green-100)':'var(--red-100)', borderRadius:999, padding:'2px 7px' }}>
-            {delta}
-          </span>
-        )}
+      <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
+        <span className="tab" style={{fontSize:26,fontWeight:800,letterSpacing:'-.01em',color:tone==='danger'?'var(--red)':tone==='success'?'var(--green)':'var(--txt)'}}>{value}</span>
+        {delta&&<span style={{fontSize:11,fontWeight:700,color:'var(--txt3)'}}>{delta}</span>}
       </div>
-      {caption && (
-        <span style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)', lineHeight:1.4 }}>{caption}</span>
-      )}
+      {caption&&<span style={{fontSize:11,color:'var(--txt3)',lineHeight:1.4}}>{caption}</span>}
     </div>
   );
 };
 
-/* Skeleton */
-const Skeleton = ({ w='100%', h=16, radius=6 }) => (
-  <div style={{ width:w, height:h, borderRadius:radius, background:'linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%)', backgroundSize:'200% 100%', animation:'shimmer 1.5s infinite' }} />
-);
+/* ══ FILTROS ════════════════════════════════════════════════ */
+const PERIODOS=['hoje','ontem','7d','30d','mes'];
+const PLABEL={hoje:'Hoje',ontem:'Ontem','7d':'7 dias','30d':'30 dias',mes:'Mês atual'};
 
-/* ════════════════════════════════════════════════════════════
-   PERIOD FILTER
-   ════════════════════════════════════════════════════════════ */
-const PERIODOS = ['hoje','ontem','7d','30d','mes'];
-const PERIODO_LABELS = { hoje:'Hoje', ontem:'Ontem', '7d':'7 dias', '30d':'30 dias', mes:'Mês atual' };
-
-const PeriodFilter = ({ value, onChange }) => (
-  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-    {PERIODOS.map(p => (
-      <button key={p} onClick={() => onChange(p)} style={{
-        height:32, padding:'0 14px', borderRadius:'var(--radius-pill)',
-        fontSize:'var(--text-xs)', fontWeight:600,
-        cursor:'pointer', transition:'var(--transition-control)',
-        background: value===p ? '#FF5200' : 'transparent',
-        color: value===p ? '#fff' : 'rgba(255,255,255,.6)',
-        border: `1px solid ${value===p ? '#FF5200' : 'rgba(255,255,255,.14)'}`,
-      }}>{PERIODO_LABELS[p]}</button>
+const PeriodFilter=({value,onChange})=>(
+  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+    {PERIODOS.map(p=>(
+      <button key={p} onClick={()=>onChange(p)} style={{height:30,padding:'0 13px',borderRadius:'var(--r-pill)',fontSize:11,fontWeight:700,cursor:'pointer',transition:'var(--tr)',fontFamily:'var(--f-sans)',
+        background:value===p?'var(--orange)':'transparent',color:value===p?'#fff':'rgba(255,255,255,.55)',
+        border:`1px solid ${value===p?'var(--orange)':'rgba(255,255,255,.14)'}`}}>{PLABEL[p]}</button>
     ))}
   </div>
 );
 
-/* ════════════════════════════════════════════════════════════
-   TELA LOGIN
-   ════════════════════════════════════════════════════════════ */
-function TelaLogin() {
-  const [email,setEmail]=useState(''); const [senha,setSenha]=useState('');
-  const [loading,setLoading]=useState(false); const [err,setErr]=useState('');
-
-  async function login() {
-    if (!email||!senha) { setErr('Preencha email e senha'); return; }
-    setLoading(true); setErr('');
-    try { await auth.signInWithEmailAndPassword(email,senha); }
-    catch(e) {
-      const m={'auth/invalid-credential':'Email ou senha incorretos','auth/too-many-requests':'Muitas tentativas. Aguarde.'};
-      setErr(m[e.code]||e.message);
-    } finally { setLoading(false); }
-  }
-
+const ContaFilter=({contas,ativas,onToggle})=>{
+  if(!contas||contas.length<2)return null;
   return (
-    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center' }}>
-      <div style={{ width:360 }}>
-        <div style={{ textAlign:'center', marginBottom:36 }}>
-          <Wordmark size={28} dark />
-          <div style={{ width:36, height:3, background:'linear-gradient(to right,#9333ea,#FF5200)', borderRadius:2, margin:'12px auto 12px' }} />
-          <div style={{ fontSize:11, color:'rgba(255,255,255,.38)', letterSpacing:'0.1em', textTransform:'uppercase' }}>ML Analyzer</div>
+    <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+      {contas.map(c=>{
+        const on=ativas.includes(c.id);
+        return <button key={c.id} onClick={()=>onToggle(c.id)} style={{display:'inline-flex',alignItems:'center',gap:6,height:30,padding:'0 12px',borderRadius:'var(--r-pill)',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'var(--f-sans)',
+          background:on?'rgba(255,255,255,.1)':'transparent',border:`1px solid ${on?'var(--orange)':'rgba(255,255,255,.14)'}`,color:on?'#fff':'rgba(255,255,255,.45)',transition:'var(--tr)'}}>
+          <Icon name="store" size={12}/>{c.nickname}</button>;
+      })}
+    </div>
+  );
+};
+
+/* ══ LOGIN ══════════════════════════════════════════════════ */
+function TelaLogin(){
+  const [email,setEmail]=useState(''),[senha,setSenha]=useState('');
+  const [loading,setLoading]=useState(false),[err,setErr]=useState('');
+  async function login(){
+    if(!email||!senha){setErr('Preencha email e senha');return;}
+    setLoading(true);setErr('');
+    try{await auth.signInWithEmailAndPassword(email,senha);}
+    catch(e){setErr({'auth/invalid-credential':'Email ou senha incorretos','auth/too-many-requests':'Muitas tentativas. Aguarde.'}[e.code]||e.message);}
+    finally{setLoading(false);}
+  }
+  return (
+    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{width:'100%',maxWidth:360}}>
+        <div style={{textAlign:'center',marginBottom:34}}>
+          <Wordmark size={30}/>
+          <div style={{width:36,height:3,background:'linear-gradient(90deg,#9333ea,#FF5200)',borderRadius:2,margin:'12px auto'}}/>
+          <div style={{fontSize:11,color:'var(--txt-dark3)',letterSpacing:'.12em',fontWeight:700}}>ML ANALYZER</div>
         </div>
-        <div style={{ background:'#1a1a1a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'var(--radius-xl)', padding:24 }}>
-          {['Email','Senha'].map((lbl,i) => (
-            <div key={lbl} style={{ marginBottom:i===0?14:20 }}>
-              <label style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,.45)', display:'block', marginBottom:6, letterSpacing:'0.06em', textTransform:'uppercase' }}>{lbl}</label>
-              <input
-                type={i===1?'password':'email'}
-                placeholder={i===0?'seu@email.com':'••••••••'}
-                value={i===0?email:senha}
-                onChange={e => i===0?setEmail(e.target.value):setSenha(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&login()}
-                style={{ background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)', borderRadius:'var(--radius-md)', padding:'10px 14px', color:'#fff', width:'100%', fontSize:14, outline:'none', fontFamily:'var(--font-sans)' }}
-              />
+        <div style={{background:'#1a1a1a',border:'1px solid var(--bd-dark)',borderRadius:'var(--r-xl)',padding:24}}>
+          {[['Email','email',email,setEmail,'seu@email.com'],['Senha','password',senha,setSenha,'••••••••']].map(([lbl,type,val,set,ph],i)=>(
+            <div key={lbl} style={{marginBottom:i===0?14:20}}>
+              <label style={{fontSize:10,fontWeight:700,color:'var(--txt-dark3)',display:'block',marginBottom:6,letterSpacing:'.08em'}}>{lbl.toUpperCase()}</label>
+              <input type={type} placeholder={ph} value={val} onChange={e=>set(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}
+                style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',padding:'11px 14px',color:'#fff',width:'100%',fontSize:14,fontFamily:'var(--f-sans)'}}/>
             </div>
           ))}
-          {err && <div style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', color:'#f87171', fontSize:13, marginBottom:14 }}>{err}</div>}
-          <button onClick={login} disabled={loading} style={{ width:'100%', height:44, background:'#FF5200', color:'#fff', border:'none', borderRadius:'var(--radius-md)', fontSize:15, fontWeight:700, cursor:loading?'not-allowed':'pointer', opacity:loading?.7:1, fontFamily:'var(--font-sans)' }}>
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
-          <div style={{ textAlign:'center', marginTop:14, fontSize:11, color:'rgba(255,255,255,.28)' }}>Mesmo login da Calculadora REAL</div>
+          {err&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.25)',borderRadius:'var(--r-md)',padding:'10px 14px',color:'#f87171',fontSize:13,marginBottom:14}}>{err}</div>}
+          <Btn full size="lg" onClick={login} disabled={loading}>{loading?'Entrando...':'Entrar'}</Btn>
+          <div style={{textAlign:'center',marginTop:14,fontSize:11,color:'var(--txt-dark3)'}}>Mesmo login da Calculadora REAL</div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ════════════════════════════════════════════════════════════
-   TELA CONECTAR ML
-   ════════════════════════════════════════════════════════════ */
-function TelaConectarML({ user, onConectado }) {
-  const [conectando,setConectando]=useState(false);
-  const [err,setErr]=useState('');
+/* ══ CONECTAR ML ════════════════════════════════════════════ */
+function TelaConectar({user,onOk}){
+  const [conectando,setConectando]=useState(false),[err,setErr]=useState('');
+  useEffect(()=>{
+    const code=new URLSearchParams(window.location.search).get('code');
+    if(code){window.history.replaceState({},'',window.location.pathname);conectar(code);}
+  },[]);
+  async function conectar(code){
+    setConectando(true);setErr('');
+    try{const r=await call('mlTokenExchange',{code});if(r.success)onOk();}
+    catch(e){setErr('Erro: '+(e.message||'Tente novamente'));setConectando(false);}
+  }
+  const go=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
 
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    const code = p.get('code');
-    if (code) { window.history.replaceState({},'',window.location.pathname); conectarComCode(code); }
-  }, []);
+  if(conectando)return (
+    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16}}>
+      <Wordmark size={24}/><div style={{fontSize:13,color:'var(--txt-dark2)'}}>Conectando sua conta do Mercado Livre...</div>
+    </div>
+  );
+  return (
+    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{width:'100%',maxWidth:420,textAlign:'center'}}>
+        <Wordmark size={24}/>
+        <div style={{fontSize:20,fontWeight:700,color:'#fff',margin:'20px 0 8px'}}>Conectar Mercado Livre</div>
+        <div style={{fontSize:13,color:'var(--txt-dark2)',marginBottom:26}}>Olá, <strong style={{color:'#fff'}}>{user.email?.split('@')[0]}</strong>. Autorize o acesso à sua conta.</div>
+        <div style={{background:'#1a1a1a',border:'1px solid var(--bd-dark)',borderRadius:'var(--r-xl)',padding:24}}>
+          <div style={{fontSize:13,color:'var(--txt-dark2)',marginBottom:20,lineHeight:1.6}}>Você será redirecionado ao Mercado Livre e voltará automaticamente.</div>
+          {err&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.25)',borderRadius:'var(--r-md)',padding:'10px 14px',color:'#f87171',fontSize:13,marginBottom:14}}>{err}</div>}
+          <Btn full size="lg" onClick={go}>Autorizar com Mercado Livre</Btn>
+          <button onClick={()=>auth.signOut()} style={{background:'none',border:'none',color:'var(--txt-dark3)',cursor:'pointer',fontSize:12,marginTop:14}}>Sair</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  async function conectarComCode(code) {
-    setConectando(true); setErr('');
-    try {
-      const fn = functions.httpsCallable('mlTokenExchange');
-      const r  = await fn({ code });
-      if (r.data.success) onConectado();
-    } catch(e) { setErr('Erro: '+(e.message||'Tente novamente')); setConectando(false); }
+/* ══ EDITOR DE CUSTO INLINE ═════════════════════════════════ */
+function CustoInline({sku,valorInicial,impostoInicial,onSalvo}){
+  const [editing,setEditing]=useState(false);
+  const [custo,setCusto]=useState(valorInicial||'');
+  const [imposto,setImposto]=useState(impostoInicial||'');
+  const [saving,setSaving]=useState(false);
+
+  async function salvar(){
+    setSaving(true);
+    try{await call('mlSalvarCusto',{sku,custo:parseFloat(custo)||0,imposto:parseFloat(imposto)||0});
+      setEditing(false);onSalvo&&onSalvo();}
+    catch(e){alert('Erro: '+e.message);}
+    finally{setSaving(false);}
   }
 
-  if (conectando) return (
-    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
-      <Wordmark size={24} dark />
-      <div style={{ fontSize:13, color:'rgba(255,255,255,.45)' }}>Conectando sua conta do Mercado Livre...</div>
-    </div>
+  if(!editing)return (
+    <button onClick={()=>setEditing(true)} style={{display:'inline-flex',alignItems:'center',gap:5,background:'transparent',border:'none',cursor:'pointer',padding:0,fontFamily:'var(--f-sans)'}}>
+      <span className="tab" style={{fontSize:13,fontWeight:600,color:valorInicial?'var(--txt)':'var(--txt3)'}}>
+        {valorInicial?BRL(valorInicial):'—'}
+      </span>
+      <Icon name="pencil" size={11} color="rgba(0,0,0,.3)"/>
+    </button>
   );
 
   return (
-    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center' }}>
-      <div style={{ width:420, textAlign:'center' }}>
-        <Wordmark size={24} dark />
-        <div style={{ fontSize:20, fontWeight:700, color:'#fff', margin:'20px 0 8px', fontFamily:'var(--font-sans)' }}>Conectar Mercado Livre</div>
-        <div style={{ fontSize:13, color:'rgba(255,255,255,.45)', marginBottom:28 }}>
-          Olá, <strong style={{ color:'#fff' }}>{user.email?.split('@')[0]}</strong>. Autorize o acesso à sua conta.
-        </div>
-        <div style={{ background:'#1a1a1a', border:'1px solid rgba(255,255,255,.08)', borderRadius:'var(--radius-xl)', padding:24 }}>
-          <div style={{ fontSize:13, color:'rgba(255,255,255,.45)', marginBottom:20, lineHeight:1.6 }}>
-            Clique abaixo — você será redirecionado ao Mercado Livre e voltará automaticamente.
-          </div>
-          {err && <div style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.25)', borderRadius:'var(--radius-md)', padding:'10px 14px', color:'#f87171', fontSize:13, marginBottom:14 }}>{err}</div>}
-          <button
-            onClick={() => { window.location.href = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`; }}
-            style={{ width:'100%', height:44, background:'#FF5200', color:'#fff', border:'none', borderRadius:'var(--radius-md)', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-sans)' }}>
-            Autorizar com Mercado Livre
-          </button>
-          <button onClick={() => auth.signOut()} style={{ background:'none', border:'none', color:'rgba(255,255,255,.3)', cursor:'pointer', fontSize:12, marginTop:14 }}>Sair</button>
-        </div>
-      </div>
+    <div style={{display:'flex',gap:4,alignItems:'center'}} onClick={e=>e.stopPropagation()}>
+      <input type="number" step="0.01" value={custo} onChange={e=>setCusto(e.target.value)} placeholder="Custo"
+        style={{width:64,padding:'4px 6px',fontSize:12,border:'1px solid var(--bd2)',borderRadius:4,fontFamily:'var(--f-mono)'}}/>
+      <input type="number" step="0.1" value={imposto} onChange={e=>setImposto(e.target.value)} placeholder="%"
+        style={{width:44,padding:'4px 6px',fontSize:12,border:'1px solid var(--bd2)',borderRadius:4,fontFamily:'var(--f-mono)'}}/>
+      <button onClick={salvar} disabled={saving} style={{background:'var(--green)',border:'none',borderRadius:4,width:24,height:24,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <Icon name="check" size={12} color="#fff"/>
+      </button>
+      <button onClick={()=>setEditing(false)} style={{background:'transparent',border:'none',cursor:'pointer',width:20,height:24,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <Icon name="x" size={12} color="rgba(0,0,0,.4)"/>
+      </button>
     </div>
   );
 }
 
-/* ════════════════════════════════════════════════════════════
-   TABELA DE PEDIDOS
-   ════════════════════════════════════════════════════════════ */
-function TabelaPedidos({ pedidos, loading }) {
-  const cols = [
-    { key:'foto',   label:'',        w:52   },
-    { key:'titulo', label:'Título',  flex:1 },
-    { key:'sku',    label:'SKU',     w:90   },
-    { key:'data',   label:'Data',    w:110  },
-    { key:'qtde',   label:'Qtde',    w:52   },
-    { key:'valor',  label:'Valor',   w:100  },
-    { key:'tarifa', label:'Tarifa',  w:90   },
-    { key:'frete',  label:'Frete',   w:90   },
-  ];
+/* ══ TABELA DE PEDIDOS ══════════════════════════════════════ */
+function TabelaPedidos({pedidos,loading,multiConta,onRefresh}){
+  const GRID=multiConta
+    ? '48px 1fr 74px 88px 84px 42px 86px 76px 76px 92px 104px'
+    : '48px 1fr 74px 88px 42px 86px 76px 76px 92px 104px';
+  const HEADS=multiConta
+    ? ['','Título','Conta','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro']
+    : ['','Título','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro'];
 
-  const headerStyle = {
-    fontSize:'var(--text-xs)', fontWeight:700, color:'var(--text-muted)',
-    letterSpacing:'var(--tracking-caps)', textTransform:'uppercase',
-  };
-
-  const rowStyle = (i) => ({
-    display:'grid', gridTemplateColumns:'52px 1fr 90px 110px 52px 100px 90px 90px',
-    gap:8, padding:'12px 20px', alignItems:'center',
-    borderBottom:'1px solid var(--border-subtle)',
-    background: i%2===0 ? 'var(--surface-card)' : 'var(--surface-sunken)',
-  });
-
-  if (loading) return (
-    <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', border:'1px solid var(--border-subtle)', overflow:'hidden', boxShadow:'var(--shadow-sm)' }}>
-      {[...Array(4)].map((_,i) => (
-        <div key={i} style={{ padding:'16px 20px', borderBottom:'1px solid var(--border-subtle)', display:'flex', gap:12, alignItems:'center' }}>
-          <Skeleton w={48} h={48} radius={8} />
-          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}>
-            <Skeleton h={14} />
-            <Skeleton w="40%" h={11} />
-          </div>
+  if(loading)return (
+    <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',overflow:'hidden',boxShadow:'var(--sh-sm)'}}>
+      {[...Array(5)].map((_,i)=>(
+        <div key={i} style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',gap:12,alignItems:'center'}}>
+          <Skel w={44} h={44} r={8}/>
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={13}/><Skel w="35%" h={10}/></div>
+          <Skel w={70} h={24}/><Skel w={70} h={24}/>
         </div>
       ))}
     </div>
   );
 
   return (
-    <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', border:'1px solid var(--border-subtle)', overflow:'hidden', boxShadow:'var(--shadow-sm)' }}>
-      {/* Header */}
-      <div style={{ display:'grid', gridTemplateColumns:'52px 1fr 90px 110px 52px 100px 90px 90px', gap:8, padding:'10px 20px', background:'var(--surface-sunken)', borderBottom:'1px solid var(--border-subtle)' }}>
-        {cols.map(c => <div key={c.key} style={headerStyle}>{c.label}</div>)}
+    <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',overflow:'auto',boxShadow:'var(--sh-sm)'}}>
+      <div style={{minWidth:multiConta?1000:920}}>
+        <div style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'10px 18px',background:'var(--sunken)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:2}}>
+          {HEADS.map((h,i)=><div key={i} style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em',textTransform:'uppercase'}}>{h}</div>)}
+        </div>
+        {pedidos?.length>0?pedidos.map((p,i)=>(
+          <div key={p.id||i} style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'11px 18px',alignItems:'center',borderBottom:'1px solid var(--bd)',background:i%2?'var(--sunken)':'var(--card)'}}>
+            <div style={{width:44,height:44,borderRadius:8,overflow:'hidden',background:'var(--sunken)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>
+              {p.foto?<img src={p.foto} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:'📦'}
+            </div>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:12.5,fontWeight:600,color:'var(--txt)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.titulo}>{p.titulo}</div>
+            </div>
+            {multiConta&&<div style={{fontSize:11,color:'var(--txt2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.conta}</div>}
+            <div style={{fontSize:10.5,color:'var(--txt3)',fontFamily:'var(--f-mono)',overflow:'hidden',textOverflow:'ellipsis'}}>{p.sku}</div>
+            <div style={{fontSize:11,color:'var(--txt2)'}}>{p.data}</div>
+            <div className="tab" style={{fontSize:12.5,fontWeight:700}}>{p.qtde}</div>
+            <div className="tab" style={{fontSize:12.5,fontWeight:700,color:'var(--orange)'}}>{BRL(p.valor)}</div>
+            <div className="tab" style={{fontSize:12,color:'var(--txt2)'}}>{BRL(p.tarifa)}</div>
+            <div className="tab" style={{fontSize:12,color:'var(--txt2)'}}>{BRL(p.frete)}</div>
+            <div><CustoInline sku={p.sku} valorInicial={p.custo/(p.qtde||1)} impostoInicial={p.valor>0?(p.imposto/p.valor*100).toFixed(1):''} onSalvo={onRefresh}/></div>
+            <div style={{display:'flex',flexDirection:'column',gap:1}}>
+              {p.temCusto?(
+                <>
+                  <span className="tab" style={{fontSize:12.5,fontWeight:800,color:p.lucro>=0?'var(--green)':'var(--red)'}}>{BRL(p.lucro)}</span>
+                  <span className="tab" style={{fontSize:10,color:'var(--txt3)'}}>{PCT(p.margem)}</span>
+                </>
+              ):<Badge tone="warning">Sem custo</Badge>}
+            </div>
+          </div>
+        )):(
+          <div style={{padding:44,textAlign:'center'}}>
+            <Icon name="package" size={30} color="rgba(0,0,0,.18)"/>
+            <div style={{fontSize:13,color:'var(--txt3)',marginTop:10}}>Nenhum pedido no período</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══ PAINEL DE ADS ══════════════════════════════════════════ */
+function PainelAds({ads,metricas,dataRef,onSalvo}){
+  const [editing,setEditing]=useState(false);
+  const [inv,setInv]=useState(ads?.investimento||'');
+  const [rec,setRec]=useState(ads?.receita||'');
+  const [vnd,setVnd]=useState(ads?.vendas||'');
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{setInv(ads?.investimento||'');setRec(ads?.receita||'');setVnd(ads?.vendas||'')},[ads]);
+
+  async function salvar(){
+    setSaving(true);
+    try{
+      await call('mlSalvarAds',{data:dataRef,investimento:parseFloat(inv)||0,receita:parseFloat(rec)||0,vendas:parseInt(vnd)||0});
+      setEditing(false);onSalvo&&onSalvo();
+    }catch(e){alert('Erro: '+e.message);}
+    finally{setSaving(false);}
+  }
+
+  const cells=[
+    {label:'INVESTIMENTO',value:BRL(ads?.investimento),accent:'amber'},
+    {label:'RECEITA ADS',value:BRL(ads?.receita),accent:'success'},
+    {label:'VENDAS',value:NUM(ads?.vendas)},
+    {label:'ROAS',value:`${(ads?.roas||0).toFixed(2)}x`,accent:'accent'},
+    {label:'ACOS',value:PCT(ads?.acos)},
+    {label:'TACOS',value:PCT(ads?.tacos)},
+  ];
+
+  return (
+    <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:'var(--pad)'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <Icon name="megaphone" size={16} color="var(--orange)"/>
+          <span style={{fontSize:14,fontWeight:700}}>Publicidade (Ads)</span>
+          <Badge tone="warning">Entrada manual</Badge>
+        </div>
+        {!editing
+          ? <Btn variant="secondary" size="sm" icon="pencil" onClick={()=>setEditing(true)}>Editar</Btn>
+          : <div style={{display:'flex',gap:6}}>
+              <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando':'Salvar'}</Btn>
+              <Btn variant="secondary" size="sm" onClick={()=>setEditing(false)}>Cancelar</Btn>
+            </div>}
       </div>
 
-      {pedidos?.length > 0 ? pedidos.map((p,i) => (
-        <div key={p.id||i} style={rowStyle(i)}>
-          {/* Foto */}
-          <div style={{ width:48, height:48, borderRadius:8, overflow:'hidden', background:'var(--surface-sunken)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>
-            {p.foto ? <img src={p.foto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : '📦'}
-          </div>
-          {/* Título */}
-          <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:'var(--text-sm)', fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.titulo}</div>
-            {p.sku && p.sku !== '—' && <div style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)', marginTop:2, fontFamily:'var(--font-mono)' }}>{p.sku}</div>}
-          </div>
-          {/* SKU */}
-          <div style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)', fontFamily:'var(--font-mono)' }}>{p.sku||'—'}</div>
-          {/* Data */}
-          <div style={{ fontSize:'var(--text-xs)', color:'var(--text-secondary)' }}>{p.data}</div>
-          {/* Qtde */}
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:'var(--text-primary)' }}>{p.qtde}</div>
-          {/* Valor */}
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:'#FF5200' }}>{BRL(p.valor)}</div>
-          {/* Tarifa */}
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)' }}>{BRL(p.tarifa)}</div>
-          {/* Frete */}
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)' }}>{BRL(p.frete)}</div>
+      {editing?(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12}}>
+          {[['Investimento R$',inv,setInv,'0.01'],['Receita R$',rec,setRec,'0.01'],['Vendas',vnd,setVnd,'1']].map(([lbl,v,set,step])=>(
+            <div key={lbl}>
+              <label style={{fontSize:10,fontWeight:700,color:'var(--txt3)',display:'block',marginBottom:5,letterSpacing:'.06em',textTransform:'uppercase'}}>{lbl}</label>
+              <input type="number" step={step} value={v} onChange={e=>set(e.target.value)}
+                style={{width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--bd2)',borderRadius:'var(--r-md)',fontFamily:'var(--f-mono)'}}/>
+            </div>
+          ))}
         </div>
-      )) : (
-        <div style={{ padding:48, textAlign:'center' }}>
-          <Icon name="package" size={32} color="rgba(0,0,0,.2)" />
-          <div style={{ fontSize:'var(--text-sm)', color:'var(--text-muted)', marginTop:12 }}>Nenhum pedido no período</div>
+      ):(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:14}}>
+          {cells.map(c=>(
+            <div key={c.label}>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--txt3)',letterSpacing:'.06em',marginBottom:4}}>{c.label}</div>
+              <div className="tab" style={{fontSize:19,fontWeight:800,color:c.accent==='success'?'var(--green)':c.accent==='amber'?'var(--amber)':c.accent==='accent'?'var(--purple)':'var(--txt)'}}>{c.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {!editing&&(ads?.investimento||0)===0&&(
+        <div style={{marginTop:14,padding:'10px 12px',background:'var(--sunken)',borderRadius:'var(--r-md)',fontSize:11.5,color:'var(--txt3)',lineHeight:1.5}}>
+          Informe o gasto diário do Product Ads para calcular ROAS, ACOS e TACOS. Os dados ficam salvos por data.
         </div>
       )}
     </div>
   );
 }
 
-/* ════════════════════════════════════════════════════════════
-   SIDEBAR NAV
-   ════════════════════════════════════════════════════════════ */
-const NAV = [
-  { id:'dashboard', icon:'layout-dashboard', label:'Visão geral' },
-  { id:'pedidos',   icon:'shopping-cart',    label:'Pedidos' },
-  { id:'anuncios',  icon:'package',          label:'Anúncios' },
-];
+/* ══ VIEW: DASHBOARD ════════════════════════════════════════ */
+function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleConta,onRefresh}){
+  const m=dados?.metricas||{},ads=dados?.ads||{};
+  const multiConta=(dados?.contasUsadas?.length||0)>1;
 
-function SidebarNav({ active, onSelect, seller, onSair }) {
   return (
-    <aside style={{
-      width:'var(--layout-sidebar)', minHeight:'100vh', background:'var(--surface-sidebar)',
-      display:'flex', flexDirection:'column', borderRight:'1px solid var(--border-sidebar)',
-      position:'fixed', top:0, left:0, zIndex:30,
-    }}>
-      {/* Logo */}
-      <div style={{ height:'var(--layout-topbar)', display:'flex', alignItems:'center', padding:'0 20px', borderBottom:'1px solid var(--border-sidebar)' }}>
-        <Wordmark size={20} dark />
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--gap)'}}>
+
+      {/* HERO */}
+      <section style={{background:'var(--sidebar)',borderRadius:'var(--r-2xl)',padding:'22px 24px',display:'flex',gap:24,flexWrap:'wrap',justifyContent:'space-between',alignItems:'flex-start'}}>
+        <div style={{display:'flex',gap:36,flexWrap:'wrap',flex:1,minWidth:220}}>
+          <div>
+            <div style={{fontSize:10,color:'var(--txt-dark3)',letterSpacing:'.1em',fontWeight:700}}>FATURAMENTO</div>
+            {loading?<div style={{marginTop:6}}><Skel w={170} h={36}/></div>:(
+              <div className="tab" style={{fontSize:38,fontWeight:800,color:'#fff',letterSpacing:'-.02em',marginTop:2,lineHeight:1.05}}>{BRL(m.fat)}</div>
+            )}
+            {!loading&&<div style={{fontSize:11,color:'var(--txt-dark3)',marginTop:5}}>{m.pedidosDia||0} pedidos · {m.qtd||0} unidades</div>}
+          </div>
+          <div>
+            <div style={{fontSize:10,color:'var(--txt-dark3)',letterSpacing:'.1em',fontWeight:700}}>LUCRO</div>
+            {loading?<div style={{marginTop:6}}><Skel w={130} h={30}/></div>:(
+              <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:2}}>
+                <span className="tab" style={{fontSize:30,fontWeight:800,color:(m.lucro||0)>=0?'#4ade80':'#f87171',letterSpacing:'-.01em',lineHeight:1.1}}>{BRL(m.lucro)}</span>
+                <span className="tab" style={{fontSize:13,color:'var(--txt-dark2)',fontWeight:700}}>({PCT(m.margem)})</span>
+              </div>
+            )}
+            {!loading&&m.semCusto>0&&(
+              <div style={{fontSize:10.5,color:'#fbbf24',marginTop:5,display:'flex',alignItems:'center',gap:4}}>
+                <Icon name="alert-triangle" size={11} color="#fbbf24"/>{m.semCusto} {m.semCusto===1?'venda sem custo':'vendas sem custo'}
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8,alignItems:'flex-end'}}>
+          <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
+          <PeriodFilter value={periodo} onChange={setPeriodo}/>
+        </div>
+      </section>
+
+      {/* KPIs */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(165px,1fr))',gap:'var(--gap)'}}>
+        {loading?[...Array(4)].map((_,i)=>(
+          <div key={i} style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:'var(--pad)',boxShadow:'var(--sh-sm)',display:'flex',flexDirection:'column',gap:11}}>
+            <Skel w="55%" h={10}/><Skel h={26}/><Skel w="70%" h={10}/>
+          </div>
+        )):[
+          {label:'VENDAS',value:NUM(m.pedidosDia),caption:`${m.qtd||0} unidades`,icon:'shopping-cart'},
+          {label:'TICKET MÉDIO',value:BRL(m.ticketMedio),icon:'tag',accent:'accent'},
+          {label:'LUCRO MÉDIO',value:BRL(m.pedidosDia>0?m.lucro/m.pedidosDia:0),icon:'trending-up',accent:'success',tone:(m.lucro||0)>=0?'success':'danger'},
+          {label:'CANCELADAS',value:NUM(m.canceladas),caption:BRL(m.valorCancelado),icon:'x-circle',accent:'danger'},
+        ].map(c=><StatCard key={c.label} {...c}/>)}
       </div>
 
-      {/* Nav items */}
-      <nav style={{ flex:1, padding:'8px 8px' }}>
-        {NAV.map(item => {
-          const isActive = active === item.id;
-          return (
-            <button key={item.id} onClick={() => onSelect(item.id)} style={{
-              display:'flex', alignItems:'center', gap:10, width:'100%', height:40,
-              padding:'0 12px', borderRadius:'var(--radius-md)', border:'none',
-              background: isActive ? 'rgba(255,82,0,.12)' : 'transparent',
-              color: isActive ? '#FF5200' : 'rgba(255,255,255,.55)',
-              cursor:'pointer', fontSize:'var(--text-sm)', fontWeight: isActive ? 700 : 500,
-              fontFamily:'var(--font-sans)', transition:'var(--transition-control)',
-              marginBottom:2,
-            }}>
-              <Icon name={item.icon} size={16} color={isActive ? '#FF5200' : 'rgba(255,255,255,.45)'} />
-              {item.label}
+      {/* COMPOSIÇÃO */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'var(--gap)'}}>
+        {loading?[...Array(4)].map((_,i)=>(
+          <div key={i} style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:'var(--pad)',boxShadow:'var(--sh-sm)',display:'flex',flexDirection:'column',gap:11}}>
+            <Skel w="50%" h={10}/><Skel h={24}/>
+          </div>
+        )):[
+          {label:'CUSTOS',value:BRL(m.custos),caption:m.fat>0?PCT(m.custos/m.fat*100):'—',icon:'box',accent:'amber'},
+          {label:'TARIFAS ML',value:BRL(m.tarifas),caption:m.fat>0?PCT(m.tarifas/m.fat*100):'—',icon:'percent'},
+          {label:'IMPOSTOS',value:BRL(m.impostos),caption:m.fat>0?PCT(m.impostos/m.fat*100):'—',icon:'landmark',accent:'accent'},
+          {label:'FRETE',value:BRL(m.frete),caption:m.fat>0?PCT(m.frete/m.fat*100):'—',icon:'truck'},
+        ].map(c=><StatCard key={c.label} {...c}/>)}
+      </div>
+
+      {/* ADS */}
+      {!loading&&<PainelAds ads={ads} metricas={m} dataRef={m.from} onSalvo={onRefresh}/>}
+
+      {/* PEDIDOS */}
+      <div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}>
+          <div style={{fontSize:15,fontWeight:700,color:'rgba(255,255,255,.88)'}}>Últimos pedidos</div>
+          <Badge>{dados?.pedidos?.length||0} no período</Badge>
+        </div>
+        <TabelaPedidos pedidos={dados?.pedidos?.slice(0,15)} loading={loading} multiConta={multiConta} onRefresh={onRefresh}/>
+      </div>
+    </div>
+  );
+}
+
+/* ══ VIEW: ANÚNCIOS ═════════════════════════════════════════ */
+function ViewAnuncios({dados,loading,onRefresh}){
+  const [busca,setBusca]=useState('');
+  const anuncios=(dados?.anuncios||[]).filter(a=>!busca||a.titulo.toLowerCase().includes(busca.toLowerCase())||String(a.sku).toLowerCase().includes(busca.toLowerCase()));
+  const multiConta=(dados?.contasUsadas?.length||0)>1;
+  const GRID=multiConta?'52px 1fr 76px 88px 70px 66px 66px 104px':'52px 1fr 88px 70px 66px 66px 104px';
+
+  if(loading)return (
+    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+      {[...Array(6)].map((_,i)=>(
+        <div key={i} style={{background:'var(--card)',borderRadius:'var(--r-lg)',padding:14,display:'flex',gap:12,alignItems:'center',boxShadow:'var(--sh-sm)'}}>
+          <Skel w={48} h={48} r={9}/><div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={13}/><Skel w="40%" h={10}/></div><Skel w={70} h={24}/>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{marginBottom:14,position:'relative'}}>
+        <div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}>
+          <Icon name="search" size={15} color="rgba(255,255,255,.35)"/>
+        </div>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por título ou SKU..."
+          style={{width:'100%',maxWidth:380,padding:'9px 12px 9px 36px',fontSize:13,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',color:'#fff',fontFamily:'var(--f-sans)'}}/>
+      </div>
+
+      <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',overflow:'auto',boxShadow:'var(--sh-sm)'}}>
+        <div style={{minWidth:multiConta?860:800}}>
+          <div style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'10px 18px',background:'var(--sunken)',borderBottom:'1px solid var(--bd)'}}>
+            {(multiConta?['','Título','Conta','SKU','Preço','Est.','Visitas','Custo']:['','Título','SKU','Preço','Est.','Visitas','Custo']).map((h,i)=>
+              <div key={i} style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em',textTransform:'uppercase'}}>{h}</div>)}
+          </div>
+          {anuncios.map((a,i)=>(
+            <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'11px 18px',alignItems:'center',borderBottom:'1px solid var(--bd)',background:i%2?'var(--sunken)':'var(--card)'}}>
+              <div style={{width:48,height:48,borderRadius:9,overflow:'hidden',background:'var(--sunken)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19}}>
+                {a.foto?<img src={a.foto} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:'📦'}
+              </div>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:12.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={a.titulo}>{a.titulo}</div>
+                <div style={{marginTop:3,display:'flex',gap:5,alignItems:'center'}}>
+                  <Badge tone={a.status==='active'?'success':'danger'}>{a.status==='active'?'Ativo':'Inativo'}</Badge>
+                  <span style={{fontSize:10.5,color:'var(--txt3)'}}>{NUM(a.vendas)} vendas totais</span>
+                </div>
+              </div>
+              {multiConta&&<div style={{fontSize:11,color:'var(--txt2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.conta}</div>}
+              <div style={{fontSize:10.5,color:'var(--txt3)',fontFamily:'var(--f-mono)',overflow:'hidden',textOverflow:'ellipsis'}}>{a.sku}</div>
+              <div className="tab" style={{fontSize:12.5,fontWeight:700,color:'var(--orange)'}}>{BRL(a.preco)}</div>
+              <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.estoque<=3?'var(--red)':'var(--txt)'}}>{a.estoque}</div>
+              <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.visitas>0?'var(--amber)':'var(--txt3)'}}>{NUM(a.visitas)}</div>
+              <div><CustoInline sku={a.sku} valorInicial={a.custo} impostoInicial={a.imposto} onSalvo={onRefresh}/></div>
+            </div>
+          ))}
+          {anuncios.length===0&&(
+            <div style={{padding:44,textAlign:'center'}}>
+              <Icon name="package" size={30} color="rgba(0,0,0,.18)"/>
+              <div style={{fontSize:13,color:'var(--txt3)',marginTop:10}}>{busca?'Nenhum anúncio encontrado':'Nenhum anúncio ativo'}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══ VIEW: CONTAS ═══════════════════════════════════════════ */
+function ViewContas({dados,onRefresh}){
+  const [removendo,setRemovendo]=useState(null);
+  const contas=dados?.contas||[];
+
+  async function remover(id){
+    if(!confirm('Remover esta conta? Os dados dela deixarão de aparecer.'))return;
+    setRemovendo(id);
+    try{await call('mlRemoverConta',{contaId:id});onRefresh();}
+    catch(e){alert('Erro: '+e.message);}
+    finally{setRemovendo(null);}
+  }
+
+  const conectar=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
+
+  return (
+    <div style={{maxWidth:640}}>
+      <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',overflow:'hidden',marginBottom:16}}>
+        <div style={{padding:'14px 20px',borderBottom:'1px solid var(--bd)',background:'var(--sunken)'}}>
+          <div style={{fontSize:13,fontWeight:700}}>Contas conectadas</div>
+        </div>
+        {contas.map(c=>(
+          <div key={c.id} style={{padding:'14px 20px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,82,0,.1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <Icon name="store" size={17} color="var(--orange)"/>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13.5,fontWeight:700}}>{c.nickname}</div>
+              <div style={{fontSize:11,color:'var(--txt3)',fontFamily:'var(--f-mono)'}}>ID {c.id}</div>
+            </div>
+            <Badge tone="success">Conectada</Badge>
+            <button onClick={()=>remover(c.id)} disabled={removendo===c.id} style={{background:'transparent',border:'none',cursor:'pointer',padding:6,borderRadius:6,display:'flex'}}>
+              <Icon name="trash-2" size={15} color="var(--red)"/>
             </button>
-          );
+          </div>
+        ))}
+        {contas.length===0&&<div style={{padding:32,textAlign:'center',fontSize:13,color:'var(--txt3)'}}>Nenhuma conta conectada</div>}
+      </div>
+
+      <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:20}}>
+        <div style={{fontSize:13.5,fontWeight:700,marginBottom:6}}>Adicionar outra conta</div>
+        <div style={{fontSize:12.5,color:'var(--txt2)',marginBottom:16,lineHeight:1.6}}>
+          Conecte quantas contas do Mercado Livre quiser. Os dados são somados no dashboard e você pode filtrar por conta.
+          <br/><strong>Importante:</strong> saia da conta atual no Mercado Livre antes de conectar outra.
+        </div>
+        <Btn icon="plus" onClick={conectar}>Conectar nova conta</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ══ VIEW: ANÁLISE IA ═══════════════════════════════════════ */
+function ViewIA({dados,periodo}){
+  const [analise,setAnalise]=useState(''),[loading,setLoading]=useState(false);
+  async function gerar(){
+    if(!dados)return;
+    setLoading(true);setAnalise('');
+    const top=dados.anuncios?.slice(0,15).map(a=>({titulo:a.titulo,preco:BRL(a.preco),visitas:a.visitas,estoque:a.estoque,vendas:a.vendas,custo:a.custo}));
+    const ped=dados.pedidos?.slice(0,10).map(p=>({titulo:p.titulo,valor:BRL(p.valor),lucro:BRL(p.lucro),margem:PCT(p.margem)}));
+    try{
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,
+          system:`Você é especialista em Mercado Livre e gestão de e-commerce. Analise os dados e entregue:\n\n🎯 DIAGNÓSTICO\nPontos fortes e de atenção do período.\n\n💰 ANÁLISE DE MARGEM\nComente a margem e onde há espaço de melhoria.\n\n🔥 TOP 3 AÇÕES\nAções concretas e priorizadas.\n\n⚠️ ALERTAS\nEstoque crítico, produtos sem custo cadastrado, margem negativa.\n\nSeja direto, use os números reais.`,
+          messages:[{role:'user',content:`Período: ${PLABEL[periodo]}\nMétricas: ${JSON.stringify(dados.metricas)}\nAds: ${JSON.stringify(dados.ads)}\nTop anúncios: ${JSON.stringify(top)}\nPedidos recentes: ${JSON.stringify(ped)}`}]})});
+      const d=await r.json();
+      setAnalise(d.content?.[0]?.text||'Erro ao gerar análise');
+    }catch(e){setAnalise('Erro: '+e.message);}
+    finally{setLoading(false);}
+  }
+  return (
+    <div style={{maxWidth:760}}>
+      {!loading&&!analise&&(
+        <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:32,textAlign:'center',boxShadow:'var(--sh-sm)',border:'1px solid var(--bd)'}}>
+          <Icon name="sparkles" size={26} color="var(--orange)"/>
+          <div style={{fontSize:14,color:'var(--txt2)',margin:'12px 0 20px',lineHeight:1.6}}>Diagnóstico completo da conta com IA especializada em Mercado Livre</div>
+          <Btn onClick={gerar} icon="sparkles">Gerar análise</Btn>
+        </div>
+      )}
+      {loading&&<div style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:44,textAlign:'center',boxShadow:'var(--sh-sm)',fontSize:13,color:'var(--txt3)'}}>Analisando sua conta...</div>}
+      {analise&&(
+        <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:'var(--pad)',boxShadow:'var(--sh-sm)',border:'1px solid var(--bd)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em'}}>DIAGNÓSTICO · {new Date().toLocaleDateString('pt-BR')}</div>
+            <Btn variant="secondary" size="sm" onClick={gerar} icon="refresh-cw">Reanalisar</Btn>
+          </div>
+          <div style={{fontSize:14,color:'var(--txt2)',lineHeight:1.8,whiteSpace:'pre-wrap'}}>{analise}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ SIDEBAR ════════════════════════════════════════════════ */
+const NAV=[
+  {id:'dashboard',icon:'layout-dashboard',label:'Visão geral'},
+  {id:'pedidos',icon:'shopping-cart',label:'Pedidos'},
+  {id:'anuncios',icon:'package',label:'Anúncios'},
+  {id:'ia',icon:'sparkles',label:'Análise IA'},
+  {id:'contas',icon:'store',label:'Contas'},
+];
+
+function Sidebar({active,onSelect,seller,onSair}){
+  return (
+    <aside className="hide-sm" style={{width:'var(--sidebar-w)',minHeight:'100vh',background:'var(--sidebar)',display:'flex',flexDirection:'column',borderRight:'1px solid var(--bd-dark)',position:'fixed',top:0,left:0,zIndex:30}}>
+      <div style={{height:'var(--topbar-h)',display:'flex',alignItems:'center',padding:'0 20px',borderBottom:'1px solid var(--bd-dark)'}}>
+        <Wordmark size={19}/>
+      </div>
+      <nav style={{flex:1,padding:8}}>
+        {NAV.map(it=>{
+          const on=active===it.id;
+          return <button key={it.id} onClick={()=>onSelect(it.id)} style={{display:'flex',alignItems:'center',gap:10,width:'100%',height:40,padding:'0 12px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:13,fontWeight:on?700:500,fontFamily:'var(--f-sans)',marginBottom:2,transition:'var(--tr)',
+            background:on?'rgba(255,82,0,.12)':'transparent',color:on?'var(--orange)':'rgba(255,255,255,.55)'}}>
+            <Icon name={it.icon} size={16} color={on?'var(--orange)':'rgba(255,255,255,.45)'}/>{it.label}</button>;
         })}
       </nav>
-
-      {/* User footer */}
-      <div style={{ padding:'12px 16px', borderTop:'1px solid var(--border-sidebar)', display:'flex', alignItems:'center', gap:10 }}>
-        <div style={{ width:32, height:32, borderRadius:'50%', background:'rgba(255,82,0,.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <Icon name="user" size={16} color="#FF5200" />
+      <div style={{padding:'12px 16px',borderTop:'1px solid var(--bd-dark)',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:31,height:31,borderRadius:'50%',background:'rgba(255,82,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <Icon name="user" size={15} color="var(--orange)"/>
         </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:'var(--text-xs)', fontWeight:700, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-            {seller?.nickname || '...'}
-          </div>
-          <button onClick={onSair} style={{ background:'none', border:'none', color:'rgba(255,255,255,.35)', cursor:'pointer', fontSize:11, padding:0 }}>Sair</button>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:11.5,fontWeight:700,color:'#fff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{seller?.nickname||'...'}</div>
+          <button onClick={onSair} style={{background:'none',border:'none',color:'var(--txt-dark3)',cursor:'pointer',fontSize:10.5,padding:0}}>Sair</button>
         </div>
       </div>
     </aside>
   );
 }
 
-/* ════════════════════════════════════════════════════════════
-   TOP BAR
-   ════════════════════════════════════════════════════════════ */
-function TopBar({ hora, loading, onRefresh }) {
+/* ══ BOTTOM NAV (mobile) ════════════════════════════════════ */
+function BottomNav({active,onSelect}){
   return (
-    <header style={{
-      height:'var(--layout-topbar)', background:'var(--surface-page)',
-      borderBottom:`1px solid ${getComputedStyle(document.documentElement).getPropertyValue('--border-sidebar')||'rgba(255,255,255,.08)'}`,
-      display:'flex', alignItems:'center', justifyContent:'flex-end',
-      padding:`0 var(--layout-page-gutter)`, gap:12,
-      position:'sticky', top:0, zIndex:20,
-    }}>
-      {hora && <span style={{ fontSize:'var(--text-xs)', color:'rgba(255,255,255,.35)' }}>Atualizado às {hora}</span>}
-      <button onClick={onRefresh} disabled={loading} style={{
-        display:'inline-flex', alignItems:'center', gap:6,
-        height:32, padding:'0 12px', borderRadius:'var(--radius-md)',
-        background:'transparent', border:'1px solid rgba(255,255,255,.1)',
-        color:'rgba(255,255,255,.55)', cursor:loading?'not-allowed':'pointer',
-        fontSize:'var(--text-xs)', fontWeight:600, fontFamily:'var(--font-sans)',
-      }}>
-        <Icon name="refresh-cw" size={12} color="currentColor" />
-        {loading ? 'Atualizando' : 'Atualizar'}
-      </button>
-    </header>
+    <nav style={{display:'none',position:'fixed',bottom:0,left:0,right:0,height:'64px',background:'var(--sidebar)',borderTop:'1px solid var(--bd-dark)',zIndex:40,justifyContent:'space-around',alignItems:'center'}}
+      ref={el=>{if(el)el.style.display=window.innerWidth<=900?'flex':'none'}}>
+      {NAV.map(it=>{
+        const on=active===it.id;
+        return <button key={it.id} onClick={()=>onSelect(it.id)} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,background:'none',border:'none',cursor:'pointer',padding:'6px 10px',flex:1}}>
+          <Icon name={it.icon} size={19} color={on?'var(--orange)':'rgba(255,255,255,.4)'}/>
+          <span style={{fontSize:9.5,fontWeight:on?700:500,color:on?'var(--orange)':'rgba(255,255,255,.4)'}}>{it.label.split(' ')[0]}</span>
+        </button>;
+      })}
+    </nav>
   );
 }
 
-/* ════════════════════════════════════════════════════════════
-   DASHBOARD VIEW
-   ════════════════════════════════════════════════════════════ */
-function ViewDashboard({ dados, loading, periodo, onPeriodo }) {
-  const m = dados?.metricas || {};
+/* ══ APP LOGADO ═════════════════════════════════════════════ */
+function AppLogado({user}){
+  const [view,setView]=useState('dashboard');
+  const [periodo,setPeriodo]=useState('hoje');
+  const [dados,setDados]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [err,setErr]=useState('');
+  const [contasAtivas,setContasAtivas]=useState([]);
+  const [isMobile,setIsMobile]=useState(window.innerWidth<=900);
 
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:'var(--layout-grid-gap)' }}>
+  useEffect(()=>{
+    const h=()=>setIsMobile(window.innerWidth<=900);
+    window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);
+  },[]);
 
-      {/* Hero — faturamento */}
-      <section style={{
-        background:'var(--neutral-1000)', borderRadius:'var(--radius-2xl)',
-        padding:'22px var(--layout-card-pad-lg)',
-        display:'flex', gap:'var(--space-6)', flexWrap:'wrap', alignItems:'flex-start',
-        justifyContent:'space-between',
-      }}>
-        <div style={{ display:'flex', gap:'var(--space-9)', flexWrap:'wrap', flex:1, minWidth:220 }}>
-          <div>
-            <div style={{ fontSize:'var(--text-xs)', color:'rgba(255,255,255,.48)', letterSpacing:'var(--tracking-wide)', fontWeight:600 }}>FATURAMENTO</div>
-            <div style={{ display:'flex', alignItems:'baseline', gap:10, marginTop:4 }}>
-              {loading ? <Skeleton w={160} h={38} /> : (
-                <span className="rl-tabular" style={{ fontSize:'var(--text-4xl)', fontWeight:'var(--weight-extrabold)', color:'#fff', letterSpacing:'var(--tracking-display)', fontFamily:'var(--font-sans)' }}>
-                  {BRL(m.fat)}
-                </span>
-              )}
-            </div>
-            {!loading && <div style={{ fontSize:'var(--text-xs)', color:'rgba(255,255,255,.38)', marginTop:6 }}>{m.pedidosDia||0} pedidos · {m.qtd||0} unidades</div>}
-          </div>
-        </div>
-        <PeriodFilter value={periodo} onChange={onPeriodo} />
-      </section>
+  useEffect(()=>{carregar();},[periodo,contasAtivas]);
 
-      {/* KPI grid */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'var(--layout-grid-gap)' }}>
-        {loading ? [...Array(5)].map((_,i) => (
-          <div key={i} style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:'var(--layout-card-pad)', boxShadow:'var(--shadow-sm)', display:'flex', flexDirection:'column', gap:12 }}>
-            <Skeleton w="60%" h={11} /><Skeleton h={30} /><Skeleton w="80%" h={11} />
-          </div>
-        )) : [
-          { label:'VENDAS', value:NUM(m.pedidosDia), caption:`${m.qtd||0} unidades no período`, icon:'shopping-cart' },
-          { label:'TICKET MÉDIO', value:BRL(m.pedidosDia>0?m.fat/m.pedidosDia:0), icon:'tag', accent:'accent' },
-          { label:'TARIFAS ML', value:BRL(m.tarifas), caption:m.fat>0?PCT((m.tarifas/m.fat)*100):'—', icon:'percent' },
-          { label:'FRETE VENDEDOR', value:BRL(m.frete), caption:m.fat>0?PCT((m.frete/m.fat)*100):'—', icon:'truck', accent:'accent' },
-          { label:'ANÚNCIOS ATIVOS', value:NUM(m.totalAds), icon:'package' },
-        ].map(card => <StatCard key={card.label} {...card} />)}
-      </div>
-
-      {/* Tabela de pedidos */}
-      <div>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-          <div style={{ fontSize:'var(--text-base)', fontWeight:700, color:'rgba(255,255,255,.85)' }}>Pedidos</div>
-          <Badge tone="default">{dados?.pedidos?.length||0} resultados</Badge>
-        </div>
-        <TabelaPedidos pedidos={dados?.pedidos} loading={loading} />
-      </div>
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   ANUNCIOS VIEW
-   ════════════════════════════════════════════════════════════ */
-function ViewAnuncios({ dados, loading }) {
-  const anuncios = dados?.anuncios || [];
-
-  if (loading) return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-      {[...Array(5)].map((_,i) => (
-        <div key={i} style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:'var(--layout-card-pad)', display:'flex', gap:12, alignItems:'center', boxShadow:'var(--shadow-sm)' }}>
-          <Skeleton w={56} h={56} radius={10} />
-          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}><Skeleton h={14} /><Skeleton w="50%" h={11} /></div>
-          <Skeleton w={80} h={28} />
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-      {/* Header */}
-      <div style={{ display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 80px 80px', gap:8, padding:'10px 20px', borderRadius:'var(--radius-md)' }}>
-        {['','Título','Preço','Estoque','Visitas','Vendas'].map((h,i) => (
-          <div key={i} style={{ fontSize:'var(--text-xs)', fontWeight:700, color:'rgba(255,255,255,.38)', letterSpacing:'var(--tracking-caps)', textTransform:'uppercase' }}>{h}</div>
-        ))}
-      </div>
-
-      {anuncios.map((a,i) => (
-        <div key={a.id} style={{
-          display:'grid', gridTemplateColumns:'56px 1fr 100px 80px 80px 80px',
-          gap:8, padding:'12px 20px', alignItems:'center',
-          background:'var(--surface-card)', borderRadius:'var(--radius-lg)',
-          boxShadow:'var(--shadow-sm)', border:'1px solid var(--border-subtle)',
-          marginBottom:4,
-        }}>
-          <div style={{ width:52, height:52, borderRadius:10, overflow:'hidden', background:'var(--surface-sunken)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
-            {a.foto ? <img src={a.foto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : '📦'}
-          </div>
-          <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:'var(--text-sm)', fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.titulo}</div>
-            <div style={{ marginTop:4, display:'flex', gap:6 }}>
-              <Badge tone={a.status==='active'?'success':'danger'}>{a.status==='active'?'Ativo':'Inativo'}</Badge>
-              {a.estoque <= 3 && <Badge tone="warning">⚠ Est: {a.estoque}</Badge>}
-              {a.estoque > 3 && <span style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)' }}>Est: {a.estoque}</span>}
-            </div>
-          </div>
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:'#FF5200' }}>{BRL(a.preco)}</div>
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:a.estoque<=3?'#dc2626':'var(--text-primary)' }}>{a.estoque}</div>
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', fontWeight:700, color:a.visitas>0?'#d97706':'var(--text-muted)' }}>{NUM(a.visitas)}</div>
-          <div className="rl-tabular" style={{ fontSize:'var(--text-sm)', color:'var(--text-secondary)' }}>{NUM(a.vendas)}</div>
-        </div>
-      ))}
-
-      {anuncios.length === 0 && (
-        <div style={{ padding:48, textAlign:'center', background:'var(--surface-card)', borderRadius:'var(--radius-xl)', boxShadow:'var(--shadow-sm)' }}>
-          <Icon name="package" size={32} color="rgba(0,0,0,.2)" />
-          <div style={{ fontSize:'var(--text-sm)', color:'var(--text-muted)', marginTop:12 }}>Nenhum anúncio ativo</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   ANÁLISE IA VIEW
-   ════════════════════════════════════════════════════════════ */
-function ViewIA({ dados, periodo }) {
-  const [analise,setAnalise]=useState(''); const [loading,setLoading]=useState(false);
-
-  async function gerar() {
-    if (!dados) return;
-    setLoading(true); setAnalise('');
-    const topAds = dados.anuncios?.slice(0,15).map(a=>({ titulo:a.titulo, preco:BRL(a.preco), visitas:a.visitas, faturado:BRL(a.fatDia||0), estoque:a.estoque, vendas_total:a.vendas }));
-    try {
-      const r = await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-6', max_tokens:1000,
-          system:`Você é especialista em Mercado Livre. Analise e entregue:\n🎯 DIAGNÓSTICO (pontos fortes e de atenção)\n🔥 TOP 3 ANÚNCIOS PARA FOCAR\n⚠️ ALERTAS (estoque, visitas)\n💡 3 AÇÕES PRÁTICAS\nSeja direto e específico.`,
-          messages:[{role:'user',content:`Período: ${periodo}\nMétricas: ${JSON.stringify(dados.metricas)}\nAnúncios: ${JSON.stringify(topAds)}`}]
-        })
-      });
-      const d = await r.json();
-      setAnalise(d.content?.[0]?.text||'Erro ao gerar análise');
-    } catch(e) { setAnalise('Erro: '+e.message); }
-    finally { setLoading(false); }
+  async function carregar(){
+    setLoading(true);setErr('');
+    try{
+      const r=await call('mlGetDados',{periodo,contas:contasAtivas.length?contasAtivas:null});
+      setDados({...r,hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+      if(contasAtivas.length===0&&r.contas?.length)setContasAtivas(r.contas.filter(c=>c.ativa).map(c=>c.id));
+    }catch(e){setErr('Erro ao carregar: '+e.message);}
+    finally{setLoading(false);}
   }
 
-  return (
-    <div>
-      {!loading && !analise && (
-        <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:32, textAlign:'center', boxShadow:'var(--shadow-sm)', border:'1px solid var(--border-subtle)' }}>
-          <Icon name="sparkles" size={28} color="#FF5200" />
-          <div style={{ fontSize:'var(--text-base)', color:'var(--text-secondary)', margin:'12px 0 20px', lineHeight:1.6 }}>
-            Diagnóstico completo da conta com IA especializada em Mercado Livre
-          </div>
-          <Btn onClick={gerar} icon="sparkles">Gerar análise do dia</Btn>
-        </div>
-      )}
-      {loading && (
-        <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:48, textAlign:'center', boxShadow:'var(--shadow-sm)' }}>
-          <div style={{ fontSize:'var(--text-sm)', color:'var(--text-muted)' }}>Analisando sua conta...</div>
-        </div>
-      )}
-      {analise && (
-        <div style={{ background:'var(--surface-card)', borderRadius:'var(--radius-xl)', padding:'var(--layout-card-pad)', boxShadow:'var(--shadow-sm)', border:'1px solid var(--border-subtle)' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-            <div style={{ fontSize:'var(--text-xs)', fontWeight:700, color:'var(--text-muted)', letterSpacing:'var(--tracking-caps)', textTransform:'uppercase' }}>
-              Diagnóstico · {new Date().toLocaleDateString('pt-BR')}
-            </div>
-            <Btn variant="secondary" size="sm" onClick={gerar} icon="refresh-cw">Reanalisar</Btn>
-          </div>
-          <div style={{ fontSize:'var(--text-base)', color:'var(--text-secondary)', lineHeight:1.8, whiteSpace:'pre-wrap' }}>{analise}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   MAIN APP (LOGADO)
-   ════════════════════════════════════════════════════════════ */
-function AppLogado({ user }) {
-  const [view,   setView]   = useState('dashboard');
-  const [periodo,setPeriodo]= useState('hoje');
-  const [dados,  setDados]  = useState(null);
-  const [loading,setLoading]= useState(true);
-  const [err,    setErr]    = useState('');
-
-  useEffect(() => { carregarDados(periodo); }, [periodo]);
-  useEffect(() => { renderLucide(); }, [view, dados, loading]);
-
-  async function carregarDados(p) {
-    setLoading(true); setErr('');
-    try {
-      const fn = functions.httpsCallable('mlGetDados');
-      const r  = await fn({ periodo: p });
-      setDados({ ...r.data, hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) });
-    } catch(e) { setErr('Erro ao carregar: '+e.message); }
-    finally { setLoading(false); }
-  }
-
-  function handleSair() { auth.signOut(); }
+  const toggleConta=id=>setContasAtivas(a=>a.includes(id)?(a.length>1?a.filter(x=>x!==id):a):[...a,id]);
+  const multiConta=(dados?.contasUsadas?.length||0)>1;
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:'var(--surface-page)' }}>
-      {/* Sidebar */}
-      <SidebarNav active={view} onSelect={setView} seller={dados?.seller} onSair={handleSair} />
+    <div style={{display:'flex',minHeight:'100vh',background:'var(--page)'}}>
+      <Sidebar active={view} onSelect={setView} seller={dados?.seller} onSair={()=>auth.signOut()}/>
 
-      {/* Main */}
-      <div style={{ marginLeft:'var(--layout-sidebar)', flex:1, display:'flex', flexDirection:'column', minHeight:'100vh' }}>
-        <TopBar hora={dados?.hora} loading={loading} onRefresh={() => carregarDados(periodo)} />
+      <div style={{marginLeft:isMobile?0:'var(--sidebar-w)',flex:1,display:'flex',flexDirection:'column',minHeight:'100vh',paddingBottom:isMobile?68:0}}>
+        {/* TopBar */}
+        <header style={{height:'var(--topbar-h)',borderBottom:'1px solid var(--bd-dark)',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 var(--gutter)',gap:10,position:'sticky',top:0,zIndex:20,background:'var(--page)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            {isMobile&&<Wordmark size={17}/>}
+            {!isMobile&&<span style={{fontSize:15,fontWeight:700,color:'rgba(255,255,255,.85)'}}>{NAV.find(n=>n.id===view)?.label}</span>}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {dados?.hora&&!isMobile&&<span style={{fontSize:10.5,color:'var(--txt-dark3)'}}>Atualizado {dados.hora}</span>}
+            <Btn variant="dark" size="sm" icon="refresh-cw" onClick={carregar} disabled={loading}>{loading?'':'Atualizar'}</Btn>
+          </div>
+        </header>
 
-        <main style={{ flex:1, padding:'var(--layout-page-gutter)', maxWidth:'var(--layout-max-content)' }}>
-          {err && (
-            <div style={{ background:'rgba(239,68,68,.1)', border:'1px solid rgba(239,68,68,.2)', borderRadius:'var(--radius-lg)', padding:'12px 16px', color:'#f87171', fontSize:'var(--text-sm)', marginBottom:16 }}>
-              {err}
-            </div>
-          )}
+        <main style={{flex:1,padding:'var(--gutter)',maxWidth:1440,width:'100%'}}>
+          {err&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.2)',borderRadius:'var(--r-lg)',padding:'12px 16px',color:'#f87171',fontSize:13,marginBottom:16}}>{err}</div>}
 
-          {view === 'dashboard' && (
-            <ViewDashboard dados={dados} loading={loading} periodo={periodo} onPeriodo={p => { setPeriodo(p); }} />
-          )}
-          {view === 'pedidos' && (
+          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={setPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar}/>}
+
+          {view==='pedidos'&&(
             <div>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-                <div style={{ fontSize:'var(--text-lg)', fontWeight:700, color:'rgba(255,255,255,.85)' }}>Pedidos</div>
-                <PeriodFilter value={periodo} onChange={setPeriodo} />
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
+                <Badge>{dados?.pedidos?.length||0} pedidos</Badge>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
+                  <PeriodFilter value={periodo} onChange={setPeriodo}/>
+                </div>
               </div>
-              <TabelaPedidos pedidos={dados?.pedidos} loading={loading} />
+              <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar}/>
             </div>
           )}
-          {view === 'anuncios' && (
-            <div>
-              <div style={{ fontSize:'var(--text-lg)', fontWeight:700, color:'rgba(255,255,255,.85)', marginBottom:16 }}>Anúncios</div>
-              <ViewAnuncios dados={dados} loading={loading} />
-            </div>
-          )}
+
+          {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar}/>}
+          {view==='ia'&&<ViewIA dados={dados} periodo={periodo}/>}
+          {view==='contas'&&<ViewContas dados={dados} onRefresh={carregar}/>}
         </main>
       </div>
+
+      {isMobile&&<BottomNav active={view} onSelect={setView}/>}
     </div>
   );
 }
 
-/* ════════════════════════════════════════════════════════════
-   APP ROOT
-   ════════════════════════════════════════════════════════════ */
-function App() {
-  const [user,     setUser]     = useState(undefined);
-  const [mlOk,     setMlOk]     = useState(null);
-  const [mlLoading,setMlLoading]= useState(false);
+/* ══ ROOT ═══════════════════════════════════════════════════ */
+function App(){
+  const [user,setUser]=useState(undefined),[mlOk,setMlOk]=useState(null),[chk,setChk]=useState(false);
+  useEffect(()=>auth.onAuthStateChanged(async u=>{
+    setUser(u);
+    if(u){
+      setChk(true);
+      try{
+        const c=await call('mlListarContas');
+        setMlOk((c.contas?.length||0)>0);
+      }catch{
+        try{
+          const s=await db.collection('users').doc(u.uid).collection('mlTokens').doc('main').get();
+          setMlOk(s.exists);
+        }catch{setMlOk(false);}
+      }finally{setChk(false);}
+    }else setMlOk(null);
+  }),[]);
 
-  useEffect(() => {
-    return auth.onAuthStateChanged(async u => {
-      setUser(u);
-      if (u) {
-        setMlLoading(true);
-        try {
-          const snap = await db.collection('users').doc(u.uid).collection('mlTokens').doc('main').get();
-          if (snap.exists) {
-            const d = snap.data();
-            setMlOk((d.expires_at?.toMillis?.()||0) > Date.now()+60000);
-          } else { setMlOk(false); }
-        } catch { setMlOk(false); }
-        finally { setMlLoading(false); }
-      } else { setMlOk(null); }
-    });
-  }, []);
-
-  useEffect(() => { renderLucide(); });
-
-  if (user === undefined || mlLoading) return (
-    <div style={{ display:'flex', height:'100vh', background:'#0D0D0D', alignItems:'center', justifyContent:'center' }}>
-      <Wordmark size={24} dark />
-    </div>
+  if(user===undefined||chk)return (
+    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center'}}><Wordmark size={24}/></div>
   );
-
-  if (!user) return <TelaLogin />;
-  if (!mlOk) return <TelaConectarML user={user} onConectado={() => setMlOk(true)} />;
-  return <AppLogado user={user} />;
+  if(!user)return <TelaLogin/>;
+  if(!mlOk)return <TelaConectar user={user} onOk={()=>setMlOk(true)}/>;
+  return <AppLogado user={user}/>;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
