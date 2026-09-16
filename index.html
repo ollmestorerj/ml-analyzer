@@ -6,45 +6,137 @@
 <title>realecom · ML Analyzer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Versões FIXAS. Não troque por @18 ou por @babel/standalone sem versão:
+     o Babel 8 compila JSX para o runtime automático (import de "react/jsx-runtime"),
+     que não roda em <script> clássico e deixa a página em branco. -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <style>
+/* ═══════════════════════════════════════════════════════════════════
+   REALECOM DESIGN SYSTEM — tokens
+   Valores idênticos a tokens/*.css do design system. Não edite aqui:
+   altere no design system e recopie este bloco.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  /* Marca — amostrado do arquivo de logo oficial */
+  --orange-50:#FFF3EC;--orange-100:#FFE2D2;--orange-200:#FFC5A7;--orange-300:#FFA477;
+  --orange-400:#FF7F41;--orange-500:#FF590E;--orange-600:#E04700;--orange-700:#B53900;
+  --purple-50:#F3EBFB;--purple-100:#E5D3F7;--purple-200:#CBA8EF;--purple-300:#A970E3;
+  --purple-400:#7B2ECC;--purple-500:#4F0188;--purple-600:#42016F;--purple-700:#340157;
+
+  /* Neutros — cinza quente com fundo roxo discreto */
+  --neutral-0:#FFFFFF;--neutral-50:#F5F4F7;--neutral-100:#EDECF1;--neutral-200:#E2E0E8;
+  --neutral-300:#CBC8D4;--neutral-400:#A6A2B3;--neutral-500:#7C7789;--neutral-600:#5C5769;
+  --neutral-700:#433F4E;--neutral-800:#2A2733;--neutral-900:#1A1820;--neutral-950:#111111;--neutral-1000:#0D0D0D;
+
+  /* Semânticos */
+  --green-500:#0E9F6E;--green-700:#075F41;--amber-500:#F0A500;--amber-700:#8F6000;
+  --red-500:#D32137;--red-600:#AE1A2C;--red-700:#84131F;--blue-500:#3B5BF5;--blue-700:#1F33A0;
+
+  /* Série de gráficos */
+  --viz-1:#FF590E;--viz-2:#4F0188;--viz-3:#3B5BF5;--viz-4:#0E9F6E;
+  --viz-5:#F0A500;--viz-6:#7B2ECC;--viz-7:#D32137;--viz-8:#A6A2B3;--viz-track:#EDECF1;
+
+  /* Superfícies — casca escura, área de trabalho clara */
+  --surface-page:#F7F6F9;--surface-card:#FFFFFF;--surface-sunken:#F5F4F7;
+  --surface-nav:#0D0D0D;--surface-hover:#F5F4F7;--surface-active:#EDECF1;
+  --surface-selected:#FFF3EC;--surface-overlay:rgba(13,13,13,.55);
+
+  /* Texto */
+  --text-strong:#111111;--text-body:#2A2733;--text-muted:#7C7789;--text-subtle:#A6A2B3;
+  --text-brand:#E04700;--text-accent:#4F0188;--text-link:#E04700;--text-link-hover:#B53900;
+  --on-dark:#FFFFFF;--on-dark-muted:rgba(255,255,255,.58);
+
+  /* Bordas */
+  --border-subtle:#EDECF1;--border-default:#E2E0E8;--border-strong:#CBC8D4;
+  --border-inverse:rgba(255,255,255,.12);--border-focus:#FF590E;
+
+  /* Ações */
+  --action-primary:#FF590E;--action-primary-hover:#E04700;--action-primary-active:#B53900;
+  --action-secondary:#4F0188;--action-secondary-hover:#42016F;
+  --action-neutral:#FFFFFF;--action-neutral-hover:#F5F4F7;
+  --action-disabled:#EDECF1;--action-disabled-text:#A6A2B3;
+
+  /* Status: par fundo-suave + texto-forte */
+  --status-success-bg:#E6F7F0;--status-success-fg:#075F41;--status-success-solid:#0E9F6E;
+  --status-warning-bg:#FFF6E5;--status-warning-fg:#8F6000;--status-warning-solid:#F0A500;
+  --status-danger-bg:#FDECEE;--status-danger-fg:#84131F;--status-danger-solid:#D32137;
+  --status-info-bg:#ECF0FE;--status-info-fg:#1F33A0;--status-info-solid:#3B5BF5;
+  --status-brand-bg:#FFF3EC;--status-brand-fg:#B53900;--status-brand-solid:#FF590E;
+  --status-accent-bg:#F3EBFB;--status-accent-fg:#340157;--status-accent-solid:#4F0188;
+  --status-neutral-bg:#EDECF1;--status-neutral-fg:#5C5769;--status-neutral-solid:#7C7789;
+
+  /* Tipografia */
+  --font-display:'Anton',Impact,sans-serif;
+  --font-sans:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono',Menlo,Consolas,monospace;
+  --text-2xs:11px;--text-xs:12px;--text-sm:13px;--text-md:15px;--text-lg:17px;
+  --text-xl:20px;--text-2xl:24px;--text-3xl:30px;--text-4xl:38px;
+  --weight-regular:400;--weight-medium:500;--weight-semibold:600;--weight-bold:700;--weight-extrabold:800;
+  --tracking-display:-.03em;--tracking-tight:-.02em;--tracking-normal:-.01em;--tracking-caps:.08em;
+
+  /* Espaço e layout */
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;
+  --space-6:24px;--space-7:32px;--space-8:40px;--space-9:48px;
+  --layout-sidebar-w:248px;--layout-topbar-h:64px;--layout-bottomnav-h:64px;
+  --layout-gutter:24px;--layout-gutter-mobile:16px;--layout-max-content:1440px;
+  --layout-card-pad:20px;--layout-grid-gap:16px;
+  --control-h-sm:32px;--control-h-md:40px;--control-h-lg:48px;--tap-target-min:44px;
+
+  /* Raios */
+  --radius-xs:6px;--radius-sm:8px;--radius-md:10px;--radius-lg:14px;
+  --radius-xl:18px;--radius-2xl:24px;--radius-pill:999px;
+
+  /* Elevação */
+  --shadow-xs:0 1px 2px rgba(17,17,17,.05);
+  --shadow-sm:0 1px 2px rgba(17,17,17,.04),0 2px 6px -2px rgba(17,17,17,.06);
+  --shadow-md:0 1px 2px rgba(17,17,17,.04),0 8px 20px -8px rgba(17,17,17,.10);
+  --shadow-lg:0 2px 4px rgba(17,17,17,.04),0 18px 40px -14px rgba(17,17,17,.16);
+  --shadow-focus:0 0 0 3px rgba(255,89,14,.22);
+  --shadow-focus-dark:0 0 0 3px rgba(255,89,14,.3);
+
+  /* Movimento */
+  --duration-fast:140ms;--duration-base:200ms;--duration-slow:280ms;
+  --ease-standard:cubic-bezier(.4,0,.2,1);--ease-out:cubic-bezier(.16,.8,.3,1);
+  --press-scale:.97;
+  --tr:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard);
+}
+@media (prefers-reduced-motion:reduce){:root{--duration-fast:0ms;--duration-base:0ms;--duration-slow:0ms;--press-scale:1}}
+
+/* ═══ Base ═══ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{height:100%}
-:root{
---orange:#FF5200;--orange-600:#E04900;--purple:#7B2ECC;--purple-dark:#4F0188;
---green:#16a34a;--green-bg:rgba(34,197,94,.12);--red:#dc2626;--red-bg:rgba(239,68,68,.12);
---amber:#d97706;--amber-bg:rgba(245,158,11,.12);
---page:#111111;--sidebar:#0D0D0D;--card:#FFFFFF;--sunken:#F7F7F7;--hover:rgba(0,0,0,.04);
---txt:#0D0D0D;--txt2:#4B4B4B;--txt3:rgba(0,0,0,.45);--txt-dark:#fff;--txt-dark2:rgba(255,255,255,.52);--txt-dark3:rgba(255,255,255,.32);
---bd:rgba(0,0,0,.08);--bd2:rgba(0,0,0,.14);--bd-dark:rgba(255,255,255,.08);
---r-sm:6px;--r-md:8px;--r-lg:14px;--r-xl:18px;--r-2xl:24px;--r-pill:999px;
---f-sans:'Manrope',system-ui,sans-serif;--f-mono:'JetBrains Mono',monospace;--f-display:'Anton',sans-serif;
---sh-sm:0 1px 2px rgba(0,0,0,.04),0 2px 6px -2px rgba(0,0,0,.06);
---sh-md:0 4px 12px rgba(0,0,0,.08);
---sidebar-w:248px;--topbar-h:64px;--gutter:24px;--gap:16px;--pad:20px;
---tr:140ms ease;
-}
-body{font-family:var(--f-sans);font-size:15px;color:var(--txt);background:var(--page);-webkit-font-smoothing:antialiased}
+body{font-family:var(--font-sans);font-size:var(--text-md);line-height:1.47;color:var(--text-body);background:var(--surface-page);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3{margin:0;color:var(--text-strong);letter-spacing:var(--tracking-tight)}
+a{color:var(--text-link);text-decoration:none}
+a:hover{color:var(--text-link-hover);text-decoration:underline}
+button,input,select,textarea{font-family:inherit}
+::selection{background:var(--orange-200);color:var(--neutral-950)}
 .tab{font-variant-numeric:tabular-nums}
-::-webkit-scrollbar{width:5px;height:5px}
+.mono{font-family:var(--font-mono)}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:var(--radius-pill);border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--neutral-400);background-clip:content-box}
+/* Campo claro (área de trabalho) */
+.fld{width:100%;background:var(--surface-card);border:1px solid var(--border-default);border-radius:var(--radius-md);color:var(--text-strong);font-size:var(--text-sm);transition:var(--tr)}
+.fld::placeholder{color:var(--text-subtle)}
+.fld:focus{outline:none;border-color:var(--border-focus);box-shadow:var(--shadow-focus)}
+/* Campo sobre superfície escura (casca) */
+.fld-dark{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border-inverse);border-radius:var(--radius-md);color:var(--on-dark);font-size:var(--text-sm);transition:var(--tr)}
+.fld-dark::placeholder{color:var(--on-dark-muted)}
+.fld-dark:focus{outline:none;border-color:var(--border-focus);box-shadow:var(--shadow-focus-dark)}
+:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-@keyframes spin{to{transform:rotate(360deg)}}
-input:focus,select:focus{outline:none;border-color:var(--orange)!important;box-shadow:0 0 0 3px rgba(255,82,0,.15)}
-.hide-sm{display:block}
-@media(max-width:900px){
-  .hide-sm{display:none!important}
-  :root{--sidebar-w:0px;--gutter:14px}
-}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -64,11 +156,12 @@ const call=(fn,args={})=>functions.httpsCallable(fn)(args).then(r=>r.data);
 <script type="text/babel">
 const {useState,useEffect,useCallback,useRef}=React;
 
-/* ══ DS PRIMITIVES ══════════════════════════════════════════ */
-const Wordmark=({size=18,dark=true})=>(
-  <span style={{fontFamily:'Anton,sans-serif',fontSize:size,letterSpacing:-.3,userSelect:'none',lineHeight:1}}>
-    <span style={{color:dark?'#fff':'#9333ea'}}>real</span><span style={{color:'#FF5200'}}>ecom</span>
-  </span>
+/* ══ DS PRIMITIVES ══════════════════════════════════════════
+   Espelham components/ do design system. Logo = arquivo, nunca tipo. */
+
+const Logo=({height=20,inverse=false})=>(
+  <img src={inverse?'./assets/logo-horizontal-inverse.png':'./assets/logo-horizontal.png'}
+    alt="realecom" style={{height,width:'auto',display:'block',userSelect:'none'}}/>
 );
 
 const Icon=({name,size=18,color='currentColor'})=>{
@@ -82,58 +175,165 @@ const Icon=({name,size=18,color='currentColor'})=>{
     const s=ref.current.querySelector('svg');
     if(s){s.setAttribute('width',size);s.setAttribute('height',size);s.style.color=color;s.style.display='block';}
   },[name,size,color]);
-  return <span ref={ref} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:size,height:size,flexShrink:0}}/>;
+  return <span ref={ref} aria-hidden="true" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:size,height:size,flexShrink:0}}/>;
 };
 
-const Badge=({children,tone='default',pill})=>{
-  const t={default:{bg:'rgba(0,0,0,.06)',c:'#4B4B4B'},success:{bg:'var(--green-bg)',c:'var(--green)'},
-    danger:{bg:'var(--red-bg)',c:'var(--red)'},warning:{bg:'var(--amber-bg)',c:'var(--amber)'},
-    brand:{bg:'rgba(255,82,0,.12)',c:'var(--orange)'},purple:{bg:'rgba(123,46,204,.12)',c:'var(--purple)'}}[tone];
-  return <span style={{display:'inline-flex',alignItems:'center',gap:4,background:t.bg,color:t.c,fontSize:11,fontWeight:700,padding:pill?'3px 10px':'2px 7px',borderRadius:pill?999:6,whiteSpace:'nowrap'}}>{children}</span>;
+/* Badge — pílula de status somente leitura (par fundo-suave + texto-forte) */
+const Badge=({children,tone='neutral',solid=false,dot=false})=>{
+  const t={
+    neutral:['--status-neutral-bg','--status-neutral-fg','--status-neutral-solid'],
+    success:['--status-success-bg','--status-success-fg','--status-success-solid'],
+    danger:['--status-danger-bg','--status-danger-fg','--status-danger-solid'],
+    warning:['--status-warning-bg','--status-warning-fg','--status-warning-solid'],
+    info:['--status-info-bg','--status-info-fg','--status-info-solid'],
+    brand:['--status-brand-bg','--status-brand-fg','--status-brand-solid'],
+    accent:['--status-accent-bg','--status-accent-fg','--status-accent-solid'],
+  }[tone]||['--status-neutral-bg','--status-neutral-fg','--status-neutral-solid'];
+  const skin=solid?{background:`var(${t[2]})`,color:'#fff'}:{background:`var(${t[0]})`,color:`var(${t[1]})`};
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,height:22,padding:'0 9px',borderRadius:'var(--radius-pill)',fontSize:'var(--text-2xs)',fontWeight:'var(--weight-semibold)',whiteSpace:'nowrap',...skin}}>
+    {dot&&<span style={{width:6,height:6,borderRadius:'50%',background:solid?'#fff':`var(${t[2]})`,flexShrink:0}}/>}
+    {children}</span>;
 };
 
-const Btn=({children,variant='primary',size='md',onClick,disabled,full,icon,style={}})=>{
-  const v={primary:{background:'var(--orange)',color:'#fff',border:'none'},
-    secondary:{background:'transparent',color:'var(--txt)',border:'1px solid var(--bd2)'},
-    dark:{background:'transparent',color:'rgba(255,255,255,.6)',border:'1px solid rgba(255,255,255,.12)'},
-    ghost:{background:'transparent',color:'var(--txt2)',border:'none'}}[variant];
-  const s={sm:{h:32,px:12,fs:12},md:{h:40,px:16,fs:13},lg:{h:46,px:20,fs:15}}[size];
-  return <button onClick={onClick} disabled={disabled} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,height:s.h,padding:`0 ${s.px}px`,borderRadius:'var(--r-md)',fontSize:s.fs,fontWeight:700,fontFamily:'var(--f-sans)',cursor:disabled?'not-allowed':'pointer',width:full?'100%':'auto',opacity:disabled?.55:1,transition:'var(--tr)',...v,...style}}>
-    {icon&&<Icon name={icon} size={s.fs+2}/>}{children}</button>;
+/* Btn — primary laranja (uma por tela), secondary roxo, neutral branco, dark sobre casca */
+const Btn=({children,variant='primary',size='md',onClick,disabled,full,icon,iconRight,title,style={}})=>{
+  const [hv,setHv]=useState(false),[pr,setPr]=useState(false);
+  const v={
+    primary:{rest:{background:'var(--action-primary)',color:'#fff',border:'1px solid transparent',boxShadow:'var(--shadow-xs)'},hover:{background:'var(--action-primary-hover)'},active:{background:'var(--action-primary-active)'}},
+    secondary:{rest:{background:'var(--action-secondary)',color:'#fff',border:'1px solid transparent',boxShadow:'var(--shadow-xs)'},hover:{background:'var(--action-secondary-hover)'},active:{background:'var(--action-secondary-hover)'}},
+    neutral:{rest:{background:'var(--action-neutral)',color:'var(--text-body)',border:'1px solid var(--border-default)',boxShadow:'var(--shadow-xs)'},hover:{background:'var(--action-neutral-hover)',borderColor:'var(--border-strong)'},active:{background:'var(--surface-active)'}},
+    ghost:{rest:{background:'transparent',color:'var(--text-body)',border:'1px solid transparent'},hover:{background:'var(--surface-hover)'},active:{background:'var(--surface-active)'}},
+    dark:{rest:{background:'transparent',color:'var(--on-dark-muted)',border:'1px solid var(--border-inverse)'},hover:{background:'rgba(255,255,255,.08)',color:'#fff'},active:{background:'rgba(255,255,255,.12)'}},
+    danger:{rest:{background:'var(--status-danger-solid)',color:'#fff',border:'1px solid transparent'},hover:{background:'var(--red-600)'},active:{background:'var(--red-700)'}},
+  }[variant];
+  const s={sm:{h:'var(--control-h-sm)',px:12,fs:'var(--text-sm)',ic:15},md:{h:'var(--control-h-md)',px:16,fs:'var(--text-sm)',ic:16},lg:{h:'var(--control-h-lg)',px:20,fs:'var(--text-md)',ic:17}}[size];
+  return <button onClick={disabled?undefined:onClick} disabled={disabled} title={title}
+    onMouseEnter={()=>setHv(true)} onMouseLeave={()=>{setHv(false);setPr(false);}}
+    onMouseDown={()=>setPr(true)} onMouseUp={()=>setPr(false)}
+    style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:7,height:s.h,padding:`0 ${s.px}px`,
+      borderRadius:'var(--radius-md)',fontSize:s.fs,fontWeight:'var(--weight-semibold)',letterSpacing:'var(--tracking-normal)',
+      cursor:disabled?'not-allowed':'pointer',width:full?'100%':'auto',whiteSpace:'nowrap',transition:'var(--tr)',
+      ...v.rest,
+      ...(hv&&!disabled?v.hover:null),
+      ...(pr&&!disabled?{...v.active,transform:'scale(var(--press-scale))'}:null),
+      ...(disabled?{background:variant==='dark'||variant==='ghost'?'transparent':'var(--action-disabled)',color:'var(--action-disabled-text)',borderColor:variant==='dark'?'var(--border-inverse)':'transparent',boxShadow:'none'}:null),
+      ...style}}>
+    {icon&&<Icon name={icon} size={s.ic}/>}{children}{iconRight&&<Icon name={iconRight} size={s.ic}/>}</button>;
 };
 
-const Skel=({w='100%',h=16,r=6})=>(
-  <div style={{width:w,height:h,borderRadius:r,background:'linear-gradient(90deg,#f0f0f0 25%,#e4e4e4 50%,#f0f0f0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.4s infinite'}}/>
+const IconBtn=({icon,label,onClick,disabled,tone='ghost',size=36})=>{
+  const [hv,setHv]=useState(false);
+  const skin=tone==='danger'?{color:'var(--status-danger-solid)'}:{color:'var(--text-muted)'};
+  return <button onClick={disabled?undefined:onClick} aria-label={label} title={label} disabled={disabled}
+    onMouseEnter={()=>setHv(true)} onMouseLeave={()=>setHv(false)}
+    style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid transparent',
+      borderRadius:'var(--radius-md)',cursor:disabled?'not-allowed':'pointer',transition:'var(--tr)',
+      background:hv&&!disabled?'var(--surface-hover)':'transparent',...skin,
+      ...(disabled?{color:'var(--action-disabled-text)'}:null)}}>
+    <Icon name={icon} size={17}/></button>;
+};
+
+const Skel=({w='100%',h=16,r='var(--radius-sm)'})=>(
+  <div style={{width:w,height:h,borderRadius:r,background:'linear-gradient(90deg,var(--neutral-100) 25%,var(--neutral-50) 50%,var(--neutral-100) 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.4s ease infinite'}}/>
+);
+
+/* Card — branco, raio 18px, hairline, sombra rasa */
+const Card=({title,subtitle,action,icon,children,pad=true,style={}})=>(
+  <section style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-xl)',
+    boxShadow:'var(--shadow-sm)',display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden',...style}}>
+    {(title||action)&&(
+      <header style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',
+        padding:pad?'var(--layout-card-pad) var(--layout-card-pad) 0':'var(--layout-card-pad)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,minWidth:0}}>
+          {icon&&<Icon name={icon} size={17} color="var(--action-primary)"/>}
+          <div style={{minWidth:0}}>
+            {title&&<h3 style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{title}</h3>}
+            {subtitle&&<p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:2,fontWeight:'var(--weight-medium)'}}>{subtitle}</p>}
+          </div>
+        </div>
+        {action}
+      </header>
+    )}
+    <div style={{padding:pad?'var(--layout-card-pad)':0,paddingTop:(title||action)&&pad?'var(--space-4)':undefined,minWidth:0}}>{children}</div>
+  </section>
+);
+
+const Overline=({children,onDark})=>(
+  <span style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',letterSpacing:'var(--tracking-caps)',
+    textTransform:'uppercase',color:onDark?'var(--on-dark-muted)':'var(--text-subtle)'}}>{children}</span>
 );
 
 const StatCard=({label,value,caption,delta,tone,icon,accent='brand'})=>{
-  const ac={brand:'var(--orange)',accent:'var(--purple)',success:'var(--green)',danger:'var(--red)',amber:'var(--amber)'}[accent];
+  const ac={brand:'var(--orange-500)',accent:'var(--purple-500)',success:'var(--green-500)',danger:'var(--red-500)',amber:'var(--amber-500)',info:'var(--blue-500)'}[accent];
   return (
-    <div style={{background:'var(--card)',border:'1px solid var(--bd)',borderRadius:'var(--r-xl)',boxShadow:'var(--sh-sm)',padding:'var(--pad)',display:'flex',flexDirection:'column',gap:10,minWidth:0}}>
+    <div style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-xl)',
+      boxShadow:'var(--shadow-sm)',padding:'var(--layout-card-pad)',display:'flex',flexDirection:'column',gap:'var(--space-3)',minWidth:0}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-        <span style={{fontSize:11,fontWeight:700,color:'var(--txt3)',letterSpacing:'.06em'}}>{label}</span>
-        {icon&&<span style={{width:28,height:28,borderRadius:'var(--r-sm)',background:'var(--sunken)',display:'inline-flex',alignItems:'center',justifyContent:'center'}}><Icon name={icon} size={14} color={ac}/></span>}
+        <Overline>{label}</Overline>
+        {icon&&<span style={{width:28,height:28,borderRadius:'var(--radius-sm)',background:'var(--surface-sunken)',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={icon} size={15} color={ac}/></span>}
       </div>
       <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
-        <span className="tab" style={{fontSize:26,fontWeight:800,letterSpacing:'-.01em',color:tone==='danger'?'var(--red)':tone==='success'?'var(--green)':'var(--txt)'}}>{value}</span>
-        {delta&&<span style={{fontSize:11,fontWeight:700,color:'var(--txt3)'}}>{delta}</span>}
+        <span className="tab" style={{fontSize:'var(--text-3xl)',fontWeight:'var(--weight-extrabold)',letterSpacing:'var(--tracking-tight)',lineHeight:1.05,
+          color:tone==='danger'?'var(--status-danger-fg)':tone==='success'?'var(--status-success-fg)':'var(--text-strong)'}}>{value}</span>
+        {delta&&<span className="tab" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',color:'var(--text-muted)'}}>{delta}</span>}
       </div>
-      {caption&&<span style={{fontSize:11,color:'var(--txt3)',lineHeight:1.4}}>{caption}</span>}
+      {caption&&<span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)',lineHeight:1.4}}>{caption}</span>}
     </div>
   );
+};
+
+/* Estado vazio — ícone Lucide em ladrilho, nunca emoji */
+const Empty=({icon='inbox',title,description,action,compact})=>(
+  <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',
+    gap:'var(--space-3)',padding:compact?'var(--space-6)':'var(--space-9) var(--space-6)'}}>
+    <span style={{width:48,height:48,borderRadius:'var(--radius-lg)',background:'var(--surface-sunken)',display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
+      <Icon name={icon} size={22} color="var(--text-subtle)"/>
+    </span>
+    <div style={{display:'flex',flexDirection:'column',gap:4,maxWidth:340}}>
+      <span style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{title}</span>
+      {description&&<span style={{fontSize:'var(--text-sm)',color:'var(--text-muted)'}}>{description}</span>}
+    </div>
+    {action}
+  </div>
+);
+
+/* Miniatura de produto — ladrilho com ícone quando não há foto */
+const Thumb=({src,alt,size=44})=>(
+  <div style={{width:size,height:size,borderRadius:'var(--radius-md)',overflow:'hidden',background:'var(--surface-sunken)',
+    border:'1px solid var(--border-subtle)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+    {src?<img src={src} alt={alt||''} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+        :<Icon name="package" size={Math.round(size*.42)} color="var(--text-subtle)"/>}
+  </div>
+);
+
+/* Nota inline — informação de apoio dentro de um card */
+const Note=({tone='neutral',icon,children})=>{
+  const t={neutral:{bg:'var(--surface-sunken)',fg:'var(--text-muted)',ic:'var(--text-subtle)'},
+    warning:{bg:'var(--status-warning-bg)',fg:'var(--status-warning-fg)',ic:'var(--status-warning-solid)'},
+    danger:{bg:'var(--status-danger-bg)',fg:'var(--status-danger-fg)',ic:'var(--status-danger-solid)'},
+    success:{bg:'var(--status-success-bg)',fg:'var(--status-success-fg)',ic:'var(--status-success-solid)'},
+    info:{bg:'var(--status-info-bg)',fg:'var(--status-info-fg)',ic:'var(--status-info-solid)'}}[tone];
+  return <div style={{display:'flex',gap:9,alignItems:'flex-start',padding:'11px 13px',background:t.bg,
+    borderRadius:'var(--radius-lg)',fontSize:'var(--text-sm)',color:t.fg,lineHeight:1.5}}>
+    {icon&&<span style={{marginTop:1,flexShrink:0}}><Icon name={icon} size={15} color={t.ic}/></span>}
+    <span style={{minWidth:0}}>{children}</span></div>;
 };
 
 /* ══ FILTROS ════════════════════════════════════════════════ */
 const PERIODOS=['hoje','ontem','7d','30d','mes'];
 const PLABEL={hoje:'Hoje',ontem:'Ontem','7d':'7 dias','30d':'30 dias',mes:'Mês atual'};
 
+/* Pílulas sobre a faixa escura (casca) */
 const PeriodFilter=({value,onChange})=>(
-  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-    {PERIODOS.map(p=>(
-      <button key={p} onClick={()=>onChange(p)} style={{height:30,padding:'0 13px',borderRadius:'var(--r-pill)',fontSize:11,fontWeight:700,cursor:'pointer',transition:'var(--tr)',fontFamily:'var(--f-sans)',
-        background:value===p?'var(--orange)':'transparent',color:value===p?'#fff':'rgba(255,255,255,.55)',
-        border:`1px solid ${value===p?'var(--orange)':'rgba(255,255,255,.14)'}`}}>{PLABEL[p]}</button>
-    ))}
+  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+    {PERIODOS.map(p=>{
+      const on=value===p;
+      return <button key={p} onClick={()=>onChange(p)} aria-pressed={on}
+        style={{height:32,padding:'0 13px',borderRadius:'var(--radius-pill)',fontSize:'var(--text-xs)',
+          fontWeight:'var(--weight-semibold)',cursor:'pointer',transition:'var(--tr)',
+          background:on?'var(--action-primary)':'transparent',color:on?'#fff':'var(--on-dark-muted)',
+          border:`1px solid ${on?'var(--action-primary)':'var(--border-inverse)'}`}}>{PLABEL[p]}</button>;
+    })}
   </div>
 );
 
@@ -143,9 +343,13 @@ const ContaFilter=({contas,ativas,onToggle})=>{
     <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
       {contas.map(c=>{
         const on=ativas.includes(c.id);
-        return <button key={c.id} onClick={()=>onToggle(c.id)} style={{display:'inline-flex',alignItems:'center',gap:6,height:30,padding:'0 12px',borderRadius:'var(--r-pill)',cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'var(--f-sans)',
-          background:on?'rgba(255,255,255,.1)':'transparent',border:`1px solid ${on?'var(--orange)':'rgba(255,255,255,.14)'}`,color:on?'#fff':'rgba(255,255,255,.45)',transition:'var(--tr)'}}>
-          <Icon name="store" size={12}/>{c.nickname}</button>;
+        return <button key={c.id} onClick={()=>onToggle(c.id)} aria-pressed={on}
+          style={{display:'inline-flex',alignItems:'center',gap:6,height:32,padding:'0 12px',borderRadius:'var(--radius-pill)',
+            cursor:'pointer',fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',transition:'var(--tr)',
+            background:on?'rgba(255,255,255,.1)':'transparent',
+            border:`1px solid ${on?'var(--action-primary)':'var(--border-inverse)'}`,
+            color:on?'#fff':'var(--on-dark-muted)'}}>
+          <Icon name="store" size={13}/>{c.nickname}</button>;
       })}
     </div>
   );
@@ -163,24 +367,34 @@ function TelaLogin(){
     finally{setLoading(false);}
   }
   return (
-    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{width:'100%',maxWidth:360}}>
-        <div style={{textAlign:'center',marginBottom:34}}>
-          <Wordmark size={30}/>
-          <div style={{width:36,height:3,background:'linear-gradient(90deg,#9333ea,#FF5200)',borderRadius:2,margin:'12px auto'}}/>
-          <div style={{fontSize:11,color:'var(--txt-dark3)',letterSpacing:'.12em',fontWeight:700}}>ML ANALYZER</div>
+    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center',padding:'var(--space-5)'}}>
+      <div style={{width:'100%',maxWidth:368,animation:'rise var(--duration-slow) var(--ease-out)'}}>
+        <div style={{textAlign:'center',marginBottom:'var(--space-7)'}}>
+          <div style={{display:'flex',justifyContent:'center'}}><Logo height={30} inverse/></div>
+          <div style={{width:40,height:3,background:'var(--action-primary)',borderRadius:2,margin:'var(--space-3) auto'}}/>
+          <Overline onDark>ML Analyzer</Overline>
         </div>
-        <div style={{background:'#1a1a1a',border:'1px solid var(--bd-dark)',borderRadius:'var(--r-xl)',padding:24}}>
-          {[['Email','email',email,setEmail,'seu@email.com'],['Senha','password',senha,setSenha,'••••••••']].map(([lbl,type,val,set,ph],i)=>(
-            <div key={lbl} style={{marginBottom:i===0?14:20}}>
-              <label style={{fontSize:10,fontWeight:700,color:'var(--txt-dark3)',display:'block',marginBottom:6,letterSpacing:'.08em'}}>{lbl.toUpperCase()}</label>
-              <input type={type} placeholder={ph} value={val} onChange={e=>set(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}
-                style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',padding:'11px 14px',color:'#fff',width:'100%',fontSize:14,fontFamily:'var(--f-sans)'}}/>
+        <div style={{background:'#17161C',border:'1px solid var(--border-inverse)',borderRadius:'var(--radius-2xl)',padding:'var(--space-6)'}}>
+          {[['E-mail','email',email,setEmail,'seu@email.com','mail'],['Senha','password',senha,setSenha,'••••••••','lock']].map(([lbl,type,val,set,ph,ic],i)=>(
+            <div key={lbl} style={{marginBottom:i===0?'var(--space-4)':'var(--space-5)'}}>
+              <label style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--on-dark-muted)',display:'block',marginBottom:6}}>{lbl}</label>
+              <div style={{position:'relative'}}>
+                <span style={{position:'absolute',left:13,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
+                  <Icon name={ic} size={16} color="var(--on-dark-muted)"/>
+                </span>
+                <input className="fld-dark" type={type} placeholder={ph} value={val} autoComplete={type==='email'?'username':'current-password'}
+                  onChange={e=>set(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}
+                  style={{height:'var(--control-h-lg)',padding:'0 14px 0 38px'}}/>
+              </div>
             </div>
           ))}
-          {err&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.25)',borderRadius:'var(--r-md)',padding:'10px 14px',color:'#f87171',fontSize:13,marginBottom:14}}>{err}</div>}
-          <Btn full size="lg" onClick={login} disabled={loading}>{loading?'Entrando...':'Entrar'}</Btn>
-          <div style={{textAlign:'center',marginTop:14,fontSize:11,color:'var(--txt-dark3)'}}>Mesmo login da Calculadora REAL</div>
+          {err&&<div style={{marginBottom:'var(--space-4)'}}>
+            <div style={{display:'flex',gap:9,alignItems:'flex-start',padding:'11px 13px',background:'rgba(211,33,55,.18)',
+              borderRadius:'var(--radius-lg)',fontSize:'var(--text-sm)',color:'#FF8A98',lineHeight:1.5}}>
+              <span style={{marginTop:1,flexShrink:0}}><Icon name="alert-octagon" size={15}/></span>{err}
+            </div></div>}
+          <Btn full size="lg" onClick={login} disabled={loading} icon={loading?undefined:'log-in'}>{loading?'Entrando…':'Entrar'}</Btn>
+          <div style={{textAlign:'center',marginTop:'var(--space-4)',fontSize:'var(--text-xs)',color:'var(--on-dark-muted)'}}>Mesmo login da Calculadora REAL</div>
         </div>
       </div>
     </div>
@@ -188,20 +402,44 @@ function TelaLogin(){
 }
 
 /* ══ CONECTAR ML ════════════════════════════════════════════ */
-function TelaConectar({user,onOk,erro}){
-  const err=erro||'';
+function TelaConectar({user,onOk}){
+  const [conectando,setConectando]=useState(false),[err,setErr]=useState('');
+  useEffect(()=>{
+    const code=new URLSearchParams(window.location.search).get('code');
+    if(code){window.history.replaceState({},'',window.location.pathname);conectar(code);}
+  },[]);
+  async function conectar(code){
+    setConectando(true);setErr('');
+    try{const r=await call('mlTokenExchange',{code});if(r.success)onOk();}
+    catch(e){setErr('Erro: '+(e.message||'Tente novamente'));setConectando(false);}
+  }
   const go=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
+
+  if(conectando)return (
+    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:'var(--space-4)'}}>
+      <Logo height={24} inverse/>
+      <div style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)'}}>Conectando sua conta do Mercado Livre…</div>
+    </div>
+  );
   return (
-    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{width:'100%',maxWidth:420,textAlign:'center'}}>
-        <Wordmark size={24}/>
-        <div style={{fontSize:20,fontWeight:700,color:'#fff',margin:'20px 0 8px'}}>Conectar Mercado Livre</div>
-        <div style={{fontSize:13,color:'var(--txt-dark2)',marginBottom:26}}>Olá, <strong style={{color:'#fff'}}>{user.email?.split('@')[0]}</strong>. Autorize o acesso à sua conta.</div>
-        <div style={{background:'#1a1a1a',border:'1px solid var(--bd-dark)',borderRadius:'var(--r-xl)',padding:24}}>
-          <div style={{fontSize:13,color:'var(--txt-dark2)',marginBottom:20,lineHeight:1.6}}>Você será redirecionado ao Mercado Livre e voltará automaticamente.</div>
-          {err&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.25)',borderRadius:'var(--r-md)',padding:'10px 14px',color:'#f87171',fontSize:13,marginBottom:14}}>{err}</div>}
-          <Btn full size="lg" onClick={go}>Autorizar com Mercado Livre</Btn>
-          <button onClick={()=>auth.signOut()} style={{background:'none',border:'none',color:'var(--txt-dark3)',cursor:'pointer',fontSize:12,marginTop:14}}>Sair</button>
+    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center',padding:'var(--space-5)'}}>
+      <div style={{width:'100%',maxWidth:424,textAlign:'center',animation:'rise var(--duration-slow) var(--ease-out)'}}>
+        <div style={{display:'flex',justifyContent:'center'}}><Logo height={24} inverse/></div>
+        <h1 style={{fontSize:'var(--text-2xl)',fontWeight:'var(--weight-extrabold)',color:'#fff',margin:'var(--space-5) 0 var(--space-2)',letterSpacing:'var(--tracking-tight)'}}>Conectar Mercado Livre</h1>
+        <p style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)',marginBottom:'var(--space-6)'}}>
+          Olá, <strong style={{color:'#fff'}}>{user.email?.split('@')[0]}</strong>. Autorize o acesso à sua conta.
+        </p>
+        <div style={{background:'#17161C',border:'1px solid var(--border-inverse)',borderRadius:'var(--radius-2xl)',padding:'var(--space-6)'}}>
+          <p style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)',marginBottom:'var(--space-5)',lineHeight:1.6}}>
+            Você será redirecionado ao Mercado Livre e voltará automaticamente.
+          </p>
+          {err&&<div style={{marginBottom:'var(--space-4)',display:'flex',gap:9,alignItems:'flex-start',padding:'11px 13px',
+            background:'rgba(211,33,55,.18)',borderRadius:'var(--radius-lg)',fontSize:'var(--text-sm)',color:'#FF8A98',textAlign:'left',lineHeight:1.5}}>
+            <span style={{marginTop:1,flexShrink:0}}><Icon name="alert-octagon" size={15}/></span>{err}</div>}
+          <Btn full size="lg" onClick={go} icon="store">Autorizar com Mercado Livre</Btn>
+          <div style={{marginTop:'var(--space-4)'}}>
+            <Btn variant="dark" size="sm" onClick={()=>auth.signOut()}>Sair</Btn>
+          </div>
         </div>
       </div>
     </div>
@@ -212,74 +450,78 @@ function TelaConectar({user,onOk,erro}){
 function CustoDisplay({valor,onIrParaAnuncios}){
   if(!valor) return (
     <button onClick={onIrParaAnuncios} title="Cadastrar custo em Anúncios"
-      style={{display:'inline-flex',alignItems:'center',gap:4,background:'transparent',border:'none',cursor:'pointer',padding:0,fontFamily:'var(--f-sans)'}}>
-      <span style={{fontSize:11,color:'var(--amber)',fontWeight:700}}>definir</span>
-      <Icon name="pencil" size={10} color="var(--amber)"/>
+      style={{display:'inline-flex',alignItems:'center',gap:4,background:'transparent',border:'none',cursor:'pointer',padding:0}}>
+      <span style={{fontSize:'var(--text-xs)',color:'var(--status-warning-fg)',fontWeight:'var(--weight-bold)'}}>definir</span>
+      <Icon name="pencil" size={11} color="var(--status-warning-fg)"/>
     </button>
   );
-  return <span className="tab" style={{fontSize:12.5,fontWeight:600,color:'var(--txt)'}}>{BRL(valor)}</span>;
+  return <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{BRL(valor)}</span>;
 }
 
 /* ══ TABELA DE PEDIDOS ══════════════════════════════════════ */
+const THead=({children,align})=>(
+  <div style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',color:'var(--text-muted)',
+    letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',textAlign:align||'left'}}>{children}</div>
+);
+
 function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios}){
   const GRID=multiConta
-    ? '48px 1fr 74px 88px 84px 42px 88px 76px 76px 72px 100px'
-    : '48px 1fr 74px 88px 42px 88px 76px 76px 72px 100px';
+    ? '52px minmax(0,1fr) 84px 96px 92px 48px 96px 84px 84px 84px 108px'
+    : '52px minmax(0,1fr) 96px 92px 48px 96px 84px 84px 84px 108px';
   const HEADS=multiConta
     ? ['','Título','Conta','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro']
     : ['','Título','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro'];
 
   if(loading)return (
-    <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',overflow:'hidden',boxShadow:'var(--sh-sm)'}}>
+    <Card pad={false}>
       {[...Array(5)].map((_,i)=>(
-        <div key={i} style={{padding:'14px 18px',borderBottom:'1px solid var(--bd)',display:'flex',gap:12,alignItems:'center'}}>
-          <Skel w={44} h={44} r={8}/>
-          <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={13}/><Skel w="35%" h={10}/></div>
-          <Skel w={70} h={24}/><Skel w={70} h={24}/>
+        <div key={i} style={{padding:'14px var(--layout-card-pad)',borderBottom:i<4?'1px solid var(--border-subtle)':'none',display:'flex',gap:'var(--space-3)',alignItems:'center'}}>
+          <Skel w={44} h={44} r="var(--radius-md)"/>
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={13}/><Skel w="35%" h={11}/></div>
+          <Skel w={72} h={24}/><Skel w={72} h={24}/>
         </div>
       ))}
-    </div>
+    </Card>
   );
 
   return (
-    <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',overflow:'auto',boxShadow:'var(--sh-sm)'}}>
-      <div style={{minWidth:multiConta?1000:920}}>
-        <div style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'10px 18px',background:'var(--sunken)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:2}}>
-          {HEADS.map((h,i)=><div key={i} style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em',textTransform:'uppercase'}}>{h}</div>)}
+    <Card pad={false} style={{overflow:'auto'}}>
+      <div style={{minWidth:multiConta?1100:1000}}>
+        <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'11px var(--layout-card-pad)',
+          background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
+          {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
         </div>
         {pedidos?.length>0?pedidos.map((p,i)=>(
-          <div key={p.id||i} style={{display:'grid',gridTemplateColumns:GRID,gap:7,padding:'11px 18px',alignItems:'center',borderBottom:'1px solid var(--bd)',background:i%2?'var(--sunken)':'var(--card)'}}>
-            <div style={{width:44,height:44,borderRadius:8,overflow:'hidden',background:'var(--sunken)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>
-              {p.foto?<img src={p.foto} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:'📦'}
-            </div>
-            <div style={{minWidth:0}}>
-              <div style={{fontSize:12.5,fontWeight:600,color:'var(--txt)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.titulo}>{p.titulo}</div>
-            </div>
-            {multiConta&&<div style={{fontSize:11,color:'var(--txt2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.conta}</div>}
-            <div style={{fontSize:10.5,color:'var(--txt3)',fontFamily:'var(--f-mono)',overflow:'hidden',textOverflow:'ellipsis'}}>{p.sku}</div>
-            <div style={{fontSize:11,color:'var(--txt2)'}}>{p.data}</div>
-            <div className="tab" style={{fontSize:12.5,fontWeight:700}}>{p.qtde}</div>
-            <div className="tab" style={{fontSize:12.5,fontWeight:700,color:'var(--orange)'}}>{BRL(p.valor)}</div>
-            <div className="tab" style={{fontSize:12,color:'var(--txt2)'}}>{BRL(p.tarifa)}</div>
-            <div className="tab" style={{fontSize:12,color:'var(--txt2)'}}>{BRL(p.frete)}</div>
-            <div><CustoDisplay valor={p.custo} onIrParaAnuncios={onIrParaAnuncios}/></div>
-            <div style={{display:'flex',flexDirection:'column',gap:1}}>
+          <div key={p.id||i} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'11px var(--layout-card-pad)',
+            alignItems:'center',borderBottom:'1px solid var(--border-subtle)',transition:'background-color var(--duration-fast) var(--ease-standard)'}}
+            onMouseEnter={e=>e.currentTarget.style.background='var(--surface-hover)'}
+            onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <Thumb src={p.foto} alt={p.titulo}/>
+            <div className="ell" title={p.titulo} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{p.titulo}</div>
+            {multiConta&&<div className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{p.conta}</div>}
+            <div className="ell mono" title={p.sku} style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.sku}</div>
+            <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.data}</div>
+            <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',textAlign:'right'}}>{p.qtde}</div>
+            <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',textAlign:'right'}}>{BRL(p.valor)}</div>
+            <div className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',textAlign:'right'}}>{BRL(p.tarifa)}</div>
+            <div className="tab" style={{fontSize:'var(--text-xs)',color:'var(--status-warning-fg)',textAlign:'right'}}>{BRL(p.frete)}</div>
+            <div style={{textAlign:'right'}}><CustoDisplay valor={p.custo} onIrParaAnuncios={onIrParaAnuncios}/></div>
+            <div style={{display:'flex',flexDirection:'column',gap:2,alignItems:'flex-end'}}>
               {p.temCusto?(
                 <>
-                  <span className="tab" style={{fontSize:12.5,fontWeight:800,color:p.lucro>=0?'var(--green)':'var(--red)'}}>{BRL(p.lucro)}</span>
-                  <span className="tab" style={{fontSize:10,color:'var(--txt3)'}}>{PCT(p.margem)}</span>
+                  <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-extrabold)',
+                    color:p.lucro>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>{BRL(p.lucro)}</span>
+                  <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{PCT(p.margem)}</span>
                 </>
-              ):<Badge tone="warning">Sem custo</Badge>}
+              ):<Badge tone="warning" dot>Sem custo</Badge>}
             </div>
           </div>
         )):(
-          <div style={{padding:44,textAlign:'center'}}>
-            <Icon name="package" size={30} color="rgba(0,0,0,.18)"/>
-            <div style={{fontSize:13,color:'var(--txt3)',marginTop:10}}>Nenhum pedido no período</div>
-          </div>
+          <Empty icon="package-search" title="Nenhum pedido no período"
+            description="Troque o período ou a conta no filtro acima."/>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -307,66 +549,65 @@ function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
   }
 
   const cells=[
-    {label:'INVESTIMENTO',value:BRL(ads?.investimento),accent:'amber'},
-    {label:'RECEITA ADS',value:BRL(ads?.receita),accent:'success'},
-    {label:'VENDAS',value:NUM(ads?.vendas)},
+    {label:'Investimento',value:BRL(ads?.investimento),accent:'amber'},
+    {label:'Receita Ads',value:BRL(ads?.receita),accent:'success'},
+    {label:'Vendas',value:NUM(ads?.vendas)},
     {label:'ROAS',value:`${(ads?.roas||0).toFixed(2)}x`,accent:'accent'},
     {label:'ACOS',value:PCT(ads?.acos)},
     {label:'TACOS',value:PCT(ads?.tacos)},
   ];
   if(auto){
-    cells.push({label:'CLIQUES',value:NUM(ads?.cliques)});
-    cells.push({label:'IMPRESSÕES',value:NUM(ads?.impressoes)});
+    cells.push({label:'Cliques',value:NUM(ads?.cliques)});
+    cells.push({label:'Impressões',value:NUM(ads?.impressoes)});
   }
 
   const semDados=!ads?.investimento&&!ads?.receita;
+  const cor=a=>({success:'var(--status-success-fg)',amber:'var(--status-warning-fg)',accent:'var(--text-accent)'}[a]||'var(--text-strong)');
 
   return (
-    <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:'var(--pad)'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-          <Icon name="megaphone" size={16} color="var(--orange)"/>
-          <span style={{fontSize:14,fontWeight:700}}>Publicidade</span>
-          {auto
-            ? <Badge tone="success">Automático</Badge>
-            : <Badge tone="warning">Manual</Badge>}
+    <Card icon="megaphone" title="Publicidade"
+      action={
+        <div style={{display:'flex',gap:'var(--space-2)',alignItems:'center',flexWrap:'wrap'}}>
+          {auto?<Badge tone="success" dot>Automático</Badge>:<Badge tone="warning" dot>Manual</Badge>}
           {auto&&ads?.contasSemAds>0&&(
-            <span style={{fontSize:11,color:'var(--txt3)'}}>
+            <span style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
               {ads.contasSemAds} {ads.contasSemAds===1?'conta sem Product Ads':'contas sem Product Ads'}
             </span>
           )}
-        </div>
-        <div style={{display:'flex',gap:6}}>
           {auto&&ads?.campanhas?.length>0&&(
-            <Btn variant="secondary" size="sm" icon={verCampanhas?'chevron-up':'list'} onClick={()=>setVerCampanhas(v=>!v)}>
+            <Btn variant="neutral" size="sm" icon={verCampanhas?'chevron-up':'list'} onClick={()=>setVerCampanhas(v=>!v)}>
               {ads.campanhas.length} {ads.campanhas.length===1?'campanha':'campanhas'}
             </Btn>
           )}
           {!auto&&(!editing
-            ? <Btn variant="secondary" size="sm" icon="pencil" onClick={()=>setEditing(true)}>Editar</Btn>
+            ? <Btn variant="neutral" size="sm" icon="pencil" onClick={()=>setEditing(true)}>Editar</Btn>
             : <>
-                <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando':'Salvar'}</Btn>
-                <Btn variant="secondary" size="sm" onClick={()=>setEditing(false)}>Cancelar</Btn>
+                <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando…':'Salvar'}</Btn>
+                <Btn variant="ghost" size="sm" onClick={()=>setEditing(false)}>Cancelar</Btn>
               </>)}
         </div>
-      </div>
+      }>
 
       {editing&&!auto?(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12}}>
-          {[['Investimento R$',inv,setInv,'0.01'],['Receita R$',rec,setRec,'0.01'],['Vendas',vnd,setVnd,'1']].map(([lbl,v,set,step])=>(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'var(--space-4)'}}>
+          {[['Investimento','R$',inv,setInv,'0.01'],['Receita','R$',rec,setRec,'0.01'],['Vendas',null,vnd,setVnd,'1']].map(([lbl,pfx,v,set,step])=>(
             <div key={lbl}>
-              <label style={{fontSize:10,fontWeight:700,color:'var(--txt3)',display:'block',marginBottom:5,letterSpacing:'.06em',textTransform:'uppercase'}}>{lbl}</label>
-              <input type="number" step={step} value={v} onChange={e=>set(e.target.value)}
-                style={{width:'100%',padding:'8px 10px',fontSize:13,border:'1px solid var(--bd2)',borderRadius:'var(--r-md)',fontFamily:'var(--f-mono)'}}/>
+              <label style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-body)',display:'block',marginBottom:6}}>{lbl}</label>
+              <div style={{position:'relative'}}>
+                {pfx&&<span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:'var(--text-sm)',color:'var(--text-muted)',pointerEvents:'none'}}>{pfx}</span>}
+                <input className="fld mono" type="number" step={step} value={v} onChange={e=>set(e.target.value)}
+                  style={{height:'var(--control-h-md)',padding:pfx?'0 12px 0 36px':'0 12px'}}/>
+              </div>
             </div>
           ))}
         </div>
       ):(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(104px,1fr))',gap:14}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:'var(--space-5)'}}>
           {cells.map(c=>(
-            <div key={c.label}>
-              <div style={{fontSize:10,fontWeight:700,color:'var(--txt3)',letterSpacing:'.06em',marginBottom:4}}>{c.label}</div>
-              <div className="tab" style={{fontSize:18,fontWeight:800,color:c.accent==='success'?'var(--green)':c.accent==='amber'?'var(--amber)':c.accent==='accent'?'var(--purple)':'var(--txt)'}}>{c.value}</div>
+            <div key={c.label} style={{display:'flex',flexDirection:'column',gap:4,minWidth:0}}>
+              <Overline>{c.label}</Overline>
+              <div className="tab" style={{fontSize:'var(--text-xl)',fontWeight:'var(--weight-extrabold)',
+                letterSpacing:'var(--tracking-tight)',color:cor(c.accent)}}>{c.value}</div>
             </div>
           ))}
         </div>
@@ -374,31 +615,25 @@ function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
 
       {/* Lista de campanhas */}
       {auto&&verCampanhas&&ads.campanhas?.length>0&&(
-        <div style={{marginTop:16,borderTop:'1px solid var(--bd)',paddingTop:14}}>
+        <div style={{marginTop:'var(--space-5)',borderTop:'1px solid var(--border-subtle)',paddingTop:'var(--space-4)'}}>
           {ads.campanhas.map(c=>{
             const roasC=c.investimento>0?c.receita/c.investimento:0;
             return (
-              <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'9px 0',borderBottom:'1px solid var(--bd)',flexWrap:'wrap'}}>
-                <div style={{flex:'1 1 180px',minWidth:0}}>
-                  <div style={{fontSize:12.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.nome}</div>
-                  <Badge tone={c.status==='active'?'success':'default'}>{c.status==='active'?'Ativa':c.status}</Badge>
+              <div key={c.id} style={{display:'flex',alignItems:'center',gap:'var(--space-3)',padding:'10px 0',
+                borderBottom:'1px solid var(--border-subtle)',flexWrap:'wrap'}}>
+                <div style={{flex:'1 1 200px',minWidth:0}}>
+                  <div className="ell" title={c.nome} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{c.nome}</div>
+                  <div style={{marginTop:4}}><Badge tone={c.status==='active'?'success':'neutral'} dot>{c.status==='active'?'Ativa':c.status}</Badge></div>
                 </div>
-                <div style={{textAlign:'right',minWidth:76}}>
-                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>GASTO</div>
-                  <div className="tab" style={{fontSize:13,fontWeight:700,color:'var(--amber)'}}>{BRL(c.investimento)}</div>
-                </div>
-                <div style={{textAlign:'right',minWidth:76}}>
-                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>RECEITA</div>
-                  <div className="tab" style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>{BRL(c.receita)}</div>
-                </div>
-                <div style={{textAlign:'right',minWidth:52}}>
-                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>ROAS</div>
-                  <div className="tab" style={{fontSize:13,fontWeight:700,color:roasC>=3?'var(--green)':roasC>=1?'var(--txt)':'var(--red)'}}>{roasC.toFixed(2)}x</div>
-                </div>
-                <div style={{textAlign:'right',minWidth:44}}>
-                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>VENDAS</div>
-                  <div className="tab" style={{fontSize:13,fontWeight:700}}>{c.vendas}</div>
-                </div>
+                {[['Gasto',BRL(c.investimento),'var(--status-warning-fg)',84],
+                  ['Receita',BRL(c.receita),'var(--status-success-fg)',84],
+                  ['ROAS',`${roasC.toFixed(2)}x`,roasC>=3?'var(--status-success-fg)':roasC>=1?'var(--text-strong)':'var(--status-danger-fg)',58],
+                  ['Vendas',NUM(c.vendas),'var(--text-strong)',52]].map(([lbl,val,col,w])=>(
+                  <div key={lbl} style={{textAlign:'right',minWidth:w}}>
+                    <Overline>{lbl}</Overline>
+                    <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:col,marginTop:2}}>{val}</div>
+                  </div>
+                ))}
               </div>
             );
           })}
@@ -406,23 +641,19 @@ function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
       )}
 
       {/* Avisos */}
-      {auto&&(
-        <div style={{marginTop:13,padding:'9px 12px',background:'var(--sunken)',borderRadius:'var(--r-md)',fontSize:11,color:'var(--txt3)',lineHeight:1.5,display:'flex',gap:7,alignItems:'flex-start'}}>
-          <Icon name="info" size={13} color="var(--txt3)"/>
-          <span>Dados puxados direto do Product Ads. O Mercado Livre consolida as métricas por volta das 10h — números do dia atual podem mudar ao longo do dia.</span>
-        </div>
-      )}
-      {!auto&&!editing&&(
-        <div style={{marginTop:13,padding:'10px 12px',background:'var(--amber-bg)',borderRadius:'var(--r-md)',fontSize:11.5,color:'var(--txt2)',lineHeight:1.5,display:'flex',gap:7,alignItems:'flex-start'}}>
-          <Icon name="alert-triangle" size={13} color="var(--amber)"/>
-          <span>
+      <div style={{marginTop:'var(--space-4)'}}>
+        {auto&&(
+          <Note icon="info">Dados puxados direto do Product Ads. O Mercado Livre consolida as métricas por volta das 10h — números do dia atual podem mudar ao longo do dia.</Note>
+        )}
+        {!auto&&!editing&&(
+          <Note tone="warning" icon="alert-triangle">
             {semDados
               ? <>Não foi possível puxar o Product Ads automaticamente{ads?.motivo?` (${ads.motivo})`:''}. Verifique se a conta tem publicidade ativa em <strong>Mercado Livre → Meu perfil → Publicidade</strong>, ou informe os valores manualmente.</>
               : <>Valores informados manualmente para {periodoLabel?.toLowerCase()}.</>}
-          </span>
-        </div>
-      )}
-    </div>
+          </Note>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -432,75 +663,106 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
   const multiConta=(dados?.contasUsadas?.length||0)>1;
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:'var(--gap)'}}>
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
 
-      {/* HERO */}
-      <section style={{background:'var(--sidebar)',borderRadius:'var(--r-2xl)',padding:'22px 24px',display:'flex',gap:24,flexWrap:'wrap',justifyContent:'space-between',alignItems:'flex-start'}}>
-        <div style={{display:'flex',gap:36,flexWrap:'wrap',flex:1,minWidth:220}}>
+      {/* HERO — a casca escura: faturamento, lucro e filtros globais */}
+      <section style={{background:'var(--surface-nav)',borderRadius:'var(--radius-2xl)',padding:'22px var(--space-6)',
+        display:'flex',gap:'var(--space-6)',flexWrap:'wrap',justifyContent:'space-between',alignItems:'flex-start'}}>
+        <div style={{display:'flex',gap:'var(--space-9)',flexWrap:'wrap',flex:1,minWidth:240}}>
           <div>
-            <div style={{fontSize:10,color:'var(--txt-dark3)',letterSpacing:'.1em',fontWeight:700}}>FATURAMENTO</div>
-            {loading?<div style={{marginTop:6}}><Skel w={170} h={36}/></div>:(
-              <div className="tab" style={{fontSize:38,fontWeight:800,color:'#fff',letterSpacing:'-.02em',marginTop:2,lineHeight:1.05}}>{BRL(m.fat)}</div>
+            <Overline onDark>Faturamento</Overline>
+            {loading?<div style={{marginTop:8}}><Skel w={180} h={38}/></div>:(
+              <div className="tab" style={{fontSize:'var(--text-4xl)',fontWeight:'var(--weight-extrabold)',color:'#fff',
+                letterSpacing:'var(--tracking-display)',marginTop:3,lineHeight:1.05}}>{BRL(m.fat)}</div>
             )}
-            {!loading&&<div style={{fontSize:11,color:'var(--txt-dark3)',marginTop:5}}>{m.pedidosDia||0} pedidos · {m.qtd||0} unidades</div>}
+            {!loading&&<div className="tab" style={{fontSize:'var(--text-xs)',color:'var(--on-dark-muted)',marginTop:6}}>
+              {NUM(m.pedidosDia)} pedidos · {NUM(m.qtd)} unidades</div>}
           </div>
           <div>
-            <div style={{fontSize:10,color:'var(--txt-dark3)',letterSpacing:'.1em',fontWeight:700}}>LUCRO</div>
-            {loading?<div style={{marginTop:6}}><Skel w={130} h={30}/></div>:(
-              <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:2}}>
-                <span className="tab" style={{fontSize:30,fontWeight:800,color:(m.lucro||0)>=0?'#4ade80':'#f87171',letterSpacing:'-.01em',lineHeight:1.1}}>{BRL(m.lucro)}</span>
-                <span className="tab" style={{fontSize:13,color:'var(--txt-dark2)',fontWeight:700}}>({PCT(m.margem)})</span>
+            <Overline onDark>Lucro</Overline>
+            {loading?<div style={{marginTop:8}}><Skel w={140} h={30}/></div>:(
+              <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:3}}>
+                <span className="tab" style={{fontSize:'var(--text-3xl)',fontWeight:'var(--weight-extrabold)',
+                  color:(m.lucro||0)>=0?'#5FD6AC':'#FF8A98',letterSpacing:'var(--tracking-tight)',lineHeight:1.1}}>{BRL(m.lucro)}</span>
+                <span className="tab" style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)',fontWeight:'var(--weight-bold)'}}>({PCT(m.margem)})</span>
               </div>
             )}
             {!loading&&m.semCusto>0&&(
-              <div style={{fontSize:10.5,color:'#fbbf24',marginTop:5,display:'flex',alignItems:'center',gap:4}}>
-                <Icon name="alert-triangle" size={11} color="#fbbf24"/>{m.semCusto} {m.semCusto===1?'venda sem custo':'vendas sem custo'}
+              <div style={{fontSize:'var(--text-xs)',color:'#FFC95C',marginTop:6,display:'flex',alignItems:'center',gap:5}}>
+                <Icon name="alert-triangle" size={12} color="#FFC95C"/>{m.semCusto} {m.semCusto===1?'venda sem custo':'vendas sem custo'}
               </div>
             )}
           </div>
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:8,alignItems:'flex-end'}}>
+        <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)',alignItems:'flex-end'}}>
           <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
           <PeriodFilter value={periodo} onChange={setPeriodo}/>
         </div>
       </section>
 
       {/* KPIs */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(165px,1fr))',gap:'var(--gap)'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'var(--layout-grid-gap)'}}>
         {loading?[...Array(4)].map((_,i)=>(
-          <div key={i} style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:'var(--pad)',boxShadow:'var(--sh-sm)',display:'flex',flexDirection:'column',gap:11}}>
-            <Skel w="55%" h={10}/><Skel h={26}/><Skel w="70%" h={10}/>
+          <div key={i} style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-xl)',
+            padding:'var(--layout-card-pad)',boxShadow:'var(--shadow-sm)',display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+            <Skel w="55%" h={11}/><Skel h={28}/><Skel w="70%" h={11}/>
           </div>
         )):[
-          {label:'VENDAS',value:NUM(m.pedidosDia),caption:`${m.qtd||0} unidades`,icon:'shopping-cart'},
-          {label:'TICKET MÉDIO',value:BRL(m.ticketMedio),icon:'tag',accent:'accent'},
-          {label:'LUCRO MÉDIO',value:BRL(m.pedidosDia>0?m.lucro/m.pedidosDia:0),icon:'trending-up',accent:'success',tone:(m.lucro||0)>=0?'success':'danger'},
-          {label:'CANCELADAS',value:NUM(m.canceladas),caption:BRL(m.valorCancelado),icon:'x-circle',accent:'danger'},
+          {label:'Vendas',value:NUM(m.pedidosDia),caption:`${NUM(m.qtd)} unidades`,icon:'shopping-cart'},
+          {label:'Ticket médio',value:BRL(m.ticketMedio),caption:'por pedido',icon:'tag',accent:'accent'},
+          {label:'Lucro médio',value:BRL(m.pedidosDia>0?m.lucro/m.pedidosDia:0),caption:'por pedido',icon:'circle-dollar-sign',accent:'success',tone:(m.lucro||0)>=0?'success':'danger'},
+          {label:'Canceladas',value:NUM(m.canceladas),caption:`${BRL(m.valorCancelado)} não faturados`,icon:'x-circle',accent:'danger'},
         ].map(c=><StatCard key={c.label} {...c}/>)}
       </div>
 
-      {/* COMPOSIÇÃO */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'var(--gap)'}}>
-        {loading?[...Array(4)].map((_,i)=>(
-          <div key={i} style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:'var(--pad)',boxShadow:'var(--sh-sm)',display:'flex',flexDirection:'column',gap:11}}>
-            <Skel w="50%" h={10}/><Skel h={24}/>
+      {/* COMPOSIÇÃO DO FATURAMENTO */}
+      {loading?(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'var(--layout-grid-gap)'}}>
+          {[...Array(4)].map((_,i)=>(
+            <div key={i} style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-xl)',
+              padding:'var(--layout-card-pad)',boxShadow:'var(--shadow-sm)',display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+              <Skel w="50%" h={11}/><Skel h={24}/><Skel h={6}/>
+            </div>
+          ))}
+        </div>
+      ):(
+        <Card title="Composição do faturamento" subtitle={`O que sai de ${BRL(m.fat)}`}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'var(--space-5)'}}>
+            {[
+              {label:'Custos',valor:m.custos,viz:1},
+              {label:'Tarifas ML',valor:m.tarifas,viz:8},
+              {label:'Impostos',valor:m.impostos,viz:3},
+              {label:'Frete',valor:m.frete,viz:5},
+              {label:'Lucro',valor:m.lucro,viz:4},
+            ].map(c=>{
+              const pct=m.fat>0?(c.valor||0)/m.fat*100:0;
+              return (
+                <div key={c.label} style={{display:'flex',flexDirection:'column',gap:7,minWidth:0}}>
+                  <span style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',fontWeight:'var(--weight-medium)'}}>{c.label}</span>
+                  <span className="tab" style={{fontSize:'var(--text-xl)',fontWeight:'var(--weight-bold)',
+                    letterSpacing:'var(--tracking-tight)',color:`var(--viz-${c.viz})`}}>{BRL(c.valor)}</span>
+                  <div style={{height:6,background:'var(--viz-track)',borderRadius:'var(--radius-pill)',overflow:'hidden'}}>
+                    <div style={{width:`${Math.max(0,Math.min(100,pct))}%`,height:'100%',background:`var(--viz-${c.viz})`,
+                      borderRadius:'var(--radius-pill)',transition:'width var(--duration-slow) var(--ease-out)'}}/>
+                  </div>
+                  <span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>
+                    {m.fat>0?`${PCT(pct)} do faturamento`:'—'}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        )):[
-          {label:'CUSTOS',value:BRL(m.custos),caption:m.fat>0?PCT(m.custos/m.fat*100):'—',icon:'box',accent:'amber'},
-          {label:'TARIFAS ML',value:BRL(m.tarifas),caption:m.fat>0?PCT(m.tarifas/m.fat*100):'—',icon:'percent'},
-          {label:'IMPOSTOS',value:BRL(m.impostos),caption:m.fat>0?PCT(m.impostos/m.fat*100):'—',icon:'landmark',accent:'accent'},
-          {label:'FRETE',value:BRL(m.frete),caption:m.fat>0?PCT(m.frete/m.fat*100):'—',icon:'truck'},
-        ].map(c=><StatCard key={c.label} {...c}/>)}
-      </div>
+        </Card>
+      )}
 
       {/* ADS */}
       {!loading&&<PainelAds ads={ads} dataRef={m.from} onSalvo={onRefresh} periodoLabel={PLABEL[periodo]}/>}
 
       {/* PEDIDOS */}
       <div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}>
-          <div style={{fontSize:15,fontWeight:700,color:'rgba(255,255,255,.88)'}}>Últimos pedidos</div>
-          <Badge>{dados?.pedidos?.length||0} no período</Badge>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)',gap:'var(--space-3)'}}>
+          <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Últimos pedidos</h2>
+          <Badge>{NUM(dados?.pedidos?.length||0)} no período</Badge>
         </div>
         <TabelaPedidos pedidos={dados?.pedidos?.slice(0,15)} loading={loading} multiConta={multiConta} onRefresh={onRefresh} onIrParaAnuncios={onIrParaAnuncios}/>
       </div>
@@ -586,19 +848,20 @@ function ViewAnuncios({dados,loading,onRefresh}){
   }
 
   const GRID=multiConta
-    ? '52px 1fr 74px 84px 78px 58px 62px 96px 74px 92px'
-    : '52px 1fr 84px 78px 58px 62px 96px 74px 92px';
+    ? '56px minmax(0,1fr) 84px 96px 88px 60px 72px 104px 84px 100px'
+    : '56px minmax(0,1fr) 96px 88px 60px 72px 104px 84px 100px';
   const HEADS=multiConta
     ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','Margem']
     : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','Margem'];
 
-  const inputStyle={width:'100%',padding:'6px 8px',fontSize:12,border:'1px solid var(--bd2)',borderRadius:'var(--r-sm)',fontFamily:'var(--f-mono)',background:'#fff'};
-
   if(loading)return (
-    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
       {[...Array(6)].map((_,i)=>(
-        <div key={i} style={{background:'var(--card)',borderRadius:'var(--r-lg)',padding:14,display:'flex',gap:12,alignItems:'center',boxShadow:'var(--sh-sm)'}}>
-          <Skel w={48} h={48} r={9}/><div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={13}/><Skel w="40%" h={10}/></div><Skel w={70} h={24}/>
+        <div key={i} style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',
+          padding:'var(--space-4)',display:'flex',gap:'var(--space-3)',alignItems:'center',boxShadow:'var(--shadow-sm)'}}>
+          <Skel w={48} h={48} r="var(--radius-md)"/>
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={13}/><Skel w="40%" h={11}/></div>
+          <Skel w={72} h={24}/>
         </div>
       ))}
     </div>
@@ -607,35 +870,43 @@ function ViewAnuncios({dados,loading,onRefresh}){
   const semCustoTotal=todos.filter(a=>!a.custo).length;
 
   return (
-    <div style={{paddingBottom:alterados.length>0?78:0}}>
+    <div style={{paddingBottom:alterados.length>0?88:0}}>
 
       {/* Barra de ferramentas */}
-      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
-        <div style={{position:'relative',flex:'1 1 260px',maxWidth:360}}>
-          <div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none'}}>
-            <Icon name="search" size={15} color="rgba(255,255,255,.35)"/>
-          </div>
-          <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por título ou SKU..."
-            style={{width:'100%',padding:'9px 12px 9px 36px',fontSize:13,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',color:'#fff',fontFamily:'var(--f-sans)'}}/>
+      <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap',alignItems:'center',marginBottom:'var(--space-4)'}}>
+        <div style={{position:'relative',flex:'1 1 260px',maxWidth:380}}>
+          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
+            <Icon name="search" size={16} color="var(--text-subtle)"/>
+          </span>
+          <input className="fld" value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por título ou SKU"
+            style={{height:'var(--control-h-md)',padding:'0 12px 0 38px'}}/>
         </div>
 
-        <button onClick={()=>setSoSemCusto(v=>!v)} style={{display:'inline-flex',alignItems:'center',gap:6,height:36,padding:'0 13px',borderRadius:'var(--r-md)',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'var(--f-sans)',
-          background:soSemCusto?'rgba(245,158,11,.18)':'transparent',border:`1px solid ${soSemCusto?'var(--amber)':'rgba(255,255,255,.12)'}`,color:soSemCusto?'#fbbf24':'rgba(255,255,255,.55)'}}>
-          <Icon name="alert-triangle" size={13}/>Sem custo ({semCustoTotal})
+        <button onClick={()=>setSoSemCusto(v=>!v)} aria-pressed={soSemCusto}
+          style={{display:'inline-flex',alignItems:'center',gap:7,height:'var(--control-h-md)',padding:'0 13px',
+            borderRadius:'var(--radius-md)',cursor:'pointer',fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',transition:'var(--tr)',
+            background:soSemCusto?'var(--status-warning-bg)':'var(--surface-card)',
+            border:`1px solid ${soSemCusto?'var(--status-warning-solid)':'var(--border-default)'}`,
+            color:soSemCusto?'var(--status-warning-fg)':'var(--text-body)',boxShadow:'var(--shadow-xs)'}}>
+          <Icon name="alert-triangle" size={15}/>Sem custo ({NUM(semCustoTotal)})
         </button>
 
-        <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto'}}>
-          <input type="number" step="0.1" value={impostoGlobal} onChange={e=>setImpostoGlobal(e.target.value)} placeholder="Imposto %"
-            style={{width:96,padding:'8px 10px',fontSize:12,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'var(--r-md)',color:'#fff',fontFamily:'var(--f-mono)'}}/>
-          <Btn variant="dark" size="sm" onClick={aplicarImpostoTodos}>Aplicar a todos</Btn>
+        <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',marginLeft:'auto'}}>
+          <div style={{position:'relative',width:118}}>
+            <input className="fld mono" type="number" step="0.1" value={impostoGlobal} onChange={e=>setImpostoGlobal(e.target.value)}
+              placeholder="0,0" aria-label="Imposto em porcentagem" style={{height:'var(--control-h-md)',padding:'0 30px 0 12px'}}/>
+            <span style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',fontSize:'var(--text-sm)',color:'var(--text-muted)',pointerEvents:'none'}}>%</span>
+          </div>
+          <Btn variant="neutral" size="md" onClick={aplicarImpostoTodos}>Aplicar a todos</Btn>
         </div>
       </div>
 
       {/* Tabela */}
-      <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',overflow:'auto',boxShadow:'var(--sh-sm)'}}>
-        <div style={{minWidth:multiConta?960:900}}>
-          <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'10px 18px',background:'var(--sunken)',borderBottom:'1px solid var(--bd)',position:'sticky',top:0,zIndex:2}}>
-            {HEADS.map((h,i)=><div key={i} style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em',textTransform:'uppercase'}}>{h}</div>)}
+      <Card pad={false} style={{overflow:'auto'}}>
+        <div style={{minWidth:multiConta?1080:1000}}>
+          <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'11px var(--layout-card-pad)',
+            background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
+            {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
           </div>
 
           {anuncios.map((a,i)=>{
@@ -648,79 +919,88 @@ function ViewAnuncios({dados,loading,onRefresh}){
             const margemEst=a.preco>0?(lucroEst/a.preco)*100:0;
 
             return (
-              <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'10px 18px',alignItems:'center',borderBottom:'1px solid var(--bd)',
-                background:editado?'rgba(255,82,0,.05)':(i%2?'var(--sunken)':'var(--card)')}}>
-                <div style={{width:48,height:48,borderRadius:9,overflow:'hidden',background:'var(--sunken)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19}}>
-                  {a.foto?<img src={a.foto} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:'📦'}
-                </div>
+              <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'10px var(--layout-card-pad)',
+                alignItems:'center',borderBottom:'1px solid var(--border-subtle)',
+                background:editado?'var(--surface-selected)':'transparent',
+                transition:'background-color var(--duration-fast) var(--ease-standard)'}}>
+                <Thumb src={a.foto} alt={a.titulo} size={48}/>
                 <div style={{minWidth:0}}>
-                  <div style={{fontSize:12.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={a.titulo}>{a.titulo}</div>
-                  <div style={{marginTop:3,display:'flex',gap:5,alignItems:'center'}}>
-                    <Badge tone={a.status==='active'?'success':'danger'}>{a.status==='active'?'Ativo':'Inativo'}</Badge>
-                    <span style={{fontSize:10.5,color:'var(--txt3)'}}>{NUM(a.vendas)} vendas</span>
+                  <div className="ell" title={a.titulo} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{a.titulo}</div>
+                  <div style={{marginTop:5,display:'flex',gap:6,alignItems:'center'}}>
+                    <Badge tone={a.status==='active'?'success':'neutral'} dot>{a.status==='active'?'Ativo':'Inativo'}</Badge>
+                    <span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>{NUM(a.vendas)} vendas</span>
                   </div>
                 </div>
-                {multiConta&&<div style={{fontSize:11,color:'var(--txt2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.conta}</div>}
-                <div style={{fontSize:10.5,color:'var(--txt3)',fontFamily:'var(--f-mono)',overflow:'hidden',textOverflow:'ellipsis'}} title={a.sku}>{a.sku}</div>
-                <div className="tab" style={{fontSize:12.5,fontWeight:700,color:'var(--orange)'}}>{BRL(a.preco)}</div>
-                <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.estoque<=3?'var(--red)':'var(--txt)'}}>{a.estoque}</div>
-                <div className="tab" style={{fontSize:12.5,fontWeight:700,color:a.visitas>0?'var(--amber)':'var(--txt3)'}}>{NUM(a.visitas)}</div>
-                <div>
-                  <input type="number" step="0.01" value={custoV} placeholder="0,00"
-                    onChange={e=>setCampo(a.sku,'custo',e.target.value)} style={inputStyle}/>
+                {multiConta&&<div className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{a.conta}</div>}
+                <div className="ell mono" title={a.sku} style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{a.sku}</div>
+                <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',textAlign:'right'}}>{BRL(a.preco)}</div>
+                <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',textAlign:'right',
+                  color:a.estoque<=3?'var(--status-danger-fg)':'var(--text-body)'}}>{NUM(a.estoque)}</div>
+                <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-medium)',textAlign:'right',
+                  color:a.visitas>0?'var(--text-body)':'var(--text-subtle)'}}>{NUM(a.visitas)}</div>
+                <div style={{position:'relative'}}>
+                  <span style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:'var(--text-2xs)',color:'var(--text-muted)',pointerEvents:'none'}}>R$</span>
+                  <input className="fld mono" type="number" step="0.01" value={custoV} placeholder="0,00"
+                    aria-label={`Custo unitário de ${a.titulo}`}
+                    onChange={e=>setCampo(a.sku,'custo',e.target.value)}
+                    style={{height:'var(--control-h-sm)',padding:'0 8px 0 28px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                 </div>
                 <div>
-                  <input type="number" step="0.1" value={impV} placeholder="0"
-                    onChange={e=>setCampo(a.sku,'imposto',e.target.value)} style={inputStyle}/>
+                  <input className="fld mono" type="number" step="0.1" value={impV} placeholder="0"
+                    aria-label={`Imposto de ${a.titulo}`}
+                    onChange={e=>setCampo(a.sku,'imposto',e.target.value)}
+                    style={{height:'var(--control-h-sm)',padding:'0 8px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                 </div>
-                <div>
+                <div style={{display:'flex',flexDirection:'column',gap:2,alignItems:'flex-end'}}>
                   {c>0?(
-                    <div style={{display:'flex',flexDirection:'column',gap:1}}>
-                      <span className="tab" style={{fontSize:12.5,fontWeight:800,color:lucroEst>=0?'var(--green)':'var(--red)'}}>{BRL(lucroEst)}</span>
-                      <span className="tab" style={{fontSize:10,color:'var(--txt3)'}}>{PCT(margemEst)}</span>
-                    </div>
-                  ):<span style={{fontSize:11,color:'var(--txt3)'}}>—</span>}
+                    <>
+                      <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-extrabold)',
+                        color:lucroEst>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>{BRL(lucroEst)}</span>
+                      <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{PCT(margemEst)}</span>
+                    </>
+                  ):<span style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>—</span>}
                 </div>
               </div>
             );
           })}
 
           {anuncios.length===0&&(
-            <div style={{padding:44,textAlign:'center'}}>
-              <Icon name="package" size={30} color="rgba(0,0,0,.18)"/>
-              <div style={{fontSize:13,color:'var(--txt3)',marginTop:10}}>{busca||soSemCusto?'Nenhum anúncio encontrado':'Nenhum anúncio ativo'}</div>
-            </div>
+            <Empty icon="package-search"
+              title={busca||soSemCusto?'Nenhum anúncio encontrado':'Nenhum anúncio ativo'}
+              description={busca||soSemCusto?'Ajuste a busca ou desligue o filtro de custo.':undefined}
+              action={(busca||soSemCusto)&&<Btn variant="neutral" size="sm" onClick={()=>{setBusca('');setSoSemCusto(false);}}>Limpar filtros</Btn>}/>
           )}
         </div>
-      </div>
+      </Card>
 
-      <div style={{fontSize:11,color:'var(--txt-dark3)',marginTop:10,lineHeight:1.5}}>
+      <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.5,maxWidth:640}}>
         A margem exibida é uma estimativa usando tarifa média de 13%. A margem real de cada venda aparece na tela de Pedidos.
-      </div>
-
-      {/* Barra fixa de salvar */}
-      {alterados.length>0&&(
-        <div style={{position:'fixed',bottom:0,left:0,right:0,background:'var(--sidebar)',borderTop:'1px solid var(--bd-dark)',padding:'14px var(--gutter)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,zIndex:50,boxShadow:'0 -4px 16px rgba(0,0,0,.3)'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <Icon name="pencil" size={15} color="var(--orange)"/>
-            <span style={{fontSize:13,fontWeight:700,color:'#fff'}}>
-              {alterados.length} {alterados.length===1?'produto alterado':'produtos alterados'}
-            </span>
-            {msg&&<span style={{fontSize:12,color:msg.startsWith('Erro')?'#f87171':'#4ade80'}}>{msg}</span>}
-          </div>
-          <div style={{display:'flex',gap:8}}>
-            <Btn variant="dark" size="md" onClick={()=>{setRascunho({});setMsg('');}}>Descartar</Btn>
-            <Btn size="md" icon="check" onClick={salvarTudo} disabled={salvando}>
-              {salvando?'Salvando...':'Salvar tudo'}
-            </Btn>
-          </div>
-        </div>
-      )}
+      </p>
 
       {/* Mensagem de sucesso sem alterações pendentes */}
       {alterados.length===0&&msg&&(
-        <div style={{marginTop:12,padding:'10px 14px',background:msg.startsWith('Erro')?'var(--red-bg)':'var(--green-bg)',borderRadius:'var(--r-md)',fontSize:12.5,fontWeight:600,color:msg.startsWith('Erro')?'#f87171':'#4ade80',display:'inline-flex',alignItems:'center',gap:7}}>
-          <Icon name={msg.startsWith('Erro')?'alert-triangle':'check-circle-2'} size={14}/>{msg}
+        <div style={{marginTop:'var(--space-3)',display:'inline-flex'}}>
+          <Note tone={msg.startsWith('Erro')?'danger':'success'} icon={msg.startsWith('Erro')?'alert-octagon':'check-circle-2'}>{msg}</Note>
+        </div>
+      )}
+
+      {/* Barra fixa de salvar */}
+      {alterados.length>0&&(
+        <div style={{position:'fixed',bottom:0,left:0,right:0,background:'var(--surface-nav)',borderTop:'1px solid var(--border-inverse)',
+          padding:'var(--space-3) var(--layout-gutter)',display:'flex',alignItems:'center',justifyContent:'space-between',
+          gap:'var(--space-3)',flexWrap:'wrap',zIndex:50,boxShadow:'var(--shadow-lg)',
+          paddingBottom:'calc(var(--space-3) + env(safe-area-inset-bottom))'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)',flexWrap:'wrap'}}>
+            <Icon name="pencil" size={16} color="var(--action-primary)"/>
+            <span style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'#fff'}}>
+              {alterados.length} {alterados.length===1?'produto alterado':'produtos alterados'}
+            </span>
+            {msg&&<span style={{fontSize:'var(--text-sm)',color:msg.startsWith('Erro')?'#FF8A98':'#5FD6AC'}}>{msg}</span>}
+          </div>
+          <div style={{display:'flex',gap:'var(--space-2)'}}>
+            <Btn variant="dark" size="md" onClick={()=>{setRascunho({});setMsg('');}}>Descartar</Btn>
+            <Btn size="md" icon="check" onClick={salvarTudo} disabled={salvando}>{salvando?'Salvando…':'Salvar tudo'}</Btn>
+          </div>
         </div>
       )}
     </div>
@@ -743,73 +1023,47 @@ function ViewContas({dados,onRefresh}){
   const conectar=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
 
   return (
-    <div style={{maxWidth:640}}>
-      <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',overflow:'hidden',marginBottom:16}}>
-        <div style={{padding:'14px 20px',borderBottom:'1px solid var(--bd)',background:'var(--sunken)'}}>
-          <div style={{fontSize:13,fontWeight:700}}>Contas conectadas</div>
+    <div style={{maxWidth:660,display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <Card title="Contas conectadas" pad={false}>
+        <div style={{borderTop:'1px solid var(--border-subtle)'}}>
+          {contas.map((c,i)=>(
+            <div key={c.id} style={{padding:'14px var(--layout-card-pad)',borderBottom:i<contas.length-1?'1px solid var(--border-subtle)':'none',
+              display:'flex',alignItems:'center',gap:'var(--space-3)'}}>
+              <span style={{width:40,height:40,borderRadius:'var(--radius-md)',background:'var(--status-brand-bg)',
+                display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <Icon name="store" size={18} color="var(--status-brand-solid)"/>
+              </span>
+              <div style={{flex:1,minWidth:0}}>
+                <div className="ell" style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{c.nickname}</div>
+                <div className="mono" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>ID {c.id}</div>
+              </div>
+              <Badge tone="success" dot>Conectada</Badge>
+              <IconBtn icon="trash-2" label={`Remover ${c.nickname}`} tone="danger" onClick={()=>remover(c.id)} disabled={removendo===c.id}/>
+            </div>
+          ))}
+          {contas.length===0&&<Empty icon="store" title="Nenhuma conta conectada" description="Conecte sua primeira conta do Mercado Livre para começar." compact/>}
         </div>
-        {contas.map(c=>(
-          <div key={c.id} style={{padding:'14px 20px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',gap:12}}>
-            <div style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,82,0,.1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <Icon name="store" size={17} color="var(--orange)"/>
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13.5,fontWeight:700}}>{c.nickname}</div>
-              <div style={{fontSize:11,color:'var(--txt3)',fontFamily:'var(--f-mono)'}}>ID {c.id}</div>
-            </div>
-            <Badge tone="success">Conectada</Badge>
-            <button onClick={()=>remover(c.id)} disabled={removendo===c.id} style={{background:'transparent',border:'none',cursor:'pointer',padding:6,borderRadius:6,display:'flex'}}>
-              <Icon name="trash-2" size={15} color="var(--red)"/>
-            </button>
-          </div>
-        ))}
-        {contas.length===0&&<div style={{padding:32,textAlign:'center',fontSize:13,color:'var(--txt3)'}}>Nenhuma conta conectada</div>}
-      </div>
+      </Card>
 
-      {dados?.ads?.fonte==='manual'&&dados?.ads?.diagnostico?.length>0&&(
-        <details style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:16,marginBottom:16}}>
-          <summary style={{cursor:'pointer',fontSize:12.5,fontWeight:700,display:'flex',alignItems:'center',gap:7}}>
-            <Icon name="stethoscope" size={14} color="var(--amber)"/>
-            Diagnóstico do Product Ads
-          </summary>
-          <div style={{marginTop:12,fontSize:11.5,color:'var(--txt2)',lineHeight:1.7}}>
-            {dados.ads.advertiserId
-              ? <>Advertiser encontrado: <strong style={{fontFamily:'var(--f-mono)'}}>{dados.ads.advertiserId}</strong></>
-              : <>Nenhum advertiser encontrado — a conta provavelmente não tem Product Ads ativo.</>}
-          </div>
-          <div style={{marginTop:10,background:'var(--sunken)',borderRadius:'var(--r-md)',padding:'10px 12px',fontFamily:'var(--f-mono)',fontSize:11,lineHeight:1.9,color:'var(--txt2)'}}>
-            {dados.ads.diagnostico.map((l,i)=><div key={i}>{l}</div>)}
-          </div>
-          <div style={{marginTop:10,fontSize:11,color:'var(--txt3)',lineHeight:1.6}}>
-            Cada linha é uma tentativa de endpoint com o código HTTP da resposta. 200 = funcionou, 404 = rota não existe, 403 = sem permissão.
-          </div>
-        </details>
-      )}
-
-      <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:20}}>
-        <div style={{fontSize:13.5,fontWeight:700,marginBottom:6}}>Adicionar outra conta</div>
-        <div style={{fontSize:12.5,color:'var(--txt2)',marginBottom:14,lineHeight:1.6}}>
+      <Card title="Adicionar outra conta">
+        <p style={{fontSize:'var(--text-sm)',color:'var(--text-body)',marginBottom:'var(--space-4)',lineHeight:1.6}}>
           Conecte quantas contas do Mercado Livre quiser. Os dados são somados no dashboard e você pode filtrar por conta.
+        </p>
+        <div style={{marginBottom:'var(--space-4)'}}>
+          <Note tone="warning" icon="alert-triangle">Saia da conta atual no Mercado Livre antes de conectar outra.</Note>
         </div>
-        <div style={{background:'var(--amber-bg)',borderRadius:'var(--r-md)',padding:'11px 13px',marginBottom:16,display:'flex',gap:8,alignItems:'flex-start'}}>
-          <Icon name="alert-triangle" size={14} color="var(--amber)"/>
-          <div style={{fontSize:11.5,color:'var(--txt2)',lineHeight:1.6}}>
-            Antes de clicar, <strong>saia da conta atual no site do Mercado Livre</strong> (ou use uma janela anônima).
-            Se continuar logado na mesma conta, o ML vai reconectar ela de novo em vez da nova.
-          </div>
-        </div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          <Btn icon="plus" onClick={conectar}>Conectar nova conta</Btn>
-          <Btn variant="secondary" icon="external-link" onClick={()=>window.open('https://www.mercadolivre.com.br/jms/mlb/lgz/logout','_blank')}>
-            Sair do ML primeiro
-          </Btn>
-        </div>
-      </div>
+        <Btn icon="plus" onClick={conectar}>Conectar nova conta</Btn>
+      </Card>
     </div>
   );
 }
 
-/* ══ VIEW: ANÁLISE IA ═══════════════════════════════════════ */
+/* ══ VIEW: ANÁLISE IA ═══════════════════════════════════════
+   ATENÇÃO: a chamada abaixo vai direto do navegador para a API da Anthropic.
+   Isso não funciona em produção (faltam os headers x-api-key e anthropic-version,
+   e o CORS bloqueia). Mova para uma Cloud Function 'mlAnalisarIA' e troque o
+   fetch por: const d = await call('mlAnalisarIA', {periodo, metricas, ads, top, ped});
+   Nunca coloque a chave da API neste arquivo — ele é público. */
 function ViewIA({dados,periodo}){
   const [analise,setAnalise]=useState(''),[loading,setLoading]=useState(false);
   async function gerar(){
@@ -820,7 +1074,7 @@ function ViewIA({dados,periodo}){
     try{
       const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,
-          system:`Você é especialista em Mercado Livre e gestão de e-commerce. Analise os dados e entregue:\n\n🎯 DIAGNÓSTICO\nPontos fortes e de atenção do período.\n\n💰 ANÁLISE DE MARGEM\nComente a margem e onde há espaço de melhoria.\n\n🔥 TOP 3 AÇÕES\nAções concretas e priorizadas.\n\n⚠️ ALERTAS\nEstoque crítico, produtos sem custo cadastrado, margem negativa.\n\nSeja direto, use os números reais.`,
+          system:`Você é especialista em Mercado Livre e gestão de e-commerce. Analise os dados e entregue:\n\nDIAGNÓSTICO\nPontos fortes e de atenção do período.\n\nANÁLISE DE MARGEM\nComente a margem e onde há espaço de melhoria.\n\nTOP 3 AÇÕES\nAções concretas e priorizadas.\n\nALERTAS\nEstoque crítico, produtos sem custo cadastrado, margem negativa.\n\nSeja direto, use os números reais. Não use emoji.`,
           messages:[{role:'user',content:`Período: ${PLABEL[periodo]}\nMétricas: ${JSON.stringify(dados.metricas)}\nAds: ${JSON.stringify(dados.ads)}\nTop anúncios: ${JSON.stringify(top)}\nPedidos recentes: ${JSON.stringify(ped)}`}]})});
       const d=await r.json();
       setAnalise(d.content?.[0]?.text||'Erro ao gerar análise');
@@ -828,93 +1082,154 @@ function ViewIA({dados,periodo}){
     finally{setLoading(false);}
   }
   return (
-    <div style={{maxWidth:760}}>
+    <div style={{maxWidth:780}}>
       {!loading&&!analise&&(
-        <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:32,textAlign:'center',boxShadow:'var(--sh-sm)',border:'1px solid var(--bd)'}}>
-          <Icon name="sparkles" size={26} color="var(--orange)"/>
-          <div style={{fontSize:14,color:'var(--txt2)',margin:'12px 0 20px',lineHeight:1.6}}>Diagnóstico completo da conta com IA especializada em Mercado Livre</div>
-          <Btn onClick={gerar} icon="sparkles">Gerar análise</Btn>
-        </div>
+        <Card>
+          <Empty icon="sparkles" title="Diagnóstico da conta com IA"
+            description="Análise das métricas do período, margem por produto e as próximas ações prioritárias."
+            action={<Btn onClick={gerar} icon="sparkles">Gerar análise</Btn>}/>
+        </Card>
       )}
-      {loading&&<div style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:44,textAlign:'center',boxShadow:'var(--sh-sm)',fontSize:13,color:'var(--txt3)'}}>Analisando sua conta...</div>}
-      {analise&&(
-        <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',padding:'var(--pad)',boxShadow:'var(--sh-sm)',border:'1px solid var(--bd)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <div style={{fontSize:10,fontWeight:800,color:'var(--txt3)',letterSpacing:'.08em'}}>DIAGNÓSTICO · {new Date().toLocaleDateString('pt-BR')}</div>
-            <Btn variant="secondary" size="sm" onClick={gerar} icon="refresh-cw">Reanalisar</Btn>
+      {loading&&(
+        <Card>
+          <div style={{display:'flex',flexDirection:'column',gap:'var(--space-3)',padding:'var(--space-4) 0'}}>
+            <Skel w="40%" h={13}/><Skel h={13}/><Skel h={13}/><Skel w="75%" h={13}/>
+            <div style={{height:'var(--space-4)'}}/>
+            <Skel w="35%" h={13}/><Skel h={13}/><Skel w="60%" h={13}/>
+            <div style={{fontSize:'var(--text-sm)',color:'var(--text-muted)',marginTop:'var(--space-3)'}}>Analisando sua conta…</div>
           </div>
-          <div style={{fontSize:14,color:'var(--txt2)',lineHeight:1.8,whiteSpace:'pre-wrap'}}>{analise}</div>
-        </div>
+        </Card>
+      )}
+      {analise&&(
+        <Card>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'var(--space-3)',flexWrap:'wrap',marginBottom:'var(--space-4)'}}>
+            <Overline>Diagnóstico · {new Date().toLocaleDateString('pt-BR')} · {PLABEL[periodo]}</Overline>
+            <Btn variant="neutral" size="sm" onClick={gerar} icon="refresh-cw">Reanalisar</Btn>
+          </div>
+          <div style={{fontSize:'var(--text-md)',color:'var(--text-body)',lineHeight:1.75,whiteSpace:'pre-wrap',textWrap:'pretty'}}>{analise}</div>
+        </Card>
       )}
     </div>
   );
 }
 
-/* ══ SIDEBAR ════════════════════════════════════════════════ */
+/* ══ NAVEGAÇÃO ══════════════════════════════════════════════ */
 const NAV=[
-  {id:'dashboard',icon:'layout-dashboard',label:'Visão geral'},
-  {id:'pedidos',icon:'shopping-cart',label:'Pedidos'},
-  {id:'anuncios',icon:'package',label:'Anúncios'},
-  {id:'ia',icon:'sparkles',label:'Análise IA'},
-  {id:'contas',icon:'store',label:'Contas'},
+  {id:'dashboard',icon:'layout-dashboard',label:'Visão geral',curto:'Início'},
+  {id:'pedidos',icon:'shopping-cart',label:'Pedidos',curto:'Pedidos'},
+  {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
+  {id:'ia',icon:'sparkles',label:'Análise IA',curto:'IA'},
+  {id:'contas',icon:'store',label:'Contas',curto:'Contas'},
 ];
 
+/* Sidebar — casca escura, item ativo em laranja sólido */
 function Sidebar({active,onSelect,seller,onSair}){
   return (
-    <aside className="hide-sm" style={{width:'var(--sidebar-w)',minHeight:'100vh',background:'var(--sidebar)',display:'flex',flexDirection:'column',borderRight:'1px solid var(--bd-dark)',position:'fixed',top:0,left:0,zIndex:30}}>
-      <div style={{height:'var(--topbar-h)',display:'flex',alignItems:'center',padding:'0 20px',borderBottom:'1px solid var(--bd-dark)'}}>
-        <Wordmark size={19}/>
+    <aside style={{width:'var(--layout-sidebar-w)',minHeight:'100vh',background:'var(--surface-nav)',display:'flex',
+      flexDirection:'column',position:'fixed',top:0,left:0,zIndex:30}}>
+      <div style={{height:'var(--layout-topbar-h)',display:'flex',alignItems:'center',padding:'0 var(--space-5)',flexShrink:0}}>
+        <Logo height={21} inverse/>
       </div>
-      <nav style={{flex:1,padding:8}}>
-        {NAV.map(it=>{
-          const on=active===it.id;
-          return <button key={it.id} onClick={()=>onSelect(it.id)} style={{display:'flex',alignItems:'center',gap:10,width:'100%',height:40,padding:'0 12px',borderRadius:'var(--r-md)',border:'none',cursor:'pointer',fontSize:13,fontWeight:on?700:500,fontFamily:'var(--f-sans)',marginBottom:2,transition:'var(--tr)',
-            background:on?'rgba(255,82,0,.12)':'transparent',color:on?'var(--orange)':'rgba(255,255,255,.55)'}}>
-            <Icon name={it.icon} size={16} color={on?'var(--orange)':'rgba(255,255,255,.45)'}/>{it.label}</button>;
-        })}
+      <nav style={{flex:1,padding:'var(--space-2) var(--space-3)',display:'flex',flexDirection:'column',gap:2,overflowY:'auto'}}>
+        {NAV.map(it=><NavItem key={it.id} item={it} active={active===it.id} onSelect={onSelect}/>)}
       </nav>
-      <div style={{padding:'12px 16px',borderTop:'1px solid var(--bd-dark)',display:'flex',alignItems:'center',gap:10}}>
-        <div style={{width:31,height:31,borderRadius:'50%',background:'rgba(255,82,0,.18)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-          <Icon name="user" size={15} color="var(--orange)"/>
-        </div>
+      <div style={{padding:'var(--space-3)',borderTop:'1px solid var(--border-inverse)',display:'flex',alignItems:'center',gap:10}}>
+        <span style={{width:32,height:32,borderRadius:'50%',background:'var(--purple-500)',color:'#fff',display:'flex',
+          alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)'}}>
+          {(seller?.nickname||'·').slice(0,2).toUpperCase()}
+        </span>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:11.5,fontWeight:700,color:'#fff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{seller?.nickname||'...'}</div>
-          <button onClick={onSair} style={{background:'none',border:'none',color:'var(--txt-dark3)',cursor:'pointer',fontSize:10.5,padding:0}}>Sair</button>
+          <div className="ell" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',color:'#fff'}}>{seller?.nickname||'—'}</div>
+          <button onClick={onSair} style={{background:'none',border:'none',color:'var(--on-dark-muted)',cursor:'pointer',
+            fontSize:'var(--text-2xs)',padding:0,fontWeight:'var(--weight-medium)'}}>Sair</button>
         </div>
       </div>
     </aside>
   );
 }
 
-/* ══ BOTTOM NAV (mobile) ════════════════════════════════════ */
+function NavItem({item,active,onSelect}){
+  const [hv,setHv]=useState(false);
+  return (
+    <button onClick={()=>onSelect(item.id)} aria-current={active?'page':undefined}
+      onMouseEnter={()=>setHv(true)} onMouseLeave={()=>setHv(false)}
+      style={{display:'flex',alignItems:'center',gap:11,width:'100%',height:'var(--control-h-md)',padding:'0 10px',
+        borderRadius:'var(--radius-md)',border:'none',cursor:'pointer',textAlign:'left',transition:'var(--tr)',
+        fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',
+        background:active?'var(--action-primary)':hv?'rgba(255,255,255,.07)':'transparent',
+        color:active?'#fff':hv?'#fff':'var(--on-dark-muted)'}}>
+      <Icon name={item.icon} size={18}/>
+      <span className="ell" style={{flex:1}}>{item.label}</span>
+    </button>
+  );
+}
+
+/* Bottom nav — mesmas rotas do desktop, nada é escondido no mobile */
 function BottomNav({active,onSelect}){
   return (
-    <nav style={{display:'none',position:'fixed',bottom:0,left:0,right:0,height:'64px',background:'var(--sidebar)',borderTop:'1px solid var(--bd-dark)',zIndex:40,justifyContent:'space-around',alignItems:'center'}}
-      ref={el=>{if(el)el.style.display=window.innerWidth<=900?'flex':'none'}}>
+    <nav style={{position:'fixed',bottom:0,left:0,right:0,minHeight:'var(--layout-bottomnav-h)',background:'var(--surface-nav)',
+      borderTop:'1px solid var(--border-inverse)',zIndex:40,display:'flex',alignItems:'stretch',
+      paddingBottom:'env(safe-area-inset-bottom)'}}>
       {NAV.map(it=>{
         const on=active===it.id;
-        return <button key={it.id} onClick={()=>onSelect(it.id)} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,background:'none',border:'none',cursor:'pointer',padding:'6px 10px',flex:1}}>
-          <Icon name={it.icon} size={19} color={on?'var(--orange)':'rgba(255,255,255,.4)'}/>
-          <span style={{fontSize:9.5,fontWeight:on?700:500,color:on?'var(--orange)':'rgba(255,255,255,.4)'}}>{it.label.split(' ')[0]}</span>
+        return <button key={it.id} onClick={()=>onSelect(it.id)} aria-current={on?'page':undefined}
+          style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,background:'none',
+            border:'none',cursor:'pointer',padding:'8px 4px',flex:1,minWidth:0,minHeight:'var(--tap-target-min)',
+            color:on?'var(--orange-400)':'var(--on-dark-muted)',transition:'color var(--duration-fast) var(--ease-standard)'}}>
+          <Icon name={it.icon} size={21}/>
+          <span className="ell" style={{fontSize:'var(--text-2xs)',fontWeight:on?'var(--weight-bold)':'var(--weight-medium)',maxWidth:'100%'}}>{it.curto}</span>
         </button>;
       })}
     </nav>
   );
 }
 
+/* Drawer mobile — abre a mesma navegação em tela cheia */
+function Drawer({open,onClose,active,onSelect,seller,onSair}){
+  if(!open)return null;
+  return (
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'var(--surface-overlay)',backdropFilter:'blur(2px)',zIndex:60,display:'flex'}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(280px,82vw)',background:'var(--surface-nav)',
+        display:'flex',flexDirection:'column',animation:'rise var(--duration-base) var(--ease-out)'}}>
+        <div style={{height:'var(--layout-topbar-h)',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 var(--space-4) 0 var(--space-5)'}}>
+          <Logo height={20} inverse/>
+          <button onClick={onClose} aria-label="Fechar menu" style={{background:'none',border:'none',cursor:'pointer',
+            color:'var(--on-dark-muted)',display:'flex',padding:8}}><Icon name="x" size={18}/></button>
+        </div>
+        <nav style={{flex:1,padding:'var(--space-2) var(--space-3)',display:'flex',flexDirection:'column',gap:2}}>
+          {NAV.map(it=><NavItem key={it.id} item={it} active={active===it.id} onSelect={id=>{onSelect(id);onClose();}}/>)}
+        </nav>
+        <div style={{padding:'var(--space-3)',borderTop:'1px solid var(--border-inverse)',display:'flex',alignItems:'center',gap:10}}>
+          <span style={{width:32,height:32,borderRadius:'50%',background:'var(--purple-500)',color:'#fff',display:'flex',
+            alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)'}}>
+            {(seller?.nickname||'·').slice(0,2).toUpperCase()}
+          </span>
+          <div style={{flex:1,minWidth:0}}>
+            <div className="ell" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',color:'#fff'}}>{seller?.nickname||'—'}</div>
+            <button onClick={onSair} style={{background:'none',border:'none',color:'var(--on-dark-muted)',cursor:'pointer',fontSize:'var(--text-2xs)',padding:0}}>Sair</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ══ APP LOGADO ═════════════════════════════════════════════ */
-function AppLogado({user,erroConexao}){
+function AppLogado({user}){
   const [view,setView]=useState('dashboard');
   const [periodo,setPeriodo]=useState('hoje');
   const [dados,setDados]=useState(null);
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState('');
   const [contasAtivas,setContasAtivas]=useState([]);
-  const [isMobile,setIsMobile]=useState(window.innerWidth<=900);
+  const [isMobile,setIsMobile]=useState(window.innerWidth<1024);
+  const [drawer,setDrawer]=useState(false);
 
   useEffect(()=>{
-    const h=()=>setIsMobile(window.innerWidth<=900);
-    window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);
+    const mq=window.matchMedia('(max-width: 1023px)');
+    const h=()=>setIsMobile(mq.matches);
+    h();mq.addEventListener('change',h);
+    return()=>mq.removeEventListener('change',h);
   },[]);
 
   useEffect(()=>{carregar();},[periodo,contasAtivas]);
@@ -931,38 +1246,54 @@ function AppLogado({user,erroConexao}){
 
   const toggleConta=id=>setContasAtivas(a=>a.includes(id)?(a.length>1?a.filter(x=>x!==id):a):[...a,id]);
   const multiConta=(dados?.contasUsadas?.length||0)>1;
+  const titulo=NAV.find(n=>n.id===view)?.label;
 
   return (
-    <div style={{display:'flex',minHeight:'100vh',background:'var(--page)'}}>
-      <Sidebar active={view} onSelect={setView} seller={dados?.seller} onSair={()=>auth.signOut()}/>
+    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-page)'}}>
+      {!isMobile&&<Sidebar active={view} onSelect={setView} seller={dados?.seller} onSair={()=>auth.signOut()}/>}
+      {isMobile&&<Drawer open={drawer} onClose={()=>setDrawer(false)} active={view} onSelect={setView} seller={dados?.seller} onSair={()=>auth.signOut()}/>}
 
-      <div style={{marginLeft:isMobile?0:'var(--sidebar-w)',flex:1,display:'flex',flexDirection:'column',minHeight:'100vh',paddingBottom:isMobile?68:0}}>
-        {/* TopBar */}
-        <header style={{height:'var(--topbar-h)',borderBottom:'1px solid var(--bd-dark)',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 var(--gutter)',gap:10,position:'sticky',top:0,zIndex:20,background:'var(--page)'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            {isMobile&&<Wordmark size={17}/>}
-            {!isMobile&&<span style={{fontSize:15,fontWeight:700,color:'rgba(255,255,255,.85)'}}>{NAV.find(n=>n.id===view)?.label}</span>}
+      <div style={{marginLeft:isMobile?0:'var(--layout-sidebar-w)',flex:1,minWidth:0,display:'flex',flexDirection:'column',
+        minHeight:'100vh',paddingBottom:isMobile?'calc(var(--layout-bottomnav-h) + env(safe-area-inset-bottom))':0}}>
+
+        {/* TopBar — clara, na área de trabalho */}
+        <header style={{minHeight:'var(--layout-topbar-h)',background:'var(--surface-card)',
+          borderBottom:'1px solid var(--border-subtle)',display:'flex',alignItems:'center',justifyContent:'space-between',
+          padding:isMobile?'0 var(--layout-gutter-mobile)':'0 var(--layout-gutter)',gap:'var(--space-3)',
+          position:'sticky',top:0,zIndex:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',minWidth:0}}>
+            {isMobile&&<IconBtn icon="menu" label="Abrir menu" onClick={()=>setDrawer(true)}/>}
+            <h1 className="ell" style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{titulo}</h1>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            {dados?.hora&&!isMobile&&<span style={{fontSize:10.5,color:'var(--txt-dark3)'}}>Atualizado {dados.hora}</span>}
-            <Btn variant="dark" size="sm" icon="refresh-cw" onClick={carregar} disabled={loading}>{loading?'':'Atualizar'}</Btn>
+          <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',flexShrink:0}}>
+            {dados?.hora&&!isMobile&&<span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>Atualizado {dados.hora}</span>}
+            {isMobile
+              ? <IconBtn icon="refresh-cw" label="Atualizar" onClick={carregar} disabled={loading}/>
+              : <Btn variant="neutral" size="sm" icon="refresh-cw" onClick={carregar} disabled={loading}>{loading?'Atualizando…':'Atualizar'}</Btn>}
           </div>
         </header>
 
-        <main style={{flex:1,padding:'var(--gutter)',maxWidth:1440,width:'100%'}}>
-          {(err||erroConexao)&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.2)',borderRadius:'var(--r-lg)',padding:'12px 16px',color:'#f87171',fontSize:13,marginBottom:16}}>{err||erroConexao}</div>}
+        <main style={{flex:1,padding:isMobile?'var(--layout-gutter-mobile)':'var(--layout-gutter)',
+          maxWidth:'var(--layout-max-content)',width:'100%',minWidth:0}}>
+          {err&&<div style={{marginBottom:'var(--layout-grid-gap)'}}>
+            <Note tone="danger" icon="alert-octagon">{err}</Note>
+          </div>}
 
           {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={setPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')}/>}
 
           {view==='pedidos'&&(
             <div>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:10}}>
-                <Badge>{dados?.pedidos?.length||0} pedidos</Badge>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              <section style={{background:'var(--surface-nav)',borderRadius:'var(--radius-2xl)',padding:'var(--space-4) var(--space-5)',
+                display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',flexWrap:'wrap',marginBottom:'var(--layout-grid-gap)'}}>
+                <div style={{display:'flex',alignItems:'baseline',gap:'var(--space-2)'}}>
+                  <span className="tab" style={{fontSize:'var(--text-2xl)',fontWeight:'var(--weight-extrabold)',color:'#fff',letterSpacing:'var(--tracking-tight)'}}>{NUM(dados?.pedidos?.length||0)}</span>
+                  <span style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)'}}>pedidos no período</span>
+                </div>
+                <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap',justifyContent:'flex-end'}}>
                   <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
                   <PeriodFilter value={periodo} onChange={setPeriodo}/>
                 </div>
-              </div>
+              </section>
               <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')}/>
             </div>
           )}
@@ -980,31 +1311,7 @@ function AppLogado({user,erroConexao}){
 
 /* ══ ROOT ═══════════════════════════════════════════════════ */
 function App(){
-  const [user,setUser]=useState(undefined);
-  const [mlOk,setMlOk]=useState(null);
-  const [chk,setChk]=useState(false);
-  const [conectandoNova,setConectandoNova]=useState(false);
-  const [erroConexao,setErroConexao]=useState('');
-  const [nonce,setNonce]=useState(0);  // força recarregar dados após nova conta
-
-  // Processa o ?code= do OAuth em qualquer situação (1ª conta ou adicional)
-  useEffect(()=>{
-    if(!user)return;
-    const params=new URLSearchParams(window.location.search);
-    const code=params.get('code');
-    if(!code)return;
-    window.history.replaceState({},'',window.location.pathname);
-    (async()=>{
-      setConectandoNova(true);setErroConexao('');
-      try{
-        const r=await call('mlTokenExchange',{code});
-        if(r.success){setMlOk(true);setNonce(n=>n+1);}
-      }catch(e){
-        setErroConexao(e.message||'Não foi possível conectar a conta');
-      }finally{setConectandoNova(false);}
-    })();
-  },[user]);
-
+  const [user,setUser]=useState(undefined),[mlOk,setMlOk]=useState(null),[chk,setChk]=useState(false);
   useEffect(()=>auth.onAuthStateChanged(async u=>{
     setUser(u);
     if(u){
@@ -1022,22 +1329,13 @@ function App(){
   }),[]);
 
   if(user===undefined||chk)return (
-    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center'}}><Wordmark size={24}/></div>
-  );
-
-  if(!user)return <TelaLogin/>;
-
-  // Conectando conta (primeira ou adicional)
-  if(conectandoNova)return (
-    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16}}>
-      <Wordmark size={24}/>
-      <div style={{fontSize:13,color:'var(--txt-dark2)'}}>Conectando conta do Mercado Livre...</div>
+    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center'}}>
+      <Logo height={24} inverse/>
     </div>
   );
-
-  if(!mlOk)return <TelaConectar user={user} onOk={()=>setMlOk(true)} erro={erroConexao}/>;
-
-  return <AppLogado user={user} key={nonce} erroConexao={erroConexao}/>;
+  if(!user)return <TelaLogin/>;
+  if(!mlOk)return <TelaConectar user={user} onOk={()=>setMlOk(true)}/>;
+  return <AppLogado user={user}/>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
