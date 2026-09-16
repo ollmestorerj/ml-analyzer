@@ -188,24 +188,9 @@ function TelaLogin(){
 }
 
 /* ══ CONECTAR ML ════════════════════════════════════════════ */
-function TelaConectar({user,onOk}){
-  const [conectando,setConectando]=useState(false),[err,setErr]=useState('');
-  useEffect(()=>{
-    const code=new URLSearchParams(window.location.search).get('code');
-    if(code){window.history.replaceState({},'',window.location.pathname);conectar(code);}
-  },[]);
-  async function conectar(code){
-    setConectando(true);setErr('');
-    try{const r=await call('mlTokenExchange',{code});if(r.success)onOk();}
-    catch(e){setErr('Erro: '+(e.message||'Tente novamente'));setConectando(false);}
-  }
+function TelaConectar({user,onOk,erro}){
+  const err=erro||'';
   const go=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
-
-  if(conectando)return (
-    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16}}>
-      <Wordmark size={24}/><div style={{fontSize:13,color:'var(--txt-dark2)'}}>Conectando sua conta do Mercado Livre...</div>
-    </div>
-  );
   return (
     <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',padding:20}}>
       <div style={{width:'100%',maxWidth:420,textAlign:'center'}}>
@@ -781,13 +766,44 @@ function ViewContas({dados,onRefresh}){
         {contas.length===0&&<div style={{padding:32,textAlign:'center',fontSize:13,color:'var(--txt3)'}}>Nenhuma conta conectada</div>}
       </div>
 
+      {dados?.ads?.fonte==='manual'&&dados?.ads?.diagnostico?.length>0&&(
+        <details style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:16,marginBottom:16}}>
+          <summary style={{cursor:'pointer',fontSize:12.5,fontWeight:700,display:'flex',alignItems:'center',gap:7}}>
+            <Icon name="stethoscope" size={14} color="var(--amber)"/>
+            Diagnóstico do Product Ads
+          </summary>
+          <div style={{marginTop:12,fontSize:11.5,color:'var(--txt2)',lineHeight:1.7}}>
+            {dados.ads.advertiserId
+              ? <>Advertiser encontrado: <strong style={{fontFamily:'var(--f-mono)'}}>{dados.ads.advertiserId}</strong></>
+              : <>Nenhum advertiser encontrado — a conta provavelmente não tem Product Ads ativo.</>}
+          </div>
+          <div style={{marginTop:10,background:'var(--sunken)',borderRadius:'var(--r-md)',padding:'10px 12px',fontFamily:'var(--f-mono)',fontSize:11,lineHeight:1.9,color:'var(--txt2)'}}>
+            {dados.ads.diagnostico.map((l,i)=><div key={i}>{l}</div>)}
+          </div>
+          <div style={{marginTop:10,fontSize:11,color:'var(--txt3)',lineHeight:1.6}}>
+            Cada linha é uma tentativa de endpoint com o código HTTP da resposta. 200 = funcionou, 404 = rota não existe, 403 = sem permissão.
+          </div>
+        </details>
+      )}
+
       <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:20}}>
         <div style={{fontSize:13.5,fontWeight:700,marginBottom:6}}>Adicionar outra conta</div>
-        <div style={{fontSize:12.5,color:'var(--txt2)',marginBottom:16,lineHeight:1.6}}>
+        <div style={{fontSize:12.5,color:'var(--txt2)',marginBottom:14,lineHeight:1.6}}>
           Conecte quantas contas do Mercado Livre quiser. Os dados são somados no dashboard e você pode filtrar por conta.
-          <br/><strong>Importante:</strong> saia da conta atual no Mercado Livre antes de conectar outra.
         </div>
-        <Btn icon="plus" onClick={conectar}>Conectar nova conta</Btn>
+        <div style={{background:'var(--amber-bg)',borderRadius:'var(--r-md)',padding:'11px 13px',marginBottom:16,display:'flex',gap:8,alignItems:'flex-start'}}>
+          <Icon name="alert-triangle" size={14} color="var(--amber)"/>
+          <div style={{fontSize:11.5,color:'var(--txt2)',lineHeight:1.6}}>
+            Antes de clicar, <strong>saia da conta atual no site do Mercado Livre</strong> (ou use uma janela anônima).
+            Se continuar logado na mesma conta, o ML vai reconectar ela de novo em vez da nova.
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <Btn icon="plus" onClick={conectar}>Conectar nova conta</Btn>
+          <Btn variant="secondary" icon="external-link" onClick={()=>window.open('https://www.mercadolivre.com.br/jms/mlb/lgz/logout','_blank')}>
+            Sair do ML primeiro
+          </Btn>
+        </div>
       </div>
     </div>
   );
@@ -887,7 +903,7 @@ function BottomNav({active,onSelect}){
 }
 
 /* ══ APP LOGADO ═════════════════════════════════════════════ */
-function AppLogado({user}){
+function AppLogado({user,erroConexao}){
   const [view,setView]=useState('dashboard');
   const [periodo,setPeriodo]=useState('hoje');
   const [dados,setDados]=useState(null);
@@ -934,7 +950,7 @@ function AppLogado({user}){
         </header>
 
         <main style={{flex:1,padding:'var(--gutter)',maxWidth:1440,width:'100%'}}>
-          {err&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.2)',borderRadius:'var(--r-lg)',padding:'12px 16px',color:'#f87171',fontSize:13,marginBottom:16}}>{err}</div>}
+          {(err||erroConexao)&&<div style={{background:'var(--red-bg)',border:'1px solid rgba(239,68,68,.2)',borderRadius:'var(--r-lg)',padding:'12px 16px',color:'#f87171',fontSize:13,marginBottom:16}}>{err||erroConexao}</div>}
 
           {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={setPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')}/>}
 
@@ -964,7 +980,31 @@ function AppLogado({user}){
 
 /* ══ ROOT ═══════════════════════════════════════════════════ */
 function App(){
-  const [user,setUser]=useState(undefined),[mlOk,setMlOk]=useState(null),[chk,setChk]=useState(false);
+  const [user,setUser]=useState(undefined);
+  const [mlOk,setMlOk]=useState(null);
+  const [chk,setChk]=useState(false);
+  const [conectandoNova,setConectandoNova]=useState(false);
+  const [erroConexao,setErroConexao]=useState('');
+  const [nonce,setNonce]=useState(0);  // força recarregar dados após nova conta
+
+  // Processa o ?code= do OAuth em qualquer situação (1ª conta ou adicional)
+  useEffect(()=>{
+    if(!user)return;
+    const params=new URLSearchParams(window.location.search);
+    const code=params.get('code');
+    if(!code)return;
+    window.history.replaceState({},'',window.location.pathname);
+    (async()=>{
+      setConectandoNova(true);setErroConexao('');
+      try{
+        const r=await call('mlTokenExchange',{code});
+        if(r.success){setMlOk(true);setNonce(n=>n+1);}
+      }catch(e){
+        setErroConexao(e.message||'Não foi possível conectar a conta');
+      }finally{setConectandoNova(false);}
+    })();
+  },[user]);
+
   useEffect(()=>auth.onAuthStateChanged(async u=>{
     setUser(u);
     if(u){
@@ -984,9 +1024,20 @@ function App(){
   if(user===undefined||chk)return (
     <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center'}}><Wordmark size={24}/></div>
   );
+
   if(!user)return <TelaLogin/>;
-  if(!mlOk)return <TelaConectar user={user} onOk={()=>setMlOk(true)}/>;
-  return <AppLogado user={user}/>;
+
+  // Conectando conta (primeira ou adicional)
+  if(conectandoNova)return (
+    <div style={{display:'flex',height:'100vh',background:'var(--sidebar)',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16}}>
+      <Wordmark size={24}/>
+      <div style={{fontSize:13,color:'var(--txt-dark2)'}}>Conectando conta do Mercado Livre...</div>
+    </div>
+  );
+
+  if(!mlOk)return <TelaConectar user={user} onOk={()=>setMlOk(true)} erro={erroConexao}/>;
+
+  return <AppLogado user={user} key={nonce} erroConexao={erroConexao}/>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
