@@ -299,14 +299,18 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios}){
 }
 
 /* ══ PAINEL DE ADS ══════════════════════════════════════════ */
-function PainelAds({ads,metricas,dataRef,onSalvo}){
+function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
+  const auto=ads?.fonte==='automatico';
   const [editing,setEditing]=useState(false);
-  const [inv,setInv]=useState(ads?.investimento||'');
-  const [rec,setRec]=useState(ads?.receita||'');
-  const [vnd,setVnd]=useState(ads?.vendas||'');
+  const [inv,setInv]=useState('');
+  const [rec,setRec]=useState('');
+  const [vnd,setVnd]=useState('');
   const [saving,setSaving]=useState(false);
+  const [verCampanhas,setVerCampanhas]=useState(false);
 
-  useEffect(()=>{setInv(ads?.investimento||'');setRec(ads?.receita||'');setVnd(ads?.vendas||'')},[ads]);
+  useEffect(()=>{
+    setInv(ads?.investimento||'');setRec(ads?.receita||'');setVnd(ads?.vendas||'');
+  },[ads]);
 
   async function salvar(){
     setSaving(true);
@@ -325,24 +329,44 @@ function PainelAds({ads,metricas,dataRef,onSalvo}){
     {label:'ACOS',value:PCT(ads?.acos)},
     {label:'TACOS',value:PCT(ads?.tacos)},
   ];
+  if(auto){
+    cells.push({label:'CLIQUES',value:NUM(ads?.cliques)});
+    cells.push({label:'IMPRESSÕES',value:NUM(ads?.impressoes)});
+  }
+
+  const semDados=!ads?.investimento&&!ads?.receita;
 
   return (
     <div style={{background:'var(--card)',borderRadius:'var(--r-xl)',border:'1px solid var(--bd)',boxShadow:'var(--sh-sm)',padding:'var(--pad)'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
           <Icon name="megaphone" size={16} color="var(--orange)"/>
-          <span style={{fontSize:14,fontWeight:700}}>Publicidade (Ads)</span>
-          <Badge tone="warning">Entrada manual</Badge>
+          <span style={{fontSize:14,fontWeight:700}}>Publicidade</span>
+          {auto
+            ? <Badge tone="success">Automático</Badge>
+            : <Badge tone="warning">Manual</Badge>}
+          {auto&&ads?.contasSemAds>0&&(
+            <span style={{fontSize:11,color:'var(--txt3)'}}>
+              {ads.contasSemAds} {ads.contasSemAds===1?'conta sem Product Ads':'contas sem Product Ads'}
+            </span>
+          )}
         </div>
-        {!editing
-          ? <Btn variant="secondary" size="sm" icon="pencil" onClick={()=>setEditing(true)}>Editar</Btn>
-          : <div style={{display:'flex',gap:6}}>
-              <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando':'Salvar'}</Btn>
-              <Btn variant="secondary" size="sm" onClick={()=>setEditing(false)}>Cancelar</Btn>
-            </div>}
+        <div style={{display:'flex',gap:6}}>
+          {auto&&ads?.campanhas?.length>0&&(
+            <Btn variant="secondary" size="sm" icon={verCampanhas?'chevron-up':'list'} onClick={()=>setVerCampanhas(v=>!v)}>
+              {ads.campanhas.length} {ads.campanhas.length===1?'campanha':'campanhas'}
+            </Btn>
+          )}
+          {!auto&&(!editing
+            ? <Btn variant="secondary" size="sm" icon="pencil" onClick={()=>setEditing(true)}>Editar</Btn>
+            : <>
+                <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando':'Salvar'}</Btn>
+                <Btn variant="secondary" size="sm" onClick={()=>setEditing(false)}>Cancelar</Btn>
+              </>)}
+        </div>
       </div>
 
-      {editing?(
+      {editing&&!auto?(
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12}}>
           {[['Investimento R$',inv,setInv,'0.01'],['Receita R$',rec,setRec,'0.01'],['Vendas',vnd,setVnd,'1']].map(([lbl,v,set,step])=>(
             <div key={lbl}>
@@ -353,18 +377,64 @@ function PainelAds({ads,metricas,dataRef,onSalvo}){
           ))}
         </div>
       ):(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:14}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(104px,1fr))',gap:14}}>
           {cells.map(c=>(
             <div key={c.label}>
               <div style={{fontSize:10,fontWeight:700,color:'var(--txt3)',letterSpacing:'.06em',marginBottom:4}}>{c.label}</div>
-              <div className="tab" style={{fontSize:19,fontWeight:800,color:c.accent==='success'?'var(--green)':c.accent==='amber'?'var(--amber)':c.accent==='accent'?'var(--purple)':'var(--txt)'}}>{c.value}</div>
+              <div className="tab" style={{fontSize:18,fontWeight:800,color:c.accent==='success'?'var(--green)':c.accent==='amber'?'var(--amber)':c.accent==='accent'?'var(--purple)':'var(--txt)'}}>{c.value}</div>
             </div>
           ))}
         </div>
       )}
-      {!editing&&(ads?.investimento||0)===0&&(
-        <div style={{marginTop:14,padding:'10px 12px',background:'var(--sunken)',borderRadius:'var(--r-md)',fontSize:11.5,color:'var(--txt3)',lineHeight:1.5}}>
-          Informe o gasto diário do Product Ads para calcular ROAS, ACOS e TACOS. Os dados ficam salvos por data.
+
+      {/* Lista de campanhas */}
+      {auto&&verCampanhas&&ads.campanhas?.length>0&&(
+        <div style={{marginTop:16,borderTop:'1px solid var(--bd)',paddingTop:14}}>
+          {ads.campanhas.map(c=>{
+            const roasC=c.investimento>0?c.receita/c.investimento:0;
+            return (
+              <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'9px 0',borderBottom:'1px solid var(--bd)',flexWrap:'wrap'}}>
+                <div style={{flex:'1 1 180px',minWidth:0}}>
+                  <div style={{fontSize:12.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.nome}</div>
+                  <Badge tone={c.status==='active'?'success':'default'}>{c.status==='active'?'Ativa':c.status}</Badge>
+                </div>
+                <div style={{textAlign:'right',minWidth:76}}>
+                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>GASTO</div>
+                  <div className="tab" style={{fontSize:13,fontWeight:700,color:'var(--amber)'}}>{BRL(c.investimento)}</div>
+                </div>
+                <div style={{textAlign:'right',minWidth:76}}>
+                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>RECEITA</div>
+                  <div className="tab" style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>{BRL(c.receita)}</div>
+                </div>
+                <div style={{textAlign:'right',minWidth:52}}>
+                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>ROAS</div>
+                  <div className="tab" style={{fontSize:13,fontWeight:700,color:roasC>=3?'var(--green)':roasC>=1?'var(--txt)':'var(--red)'}}>{roasC.toFixed(2)}x</div>
+                </div>
+                <div style={{textAlign:'right',minWidth:44}}>
+                  <div style={{fontSize:9.5,color:'var(--txt3)',fontWeight:700}}>VENDAS</div>
+                  <div className="tab" style={{fontSize:13,fontWeight:700}}>{c.vendas}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Avisos */}
+      {auto&&(
+        <div style={{marginTop:13,padding:'9px 12px',background:'var(--sunken)',borderRadius:'var(--r-md)',fontSize:11,color:'var(--txt3)',lineHeight:1.5,display:'flex',gap:7,alignItems:'flex-start'}}>
+          <Icon name="info" size={13} color="var(--txt3)"/>
+          <span>Dados puxados direto do Product Ads. O Mercado Livre consolida as métricas por volta das 10h — números do dia atual podem mudar ao longo do dia.</span>
+        </div>
+      )}
+      {!auto&&!editing&&(
+        <div style={{marginTop:13,padding:'10px 12px',background:'var(--amber-bg)',borderRadius:'var(--r-md)',fontSize:11.5,color:'var(--txt2)',lineHeight:1.5,display:'flex',gap:7,alignItems:'flex-start'}}>
+          <Icon name="alert-triangle" size={13} color="var(--amber)"/>
+          <span>
+            {semDados
+              ? <>Não foi possível puxar o Product Ads automaticamente{ads?.motivo?` (${ads.motivo})`:''}. Verifique se a conta tem publicidade ativa em <strong>Mercado Livre → Meu perfil → Publicidade</strong>, ou informe os valores manualmente.</>
+              : <>Valores informados manualmente para {periodoLabel?.toLowerCase()}.</>}
+          </span>
         </div>
       )}
     </div>
@@ -439,7 +509,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
       </div>
 
       {/* ADS */}
-      {!loading&&<PainelAds ads={ads} metricas={m} dataRef={m.from} onSalvo={onRefresh}/>}
+      {!loading&&<PainelAds ads={ads} dataRef={m.from} onSalvo={onRefresh} periodoLabel={PLABEL[periodo]}/>}
 
       {/* PEDIDOS */}
       <div>
