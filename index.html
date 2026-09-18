@@ -756,6 +756,15 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
   const m=dados?.metricas||{},ads=dados?.ads||{};
   const multiConta=(dados?.contasUsadas?.length||0)>1;
   const negativos=(dados?.pedidos||[]).filter(p=>p.temCusto&&p.lucro<0).length;
+
+  // Descontar o investimento em ads do lucro — so quando o usuario pede
+  const [descontarAds,setDescontarAds]=useState(false);
+  const invAds   = m.investimentoAds ?? ads?.investimento ?? 0;
+  const temAds   = invAds > 0;
+  const lucroExib  = descontarAds&&temAds ? (m.lucroComAds  ?? (m.lucro-invAds)) : m.lucro;
+  const margemExib = descontarAds&&temAds
+    ? (m.margemComAds ?? (m.fat>0?((m.lucro-invAds)/m.fat)*100:0))
+    : m.margem;
   return (
     <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
       {/* CABEÇALHO — faturamento, lucro e filtros */}
@@ -766,14 +775,36 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
       <section className="dashboard-overview" aria-label="Resultado do período" aria-busy={loading}>
         {[
           ['Faturamento',BRL(m.fat),`${NUM(m.pedidosDia)} pedidos · ${NUM(m.qtd)} unidades`],
-          ['Lucro',BRL(m.lucro),m.semCusto>0?'Parcial: existem vendas sem custo':'Após custos, tarifas, frete e impostos'],
-          ['Margem',PCT(m.margem),'Sobre o faturamento do período'],
+          ['Lucro',BRL(lucroExib),m.semCusto>0?'Parcial: existem vendas sem custo'
+            :descontarAds&&temAds?`Já descontado ${BRL(invAds)} de publicidade`
+            :'Após custos, tarifas, frete e impostos'],
+          ['Margem',PCT(margemExib),descontarAds&&temAds?'Sobre o faturamento, com ads descontado':'Sobre o faturamento do período'],
         ].map(([label,value,caption],i)=><div key={label}>
           <Overline>{label}</Overline>
-          {loading?<div style={{margin:'12px 0'}}><Skel h={36}/></div>:<div className="metric-value" style={{color:i===0?'var(--text-strong)':m.lucro<0?'var(--status-danger-fg)':'var(--purple-500)'}}>{value}</div>}
+          {loading?<div style={{margin:'12px 0'}}><Skel h={36}/></div>:<div className="metric-value" style={{color:i===0?'var(--text-strong)':lucroExib<0?'var(--status-danger-fg)':'var(--purple-500)'}}>{value}</div>}
           <div className="metric-caption">{loading?'Carregando período…':caption}</div>
         </div>)}
       </section>
+
+      {/* Alternar desconto do investimento em publicidade */}
+      {!loading&&temAds&&(
+        <div className="attention" style={{borderBottom:'1px solid var(--border-default)'}}>
+          <div className="attention-copy">
+            <Icon name="megaphone" color={descontarAds?'var(--purple-500)':'var(--text-muted)'}/>
+            <span>
+              <strong>{descontarAds?'Publicidade descontada do lucro':'Publicidade fora do cálculo'}</strong><br/>
+              {descontarAds
+                ? <>O lucro acima já desconta {BRL(invAds)} investidos no período.</>
+                : <>Você investiu {BRL(invAds)} em ads. O lucro acima não considera esse gasto.</>}
+            </span>
+          </div>
+          <Btn variant={descontarAds?'secondary':'neutral'} size="sm"
+            icon={descontarAds?'rotate-ccw':'minus-circle'}
+            onClick={()=>setDescontarAds(v=>!v)}>
+            {descontarAds?'Mostrar sem descontar':'Descontar publicidade'}
+          </Btn>
+        </div>
+      )}
       {!loading&&(m.semCusto>0||negativos>0)&&<section aria-label="Pontos de atenção">
         {m.semCusto>0&&<div className="attention"><div className="attention-copy"><Icon name="triangle-alert" color="var(--status-warning-fg)"/><span><strong>{NUM(m.semCusto)} vendas sem custo</strong><br/>O resultado está incompleto.</span></div><Btn variant="neutral" size="sm" icon="pencil" onClick={onIrParaAnuncios}>Revisar custos</Btn></div>}
         {negativos>0&&<div className="attention"><div className="attention-copy"><Icon name="trending-down" color="var(--status-danger-fg)"/><span><strong>{NUM(negativos)} pedidos com prejuízo</strong><br/>Confira os custos e as tarifas dessas vendas.</span></div><Btn variant="neutral" size="sm" icon="arrow-right" onClick={onIrParaPrejuizos}>Ver pedidos</Btn></div>}
@@ -788,7 +819,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
         )):[
           {label:'Vendas',value:NUM(m.pedidosDia),caption:`${NUM(m.qtd)} unidades`,icon:'shopping-cart'},
           {label:'Ticket médio',value:BRL(m.ticketMedio),caption:'por pedido',icon:'tag',accent:'accent'},
-          {label:'Lucro médio',value:BRL(m.pedidosDia>0?m.lucro/m.pedidosDia:0),caption:'por pedido',icon:'circle-dollar-sign',accent:'success',tone:(m.lucro||0)>=0?'success':'danger'},
+          {label:'Lucro médio',value:BRL(m.pedidosDia>0?lucroExib/m.pedidosDia:0),caption:descontarAds&&temAds?'por pedido, com ads':'por pedido',icon:'circle-dollar-sign',accent:'success',tone:(lucroExib||0)>=0?'success':'danger'},
           {label:'Canceladas',value:NUM(m.canceladas),caption:`${BRL(m.valorCancelado)} não faturados`,icon:'x-circle',accent:'danger'},
         ].map(c=><StatCard key={c.label} {...c}/>)}
       </div>
@@ -810,7 +841,8 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
               {label:'Tarifas ML',valor:m.tarifas,viz:8},
               {label:'Impostos',valor:m.impostos,viz:3},
               {label:'Frete',valor:m.frete,viz:5},
-              {label:'Lucro',valor:m.lucro,viz:4},
+              ...(descontarAds&&temAds?[{label:'Publicidade',valor:invAds,viz:6}]:[]),
+              {label:'Lucro',valor:lucroExib,viz:4},
             ].map(c=>{
               const pct=m.fat>0?(c.valor||0)/m.fat*100:0;
               return (
@@ -1114,11 +1146,375 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     </div>
   );
 }
+/* ══ VIEW: CONCORRENTES ═════════════════════════════════════ */
+// Rotulo curto para cada tipo de mudanca detectada
+const TOM_MUDANCA={
+  preco:'brand', titulo:'info', qtdFotos:'accent', fotos:'accent',
+  video:'accent', freteGratis:'success', logistica:'info',
+  tipoAnuncio:'info', status:'warning', vendas:'success', estoque:'neutral',
+};
+
+function LinhaMudanca({m}){
+  const tom=TOM_MUDANCA[m.campo]||'neutral';
+  let detalhe=null;
+
+  if(m.tipo==='moeda'){
+    const caiu=m.dif<0;
+    detalhe=<span style={{display:'inline-flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+      <span className="tab" style={{color:'var(--text-subtle)',textDecoration:'line-through'}}>{BRL(m.de)}</span>
+      <Icon name="arrow-right" size={12} color="var(--text-subtle)"/>
+      <span className="tab" style={{fontWeight:'var(--weight-bold)',color:caiu?'var(--status-danger-fg)':'var(--status-success-fg)'}}>{BRL(m.para)}</span>
+      <Badge tone={caiu?'danger':'success'}>{caiu?'':'+'}{PCT(m.pct)}</Badge>
+    </span>;
+  } else if(m.tipo==='numero'){
+    detalhe=<span className="tab" style={{color:'var(--text-body)'}}>{NUM(m.de)} → <strong>{NUM(m.para)}</strong></span>;
+  } else if(m.tipo==='bool'){
+    detalhe=null;
+  } else if(m.campo==='titulo'){
+    detalhe=<span className="ell" title={m.para} style={{color:'var(--text-body)',maxWidth:340,display:'inline-block',verticalAlign:'bottom'}}>{m.para}</span>;
+  } else {
+    detalhe=<span style={{color:'var(--text-body)'}}>{String(m.de||'—')} → <strong>{String(m.para||'—')}</strong></span>;
+  }
+
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',flexWrap:'wrap',padding:'6px 0'}}>
+      <Badge tone={tom}>{m.rotulo}</Badge>
+      {detalhe&&<span style={{fontSize:'var(--text-xs)'}}>{detalhe}</span>}
+    </div>
+  );
+}
+
+// Mini grafico de linha do historico de precos
+function SparkPreco({historico}){
+  const pts=(historico||[]).filter(h=>Number.isFinite(h.preco)&&h.preco>0);
+  if(pts.length<2)return null;
+  const vals=pts.map(p=>p.preco);
+  const min=Math.min(...vals),max=Math.max(...vals);
+  const span=max-min||1;
+  const W=132,H=34;
+  const d=pts.map((p,i)=>{
+    const x=(i/(pts.length-1))*W;
+    const y=H-((p.preco-min)/span)*(H-6)-3;
+    return `${i?'L':'M'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const subiu=vals[vals.length-1]>=vals[0];
+  const cor=subiu?'var(--status-success-solid)':'var(--status-danger-solid)';
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:3}}>
+      <Overline>Preço · {pts.length}d</Overline>
+      <svg width={W} height={H} style={{display:'block',overflow:'visible'}} role="img" aria-label="Variação de preço">
+        <path d={d} fill="none" stroke={cor} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round"/>
+      </svg>
+      <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{BRL(min)} — {BRL(max)}</span>
+    </div>
+  );
+}
+
+function CardConcorrente({c,onRemover,removendo}){
+  const [aberto,setAberto]=useState(false);
+  const mudou=(c.mudancas?.length||0)>0;
+
+  return (
+    <Card pad={false} style={mudou?{borderColor:'var(--action-primary)'}:undefined}>
+      <div style={{padding:'var(--layout-card-pad)',display:'flex',gap:'var(--space-4)',flexWrap:'wrap',alignItems:'flex-start'}}>
+        <Thumb src={c.thumb} alt={c.titulo} size={72}/>
+
+        <div style={{flex:'1 1 260px',minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',flexWrap:'wrap',marginBottom:5}}>
+            {mudou&&<Badge tone="brand" dot>{c.mudancas.length} {c.mudancas.length===1?'mudança':'mudanças'}</Badge>}
+            <Badge tone={c.status==='active'?'success':'neutral'} dot>{c.status==='active'?'Ativo':'Pausado'}</Badge>
+            {c.catalogo&&<Badge tone="accent">Catálogo</Badge>}
+            {c.freteGratis&&<Badge tone="info">Frete grátis</Badge>}
+            {c.temVideo&&<Badge tone="accent">Vídeo</Badge>}
+          </div>
+
+          <div className="ell" title={c.titulo} style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
+            {c.apelido||c.titulo}
+          </div>
+
+          <div style={{display:'flex',gap:'var(--space-3)',flexWrap:'wrap',marginTop:4,fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
+            <span className="mono">{c.itemId}</span>
+            {c.vendedor?.nickname&&<span>· {c.vendedor.nickname}</span>}
+            {c.vendedor?.reputacao&&<span>· {c.vendedor.reputacao.replace('_',' ')}</span>}
+          </div>
+
+          {c.erro&&<div style={{marginTop:'var(--space-3)'}}><Note tone="warning" icon="alert-triangle">{c.erro}</Note></div>}
+        </div>
+
+        {/* Números */}
+        <div style={{display:'flex',gap:'var(--space-5)',flexWrap:'wrap'}}>
+          {[
+            ['Preço',BRL(c.preco),'var(--text-strong)'],
+            ['Visitas 7d',c.visitas7!=null?NUM(c.visitas7):'—',c.visitas7?'var(--purple-500)':'var(--text-subtle)'],
+            ['Vendas',NUM(c.vendas),'var(--text-body)'],
+            ['Estoque',NUM(c.estoque),c.estoque<=3?'var(--status-danger-fg)':'var(--text-body)'],
+            ['Fotos',NUM(c.qtdFotos),'var(--text-body)'],
+          ].map(([lbl,val,cor])=>(
+            <div key={lbl} style={{minWidth:64}}>
+              <Overline>{lbl}</Overline>
+              <div className="tab" style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-extrabold)',color:cor,marginTop:2}}>{val}</div>
+            </div>
+          ))}
+          <SparkPreco historico={c.historico}/>
+        </div>
+
+        <div style={{display:'flex',gap:'var(--space-2)',alignItems:'center'}}>
+          {c.permalink&&<IconBtn icon="external-link" label="Abrir no Mercado Livre" onClick={()=>window.open(c.permalink,'_blank')}/>}
+          <IconBtn icon="trash-2" label="Parar de monitorar" tone="danger" onClick={()=>onRemover(c.itemId)} disabled={removendo===c.itemId}/>
+        </div>
+      </div>
+
+      {/* Mudanças detectadas */}
+      {mudou&&(
+        <div style={{padding:'0 var(--layout-card-pad) var(--layout-card-pad)'}}>
+          <div style={{background:'var(--surface-sunken)',borderRadius:'var(--radius-lg)',padding:'var(--space-3) var(--space-4)'}}>
+            {c.mudancas.map((m,i)=><LinhaMudanca key={i} m={m}/>)}
+          </div>
+        </div>
+      )}
+
+      {/* Histórico */}
+      {c.historico?.length>1&&(
+        <div style={{borderTop:'1px solid var(--border-subtle)'}}>
+          <button onClick={()=>setAberto(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',
+            padding:'10px var(--layout-card-pad)',background:'transparent',border:'none',cursor:'pointer',
+            fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',color:'var(--text-muted)'}}>
+            <span>Histórico · {c.historico.length} {c.historico.length===1?'dia':'dias'}</span>
+            <Icon name={aberto?'chevron-up':'chevron-down'} size={15}/>
+          </button>
+          {aberto&&(
+            <div className="data-scroll" style={{maxHeight:240}}>
+              <div style={{minWidth:420}}>
+                <div className="data-head" style={{display:'grid',gridTemplateColumns:'100px 1fr 1fr 1fr 1fr',gap:8,
+                  padding:'8px var(--layout-card-pad)',background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)'}}>
+                  {['Data','Preço','Vendas','Estoque','Visitas 7d'].map((h,i)=><THead key={h} align={i?'right':'left'}>{h}</THead>)}
+                </div>
+                {[...c.historico].reverse().map(h=>(
+                  <div key={h.data} style={{display:'grid',gridTemplateColumns:'100px 1fr 1fr 1fr 1fr',gap:8,
+                    padding:'8px var(--layout-card-pad)',borderBottom:'1px solid var(--border-subtle)',alignItems:'center'}}>
+                    <span className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+                      {h.data.split('-').reverse().slice(0,2).join('/')}
+                    </span>
+                    <span className="tab" style={{fontSize:'var(--text-xs)',textAlign:'right',fontWeight:'var(--weight-semibold)'}}>{BRL(h.preco)}</span>
+                    <span className="tab" style={{fontSize:'var(--text-xs)',textAlign:'right',color:'var(--text-muted)'}}>{NUM(h.vendas)}</span>
+                    <span className="tab" style={{fontSize:'var(--text-xs)',textAlign:'right',color:'var(--text-muted)'}}>{NUM(h.estoque)}</span>
+                    <span className="tab" style={{fontSize:'var(--text-xs)',textAlign:'right',color:'var(--text-muted)'}}>{h.visitas7!=null?NUM(h.visitas7):'—'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ViewConcorrentes(){
+  const [lista,setLista]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [erro,setErro]=useState('');
+  const [entrada,setEntrada]=useState('');
+  const [apelido,setApelido]=useState('');
+  const [adicionando,setAdicionando]=useState(false);
+  const [msg,setMsg]=useState('');
+  const [removendo,setRemovendo]=useState(null);
+  const [termo,setTermo]=useState('');
+  const [busca,setBusca]=useState({loading:false,resultado:null,erro:''});
+
+  useEffect(()=>{carregar(true);},[]);
+
+  async function carregar(atualizar=true){
+    setLoading(true);setErro('');
+    try{
+      const r=await call('mlConcorrentesListar',{atualizar});
+      setLista(r.concorrentes||[]);
+    }catch(e){setErro(e.message||'Não foi possível carregar os concorrentes');}
+    finally{setLoading(false);}
+  }
+
+  async function adicionar(){
+    if(!entrada.trim()){setMsg('Erro: cole o link ou o código do anúncio');return;}
+    setAdicionando(true);setMsg('');
+    try{
+      await call('mlConcorrenteAdd',{entrada:entrada.trim(),apelido:apelido.trim()||null});
+      setEntrada('');setApelido('');
+      setMsg('Anúncio adicionado ao monitoramento');
+      carregar(false);
+    }catch(e){setMsg('Erro: '+(e.message||'Não consegui adicionar'));}
+    finally{setAdicionando(false);}
+  }
+
+  async function remover(itemId){
+    if(!confirm('Parar de monitorar este anúncio? O histórico será apagado.'))return;
+    setRemovendo(itemId);
+    try{await call('mlConcorrenteRemover',{itemId});setLista(l=>l.filter(x=>x.itemId!==itemId));}
+    catch(e){alert('Erro: '+e.message);}
+    finally{setRemovendo(null);}
+  }
+
+  async function buscar(){
+    if(!termo.trim()){setBusca({loading:false,resultado:null,erro:'Digite o que quer buscar'});return;}
+    setBusca({loading:true,resultado:null,erro:''});
+    try{
+      const r=await call('mlBuscarConcorrentes',{termo:termo.trim()});
+      setBusca({loading:false,resultado:r,erro:''});
+    }catch(e){setBusca({loading:false,resultado:null,erro:e.message||'Falha na busca'});}
+  }
+
+  async function adicionarDaBusca(itemId){
+    try{
+      await call('mlConcorrenteAdd',{entrada:itemId});
+      setMsg('Anúncio adicionado ao monitoramento');
+      carregar(false);
+    }catch(e){alert(e.message||'Não consegui adicionar');}
+  }
+
+  const comMudanca=(lista||[]).filter(c=>c.mudancas?.length).length;
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+
+      {/* Adicionar */}
+      <Card icon="crosshair" title="Monitorar um anúncio"
+        subtitle="Cole o link do anúncio do concorrente ou o código MLB">
+        <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{flex:'1 1 320px',minWidth:0}}>
+            <label htmlFor="conc-link" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',display:'block',marginBottom:6}}>Link ou código</label>
+            <input id="conc-link" className="fld" value={entrada} onChange={e=>setEntrada(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&adicionar()}
+              placeholder="https://produto.mercadolivre.com.br/MLB-… ou MLB1234567890"
+              style={{height:'var(--control-h-md)',padding:'0 12px'}}/>
+          </div>
+          <div style={{flex:'0 1 200px'}}>
+            <label htmlFor="conc-apelido" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',display:'block',marginBottom:6}}>Apelido (opcional)</label>
+            <input id="conc-apelido" className="fld" value={apelido} onChange={e=>setApelido(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&adicionar()}
+              placeholder="Concorrente 1" style={{height:'var(--control-h-md)',padding:'0 12px'}}/>
+          </div>
+          <Btn icon="plus" onClick={adicionar} disabled={adicionando}>{adicionando?'Adicionando…':'Monitorar'}</Btn>
+        </div>
+        {msg&&<div style={{marginTop:'var(--space-3)'}}>
+          <Note tone={msg.startsWith('Erro')?'danger':'success'} icon={msg.startsWith('Erro')?'alert-octagon':'check-circle-2'}>{msg}</Note>
+        </div>}
+      </Card>
+
+      {/* Buscar quem disputa a palavra-chave */}
+      <Card icon="search" title="Quem disputa a sua palavra-chave"
+        subtitle="Veja os 30 primeiros resultados e descubra quem vale monitorar">
+        <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap'}}>
+          <input aria-label="Palavra-chave" className="fld" value={termo} onChange={e=>setTermo(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&buscar()}
+            placeholder="ex: canguru ergonômico bebê"
+            style={{flex:'1 1 280px',height:'var(--control-h-md)',padding:'0 12px'}}/>
+          <Btn variant="secondary" icon="search" onClick={buscar} disabled={busca.loading}>
+            {busca.loading?'Buscando…':'Buscar'}
+          </Btn>
+        </div>
+
+        {busca.erro&&<div style={{marginTop:'var(--space-3)'}}><Note tone="danger" icon="alert-octagon">{busca.erro}</Note></div>}
+
+        {busca.resultado&&(
+          <div style={{marginTop:'var(--space-4)'}}>
+            <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginBottom:'var(--space-3)'}}>
+              {NUM(busca.resultado.total)} anúncios competem por <strong>{busca.resultado.termo}</strong>
+            </p>
+            <div className="data-scroll" style={{maxHeight:420}}>
+              {busca.resultado.resultados.map(r=>(
+                <div key={r.itemId} style={{display:'flex',alignItems:'center',gap:'var(--space-3)',
+                  padding:'10px 0',borderBottom:'1px solid var(--border-subtle)',
+                  background:r.meu?'var(--status-brand-bg)':'transparent'}}>
+                  <span className="tab" style={{width:28,fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',
+                    color:r.posicao<=3?'var(--action-primary)':'var(--text-subtle)',textAlign:'center'}}>{r.posicao}</span>
+                  <Thumb src={r.thumb} alt={r.titulo} size={40}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div className="ell" title={r.titulo} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{r.titulo}</div>
+                    <div style={{display:'flex',gap:6,alignItems:'center',marginTop:3,flexWrap:'wrap'}}>
+                      {r.meu&&<Badge tone="brand">Seu anúncio</Badge>}
+                      {r.catalogo&&<Badge tone="accent">Catálogo</Badge>}
+                      {r.freteGratis&&<Badge tone="info">Frete grátis</Badge>}
+                      <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{r.vendedor||'—'} · {NUM(r.vendas)} vendas</span>
+                    </div>
+                  </div>
+                  <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',
+                    color:'var(--text-strong)',minWidth:88,textAlign:'right'}}>{BRL(r.preco)}</span>
+                  {!r.meu&&<Btn variant="neutral" size="sm" icon="plus" onClick={()=>adicionarDaBusca(r.itemId)}>Monitorar</Btn>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Lista monitorada */}
+      <div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
+          flexWrap:'wrap',marginBottom:'var(--space-3)'}}>
+          <div style={{display:'flex',alignItems:'baseline',gap:'var(--space-2)'}}>
+            <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Monitorados</h2>
+            {comMudanca>0&&<Badge tone="brand" dot>{comMudanca} com mudança</Badge>}
+          </div>
+          <Btn variant="neutral" size="sm" icon="refresh-cw" onClick={()=>carregar(true)} disabled={loading}>
+            {loading?'Verificando…':'Verificar agora'}
+          </Btn>
+        </div>
+
+        {erro&&<div style={{marginBottom:'var(--space-3)'}}><Note tone="danger" icon="alert-octagon">{erro}</Note></div>}
+
+        {loading&&!lista&&(
+          <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
+            {[...Array(3)].map((_,i)=>(
+              <Card key={i}>
+                <div style={{display:'flex',gap:'var(--space-4)',alignItems:'center'}}>
+                  <Skel w={72} h={72} r="var(--radius-md)"/>
+                  <div style={{flex:1,display:'flex',flexDirection:'column',gap:8}}><Skel h={15}/><Skel w="45%" h={12}/></div>
+                  <Skel w={90} h={32}/>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {lista&&lista.length>0&&(
+          <div style={{display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+            {lista.map(c=><CardConcorrente key={c.itemId} c={c} onRemover={remover} removendo={removendo}/>)}
+          </div>
+        )}
+
+        {lista&&lista.length===0&&(
+          <Card>
+            <Empty icon="crosshair" title="Nenhum concorrente monitorado"
+              description="Cole o link de um anúncio acima ou busque pela sua palavra-chave para escolher quem acompanhar."/>
+          </Card>
+        )}
+
+        {lista&&lista.length>0&&(
+          <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
+            Um retrato de cada anúncio é salvo automaticamente todo dia às 9h. As mudanças comparam o retrato de hoje com o do dia anterior.
+            As visitas de anúncios de terceiros só ficam disponíveis na janela de 7 dias.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ══ VIEW: CONTAS ═══════════════════════════════════════════ */
 function ViewContas({dados,onRefresh}){
   const [removendo,setRemovendo]=useState(null);
   const [diag,setDiag]=useState({loading:false,resultado:null,erro:''});
+  const [diagVis,setDiagVis]=useState({loading:false,resultado:null,erro:''});
   const contas=dados?.contas||[];
+
+  async function rodarDiagVisitas(){
+    setDiagVis({loading:true,resultado:null,erro:''});
+    try{
+      const r=await call('mlDiagnosticoVisitas');
+      setDiagVis({loading:false,resultado:r,erro:''});
+    }catch(e){
+      setDiagVis({loading:false,resultado:null,erro:e.message||'Falha ao rodar diagnóstico'});
+    }
+  }
   async function rodarDiagnostico(){
     setDiag({loading:true,resultado:null,erro:''});
     try{
@@ -1175,6 +1571,53 @@ function ViewContas({dados,onRefresh}){
           </Btn>
         </div>
       </Card>
+      <Card title="Diagnóstico das visitas">
+        <p style={{fontSize:'var(--text-sm)',color:'var(--text-body)',marginBottom:'var(--space-4)',lineHeight:1.6}}>
+          Testa onze variações do endpoint de visitas do Mercado Livre e mostra a resposta crua de cada uma.
+          Use quando a coluna de visitas estiver zerada.
+        </p>
+        <Btn variant="secondary" icon="stethoscope" onClick={rodarDiagVisitas} disabled={diagVis.loading}>
+          {diagVis.loading?'Testando rotas…':'Diagnosticar visitas'}
+        </Btn>
+
+        {diagVis.erro&&(
+          <div style={{marginTop:'var(--space-4)'}}>
+            <Note tone="danger" icon="alert-octagon">{diagVis.erro}</Note>
+          </div>
+        )}
+
+        {diagVis.resultado&&(
+          <div style={{marginTop:'var(--space-4)'}}>
+            {diagVis.resultado.diagnostico.map(c=>(
+              <div key={c.userId} style={{marginBottom:'var(--space-5)'}}>
+                <div style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',
+                  marginBottom:'var(--space-2)',display:'flex',alignItems:'center',gap:'var(--space-2)'}}>
+                  <Icon name="store" size={15} color="var(--status-brand-solid)"/>{c.conta}
+                </div>
+                {c.amostra&&<p className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',marginBottom:'var(--space-3)'}}>
+                  Testado com: {c.amostra.join(', ')}
+                </p>}
+                {c.testes.map((t,i)=>(
+                  <div key={i} style={{borderTop:'1px solid var(--border-subtle)',padding:'var(--space-3) 0'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',marginBottom:6,flexWrap:'wrap'}}>
+                      <Badge tone={t.status===200?'success':t.status===404?'warning':'danger'}>{t.status}</Badge>
+                      <span className="mono" style={{fontSize:'var(--text-xs)',color:'var(--text-body)',wordBreak:'break-all'}}>{t.nome}</span>
+                    </div>
+                    <div className="mono" style={{background:'var(--surface-sunken)',borderRadius:'var(--radius-sm)',padding:'8px 10px',
+                      fontSize:11,lineHeight:1.6,color:'var(--text-subtle)',wordBreak:'break-all',maxHeight:140,overflow:'auto'}}>
+                      {t.resumo}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <Note tone="info" icon="info">
+              Me manda esse resultado. A rota que responder 200 com números é a que sua conta aceita.
+            </Note>
+          </div>
+        )}
+      </Card>
+
       <Card title="Diagnóstico do Product Ads">
         <p style={{fontSize:'var(--text-sm)',color:'var(--text-body)',marginBottom:'var(--space-4)',lineHeight:1.6}}>
           Roda um teste em cada rota da API de publicidade do Mercado Livre e mostra a resposta crua.
@@ -1278,6 +1721,7 @@ const NAV=[
   {id:'dashboard',icon:'layout-dashboard',label:'Visão geral',curto:'Início'},
   {id:'pedidos',icon:'shopping-cart',label:'Pedidos',curto:'Pedidos'},
   {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
+  {id:'concorrentes',icon:'crosshair',label:'Concorrentes',curto:'Rivais'},
   {id:'ia',icon:'sparkles',label:'Análise IA',curto:'IA'},
   {id:'contas',icon:'store',label:'Contas',curto:'Contas'},
 ];
@@ -1485,6 +1929,7 @@ function AppLogado({user,erroConexao}){
             </div>
           )}
           {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos}/>}
+          {view==='concorrentes'&&<ViewConcorrentes/>}
           {view==='ia'&&<ViewIA dados={dados} periodo={periodo}/>}
           {view==='contas'&&<ViewContas dados={dados} onRefresh={carregar}/>}
           </>}
