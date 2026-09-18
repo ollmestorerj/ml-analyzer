@@ -45,12 +45,12 @@
   --viz-5:#F0A500;--viz-6:#7B2ECC;--viz-7:#D32137;--viz-8:#A6A2B3;--viz-track:#EDECF1;
 
   /* Superfícies — casca escura, área de trabalho clara */
-  --surface-page:#F7F6F9;--surface-card:#FFFFFF;--surface-sunken:#F5F4F7;
-  --surface-nav:#0D0D0D;--surface-hover:#F5F4F7;--surface-active:#EDECF1;
-  --surface-selected:#FFF3EC;--surface-overlay:rgba(13,13,13,.55);
+  --surface-page:#F8F6FB;--surface-page-soft:#FBFAFD;--surface-card:#FFFFFF;--surface-card-elevated:#FFFFFF;
+  --surface-sunken:#F3F1F7;--surface-nav:#100D14;--surface-hover:#F8F5FA;--surface-active:#EEEAF4;
+  --surface-selected:#FFF3EC;--surface-overlay:rgba(13,13,13,.58);
 
   /* Texto */
-  --text-strong:#111111;--text-body:#2A2733;--text-muted:#7C7789;--text-subtle:#A6A2B3;
+  --text-strong:#111111;--text-body:#2A2733;--text-muted:#746E83;--text-subtle:#A6A2B3;--text-disabled:#B9B5C4;
   --text-brand:#E04700;--text-accent:#4F0188;--text-link:#E04700;--text-link-hover:#B53900;
   --on-dark:#FFFFFF;--on-dark-muted:rgba(255,255,255,.58);
 
@@ -85,9 +85,9 @@
   /* Espaço e layout */
   --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;
   --space-6:24px;--space-7:32px;--space-8:40px;--space-9:48px;
-  --layout-sidebar-w:248px;--layout-topbar-h:64px;--layout-bottomnav-h:64px;
-  --layout-gutter:24px;--layout-gutter-mobile:16px;--layout-max-content:1440px;
-  --layout-card-pad:20px;--layout-grid-gap:16px;
+  --layout-sidebar-w:264px;--layout-topbar-h:68px;--layout-bottomnav-h:66px;
+  --layout-gutter:28px;--layout-gutter-mobile:16px;--layout-max-content:1480px;
+  --layout-card-pad:22px;--layout-grid-gap:18px;
   --control-h-sm:32px;--control-h-md:40px;--control-h-lg:48px;--tap-target-min:44px;
 
   /* Raios */
@@ -96,14 +96,14 @@
 
   /* Elevação */
   --shadow-xs:0 1px 2px rgba(17,17,17,.05);
-  --shadow-sm:0 1px 2px rgba(17,17,17,.04),0 2px 6px -2px rgba(17,17,17,.06);
-  --shadow-md:0 1px 2px rgba(17,17,17,.04),0 8px 20px -8px rgba(17,17,17,.10);
-  --shadow-lg:0 2px 4px rgba(17,17,17,.04),0 18px 40px -14px rgba(17,17,17,.16);
+  --shadow-sm:0 1px 2px rgba(31,24,42,.04),0 8px 18px -14px rgba(31,24,42,.16);
+  --shadow-md:0 1px 2px rgba(31,24,42,.04),0 14px 34px -20px rgba(31,24,42,.24);
+  --shadow-lg:0 8px 22px -18px rgba(31,24,42,.22),0 28px 70px -34px rgba(31,24,42,.34);
   --shadow-focus:0 0 0 3px rgba(255,89,14,.22);
   --shadow-focus-dark:0 0 0 3px rgba(255,89,14,.3);
 
   /* Movimento */
-  --duration-fast:140ms;--duration-base:200ms;--duration-slow:280ms;
+  --duration-fast:150ms;--duration-base:220ms;--duration-slow:340ms;
   --ease-standard:cubic-bezier(.4,0,.2,1);--ease-out:cubic-bezier(.16,.8,.3,1);
   --press-scale:.97;
   --tr:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard);
@@ -115,7 +115,10 @@
 /* ═══ Base ═══ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{height:100%}
-body{font-family:var(--font-sans);font-size:var(--text-md);line-height:1.47;color:var(--text-body);background:var(--surface-page);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:var(--font-sans);font-size:var(--text-md);line-height:1.47;color:var(--text-body);background:
+  radial-gradient(circle at 18% 0%,rgba(255,89,14,.08),transparent 30%),
+  radial-gradient(circle at 92% 6%,rgba(79,1,136,.08),transparent 28%),
+  linear-gradient(180deg,var(--surface-page-soft),var(--surface-page));-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 h1,h2,h3{margin:0;color:var(--text-strong);letter-spacing:var(--tracking-tight)}
 a{color:var(--text-link);text-decoration:none}
 a:hover{color:var(--text-link-hover);text-decoration:underline}
@@ -129,16 +132,19 @@ button,input,select,textarea{font-family:inherit}
 ::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:var(--radius-pill);border:3px solid transparent;background-clip:content-box}
 ::-webkit-scrollbar-thumb:hover{background:var(--neutral-400);background-clip:content-box}
 /* Campo claro (área de trabalho) */
-.fld{width:100%;background:var(--surface-card);border:1px solid var(--border-default);border-radius:var(--radius-md);color:var(--text-strong);font-size:var(--text-sm);transition:var(--tr)}
+.fld{width:100%;background:var(--surface-card);border:1px solid var(--border-default);border-radius:var(--radius-md);color:var(--text-strong);font-size:var(--text-sm);transition:var(--tr),transform var(--duration-fast) var(--ease-out);box-shadow:0 1px 0 rgba(17,17,17,.02)}
 .fld::placeholder{color:var(--text-subtle)}
+.fld:hover{border-color:var(--border-strong);box-shadow:var(--shadow-xs)}
 .fld:focus{outline:none;border-color:var(--border-focus);box-shadow:var(--shadow-focus)}
 /* Campo sobre superfície escura (casca) */
-.fld-dark{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border-inverse);border-radius:var(--radius-md);color:var(--on-dark);font-size:var(--text-sm);transition:var(--tr)}
+.fld-dark{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border-inverse);border-radius:var(--radius-md);color:var(--on-dark);font-size:var(--text-sm);transition:var(--tr);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
 .fld-dark::placeholder{color:var(--on-dark-muted)}
 .fld-dark:focus{outline:none;border-color:var(--border-focus);box-shadow:var(--shadow-focus-dark)}
 :focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+@media (max-width:760px){:root{--layout-card-pad:16px;--layout-grid-gap:14px}.fld,.fld-dark{font-size:16px}}
 </style>
 </head>
 <body>
@@ -212,9 +218,9 @@ const Badge=({children,tone='neutral',solid=false,dot=false})=>{
 const Btn=({children,variant='primary',size='md',onClick,disabled,full,icon,iconRight,title,style={}})=>{
   const [hv,setHv]=useState(false),[pr,setPr]=useState(false);
   const v={
-    primary:{rest:{background:'var(--action-primary)',color:'#fff',border:'1px solid transparent',boxShadow:'var(--shadow-xs)'},hover:{background:'var(--action-primary-hover)'},active:{background:'var(--action-primary-active)'}},
-    secondary:{rest:{background:'var(--action-secondary)',color:'#fff',border:'1px solid transparent',boxShadow:'var(--shadow-xs)'},hover:{background:'var(--action-secondary-hover)'},active:{background:'var(--action-secondary-hover)'}},
-    neutral:{rest:{background:'var(--action-neutral)',color:'var(--text-body)',border:'1px solid var(--border-default)',boxShadow:'var(--shadow-xs)'},hover:{background:'var(--action-neutral-hover)',borderColor:'var(--border-strong)'},active:{background:'var(--surface-active)'}},
+    primary:{rest:{background:'linear-gradient(135deg,var(--orange-500),var(--orange-600))',color:'#fff',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 10px 22px -14px rgba(255,89,14,.9),inset 0 1px 0 rgba(255,255,255,.24)'},hover:{background:'linear-gradient(135deg,var(--orange-400),var(--orange-600))',boxShadow:'0 16px 28px -16px rgba(255,89,14,.95),inset 0 1px 0 rgba(255,255,255,.28)',transform:'translateY(-1px)'},active:{background:'var(--action-primary-active)'}},
+    secondary:{rest:{background:'linear-gradient(135deg,var(--purple-500),var(--purple-600))',color:'#fff',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 12px 24px -16px rgba(79,1,136,.85),inset 0 1px 0 rgba(255,255,255,.18)'},hover:{background:'linear-gradient(135deg,var(--purple-400),var(--purple-600))',boxShadow:'0 16px 28px -18px rgba(79,1,136,.9)',transform:'translateY(-1px)'},active:{background:'var(--action-secondary-hover)'}},
+    neutral:{rest:{background:'var(--action-neutral)',color:'var(--text-body)',border:'1px solid var(--border-default)',boxShadow:'var(--shadow-xs)'},hover:{background:'var(--action-neutral-hover)',borderColor:'var(--border-strong)',boxShadow:'var(--shadow-sm)',transform:'translateY(-1px)'},active:{background:'var(--surface-active)'}},
     ghost:{rest:{background:'transparent',color:'var(--text-body)',border:'1px solid transparent'},hover:{background:'var(--surface-hover)'},active:{background:'var(--surface-active)'}},
     dark:{rest:{background:'transparent',color:'var(--on-dark-muted)',border:'1px solid var(--border-inverse)'},hover:{background:'rgba(255,255,255,.08)',color:'#fff'},active:{background:'rgba(255,255,255,.12)'}},
     danger:{rest:{background:'var(--status-danger-solid)',color:'#fff',border:'1px solid transparent'},hover:{background:'var(--red-600)'},active:{background:'var(--red-700)'}},
@@ -224,8 +230,8 @@ const Btn=({children,variant='primary',size='md',onClick,disabled,full,icon,icon
     onMouseEnter={()=>setHv(true)} onMouseLeave={()=>{setHv(false);setPr(false);}}
     onMouseDown={()=>setPr(true)} onMouseUp={()=>setPr(false)}
     style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:7,height:s.h,padding:`0 ${s.px}px`,
-      borderRadius:'var(--radius-md)',fontSize:s.fs,fontWeight:'var(--weight-semibold)',letterSpacing:'var(--tracking-normal)',
-      cursor:disabled?'not-allowed':'pointer',width:full?'100%':'auto',whiteSpace:'nowrap',transition:'var(--tr)',
+      borderRadius:'var(--radius-md)',fontSize:s.fs,fontWeight:'var(--weight-semibold)',letterSpacing:'0',
+      cursor:disabled?'not-allowed':'pointer',width:full?'100%':'auto',whiteSpace:'nowrap',transition:'var(--tr),transform var(--duration-fast) var(--ease-out)',
       ...v.rest,
       ...(hv&&!disabled?v.hover:null),
       ...(pr&&!disabled?{...v.active,transform:'scale(var(--press-scale))'}:null),
@@ -252,13 +258,13 @@ const Skel=({w='100%',h=16,r='var(--radius-sm)'})=>(
 
 /* Card — branco, raio 18px, hairline, sombra rasa */
 const Card=({title,subtitle,action,icon,children,pad=true,style={}})=>(
-  <section style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-xl)',
-    boxShadow:'var(--shadow-sm)',display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden',...style}}>
+  <section style={{background:'linear-gradient(180deg,var(--surface-card-elevated),var(--surface-card))',border:'1px solid rgba(203,200,212,.72)',borderRadius:'var(--radius-xl)',
+    boxShadow:'var(--shadow-sm)',display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden',backdropFilter:'blur(10px)',...style}}>
     {(title||action)&&(
       <header style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',
         padding:pad?'var(--layout-card-pad) var(--layout-card-pad) 0':'var(--layout-card-pad)'}}>
         <div style={{display:'flex',alignItems:'center',gap:9,minWidth:0}}>
-          {icon&&<Icon name={icon} size={17} color="var(--action-primary)"/>}
+          {icon&&<span style={{width:30,height:30,borderRadius:'var(--radius-sm)',background:'var(--status-brand-bg)',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={icon} size={16} color="var(--action-primary)"/></span>}
           <div style={{minWidth:0}}>
             {title&&<h3 style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{title}</h3>}
             {subtitle&&<p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:2,fontWeight:'var(--weight-medium)'}}>{subtitle}</p>}
@@ -279,18 +285,20 @@ const Overline=({children,onDark})=>(
 const StatCard=({label,value,caption,delta,tone,icon,accent='brand'})=>{
   const ac={brand:'var(--orange-500)',accent:'var(--purple-500)',success:'var(--green-500)',danger:'var(--red-500)',amber:'var(--amber-500)',info:'var(--blue-500)'}[accent];
   return (
-    <div style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-xl)',
-      boxShadow:'var(--shadow-sm)',padding:'var(--layout-card-pad)',display:'flex',flexDirection:'column',gap:'var(--space-3)',minWidth:0}}>
+    <div style={{background:'linear-gradient(180deg,#fff,var(--surface-card))',border:'1px solid rgba(203,200,212,.72)',borderRadius:'var(--radius-xl)',
+      boxShadow:'var(--shadow-sm)',padding:'var(--layout-card-pad)',display:'flex',flexDirection:'column',gap:'var(--space-3)',minWidth:0,
+      position:'relative',overflow:'hidden',minHeight:136}}>
+      <div style={{position:'absolute',inset:'0 0 auto 0',height:3,background:ac}}/>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
         <Overline>{label}</Overline>
-        {icon&&<span style={{width:28,height:28,borderRadius:'var(--radius-sm)',background:'var(--surface-sunken)',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={icon} size={15} color={ac}/></span>}
+        {icon&&<span style={{width:34,height:34,borderRadius:'var(--radius-lg)',background:'linear-gradient(135deg,rgba(255,89,14,.10),rgba(79,1,136,.08))',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={icon} size={16} color={ac}/></span>}
       </div>
       <div style={{display:'flex',alignItems:'baseline',gap:8,flexWrap:'wrap'}}>
         <span className="tab" style={{fontSize:'var(--text-3xl)',fontWeight:'var(--weight-extrabold)',letterSpacing:'var(--tracking-tight)',lineHeight:1.05,
           color:tone==='danger'?'var(--status-danger-fg)':tone==='success'?'var(--status-success-fg)':'var(--text-strong)'}}>{value}</span>
         {delta&&<span className="tab" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',color:'var(--text-muted)'}}>{delta}</span>}
       </div>
-      {caption&&<span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)',lineHeight:1.4}}>{caption}</span>}
+      {caption&&<span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',lineHeight:1.4}}>{caption}</span>}
     </div>
   );
 };
@@ -299,7 +307,7 @@ const StatCard=({label,value,caption,delta,tone,icon,accent='brand'})=>{
 const Empty=({icon='inbox',title,description,action,compact})=>(
   <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',
     gap:'var(--space-3)',padding:compact?'var(--space-6)':'var(--space-9) var(--space-6)'}}>
-    <span style={{width:48,height:48,borderRadius:'var(--radius-lg)',background:'var(--surface-sunken)',display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
+    <span style={{width:52,height:52,borderRadius:'var(--radius-lg)',background:'linear-gradient(135deg,var(--status-brand-bg),var(--status-accent-bg))',display:'inline-flex',alignItems:'center',justifyContent:'center',boxShadow:'inset 0 1px 0 rgba(255,255,255,.8)'}}>
       <Icon name={icon} size={22} color="var(--text-subtle)"/>
     </span>
     <div style={{display:'flex',flexDirection:'column',gap:4,maxWidth:340}}>
@@ -344,9 +352,9 @@ const PeriodFilter=({value,onChange})=>(
       return <button key={p} onClick={()=>onChange(p)} aria-pressed={on}
         style={{height:32,padding:'0 13px',borderRadius:'var(--radius-pill)',fontSize:'var(--text-xs)',
           fontWeight:'var(--weight-semibold)',cursor:'pointer',transition:'var(--tr)',
-          background:on?'var(--action-primary)':'var(--surface-card)',color:on?'#fff':'var(--text-body)',
+          background:on?'linear-gradient(135deg,var(--orange-500),var(--orange-600))':'var(--surface-card)',color:on?'#fff':'var(--text-body)',
           border:`1px solid ${on?'var(--action-primary)':'var(--border-default)'}`,
-          boxShadow:on?'none':'var(--shadow-xs)'}}>{PLABEL[p]}</button>;
+          boxShadow:on?'0 10px 20px -16px rgba(255,89,14,.9)':'var(--shadow-xs)'}}>{PLABEL[p]}</button>;
     })}
   </div>
 );
@@ -360,10 +368,10 @@ const ContaFilter=({contas,ativas,onToggle})=>{
         return <button key={c.id} onClick={()=>onToggle(c.id)} aria-pressed={on}
           style={{display:'inline-flex',alignItems:'center',gap:6,height:32,padding:'0 12px',borderRadius:'var(--radius-pill)',
             cursor:'pointer',fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',transition:'var(--tr)',
-            background:on?'var(--status-brand-bg)':'var(--surface-card)',
+            background:on?'linear-gradient(135deg,var(--status-brand-bg),#fff)':'var(--surface-card)',
             border:`1px solid ${on?'var(--action-primary)':'var(--border-default)'}`,
             color:on?'var(--status-brand-fg)':'var(--text-muted)',
-            boxShadow:on?'none':'var(--shadow-xs)'}}>
+            boxShadow:on?'0 10px 20px -18px rgba(255,89,14,.7)':'var(--shadow-xs)'}}>
           <Icon name="store" size={13}/>{c.nickname}</button>;
       })}
     </div>
@@ -448,14 +456,14 @@ function TelaLogin(){
     finally{setLoading(false);}
   }
   return (
-    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center',padding:'var(--space-5)'}}>
+    <div style={{display:'flex',minHeight:'100vh',background:'radial-gradient(circle at 20% 12%,rgba(255,89,14,.28),transparent 28%),radial-gradient(circle at 82% 0%,rgba(79,1,136,.34),transparent 30%),var(--surface-nav)',alignItems:'center',justifyContent:'center',padding:'var(--space-5)'}}>
       <div style={{width:'100%',maxWidth:368,animation:'rise var(--duration-slow) var(--ease-out)'}}>
         <div style={{textAlign:'center',marginBottom:'var(--space-7)'}}>
           <div style={{display:'flex',justifyContent:'center'}}><Logo height={30} inverse/></div>
           <div style={{width:40,height:3,background:'var(--action-primary)',borderRadius:2,margin:'var(--space-3) auto'}}/>
           <Overline onDark>ML Analyzer</Overline>
         </div>
-        <div style={{background:'#17161C',border:'1px solid var(--border-inverse)',borderRadius:'var(--radius-2xl)',padding:'var(--space-6)'}}>
+        <div style={{background:'linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.035))',border:'1px solid var(--border-inverse)',borderRadius:'var(--radius-2xl)',padding:'var(--space-6)',boxShadow:'0 28px 80px -48px rgba(0,0,0,.9)',backdropFilter:'blur(16px)'}}>
           {[['E-mail','email',email,setEmail,'seu@email.com','mail'],['Senha','password',senha,setSenha,'••••••••','lock']].map(([lbl,type,val,set,ph,ic],i)=>(
             <div key={lbl} style={{marginBottom:i===0?'var(--space-4)':'var(--space-5)'}}>
               <label style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--on-dark-muted)',display:'block',marginBottom:6}}>{lbl}</label>
@@ -495,14 +503,14 @@ function TelaConectar({user,onOk,erro}){
     </div>
   );
   return (
-    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center',padding:'var(--space-5)'}}>
+    <div style={{display:'flex',minHeight:'100vh',background:'radial-gradient(circle at 20% 12%,rgba(255,89,14,.24),transparent 28%),radial-gradient(circle at 82% 0%,rgba(79,1,136,.32),transparent 30%),var(--surface-nav)',alignItems:'center',justifyContent:'center',padding:'var(--space-5)'}}>
       <div style={{width:'100%',maxWidth:424,textAlign:'center',animation:'rise var(--duration-slow) var(--ease-out)'}}>
         <div style={{display:'flex',justifyContent:'center'}}><Logo height={24} inverse/></div>
         <h1 style={{fontSize:'var(--text-2xl)',fontWeight:'var(--weight-extrabold)',color:'#fff',margin:'var(--space-5) 0 var(--space-2)',letterSpacing:'var(--tracking-tight)'}}>Conectar Mercado Livre</h1>
         <p style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)',marginBottom:'var(--space-6)'}}>
           Olá, <strong style={{color:'#fff'}}>{user.email?.split('@')[0]}</strong>. Autorize o acesso à sua conta.
         </p>
-        <div style={{background:'#17161C',border:'1px solid var(--border-inverse)',borderRadius:'var(--radius-2xl)',padding:'var(--space-6)'}}>
+        <div style={{background:'linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.035))',border:'1px solid var(--border-inverse)',borderRadius:'var(--radius-2xl)',padding:'var(--space-6)',boxShadow:'0 28px 80px -48px rgba(0,0,0,.9)',backdropFilter:'blur(16px)'}}>
           <p style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)',marginBottom:'var(--space-5)',lineHeight:1.6}}>
             Você será redirecionado ao Mercado Livre e voltará automaticamente.
           </p>
@@ -561,15 +569,15 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
   );
 
   return (
-    <Card pad={false} style={{overflow:'auto'}}>
+    <Card pad={false} style={{overflow:'auto',boxShadow:'var(--shadow-md)'}}>
       <div style={{minWidth:multiConta?1100:1000}}>
-        <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'11px var(--layout-card-pad)',
-          background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
+        <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
+          background:'linear-gradient(180deg,var(--surface-sunken),#fff)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
           {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
         </div>
         {linhas.length>0?linhas.map((p,i)=>(
-          <div key={p.id||i} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'11px var(--layout-card-pad)',
-            alignItems:'center',borderBottom:'1px solid var(--border-subtle)',transition:'background-color var(--duration-fast) var(--ease-standard)'}}
+          <div key={p.id||i} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
+            alignItems:'center',borderBottom:'1px solid var(--border-subtle)',transition:'background-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard)'}}
             onMouseEnter={e=>e.currentTarget.style.background='var(--surface-hover)'}
             onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
             <Thumb src={p.foto} alt={p.titulo}/>
@@ -743,14 +751,17 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
     <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
 
       {/* CABEÇALHO — faturamento, lucro e filtros */}
-      <Card pad={false}>
-        <div style={{padding:'var(--space-5) var(--layout-card-pad)',display:'flex',gap:'var(--space-6)',
+      <Card pad={false} style={{background:'linear-gradient(135deg,#fff 0%,#fff7f2 52%,#f7f0ff 100%)',borderColor:'rgba(255,89,14,.18)',boxShadow:'var(--shadow-md)'}}>
+        <div style={{padding:'var(--space-6) var(--layout-card-pad)',display:'flex',gap:'var(--space-6)',
           flexWrap:'wrap',justifyContent:'space-between',alignItems:'flex-start'}}>
 
           <div style={{display:'flex',gap:'var(--space-8)',flexWrap:'wrap',flex:1,minWidth:240}}>
             {/* Faturamento */}
             <div>
-              <Overline>Faturamento</Overline>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
+                <span style={{width:8,height:8,borderRadius:'50%',background:'var(--orange-500)',boxShadow:'0 0 0 4px rgba(255,89,14,.12)'}}/>
+                <Overline>Faturamento</Overline>
+              </div>
               {loading?<div style={{marginTop:8}}><Skel w={180} h={38}/></div>:(
                 <div className="tab" style={{fontSize:'var(--text-4xl)',fontWeight:'var(--weight-extrabold)',
                   color:'var(--text-strong)',letterSpacing:'var(--tracking-display)',marginTop:3,lineHeight:1.05}}>{BRL(m.fat)}</div>
@@ -764,7 +775,10 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
 
             {/* Lucro */}
             <div>
-              <Overline>Lucro</Overline>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
+                <span style={{width:8,height:8,borderRadius:'50%',background:'var(--purple-500)',boxShadow:'0 0 0 4px rgba(79,1,136,.10)'}}/>
+                <Overline>Lucro</Overline>
+              </div>
               {loading?<div style={{marginTop:8}}><Skel w={140} h={30}/></div>:(
                 <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:3}}>
                   <span className="tab" style={{fontSize:'var(--text-3xl)',fontWeight:'var(--weight-extrabold)',
@@ -1034,10 +1048,10 @@ function ViewAnuncios({dados,loading,onRefresh}){
       )}
 
       {/* Tabela */}
-      <Card pad={false} style={{overflow:'auto'}}>
+      <Card pad={false} style={{overflow:'auto',boxShadow:'var(--shadow-md)'}}>
         <div style={{minWidth:multiConta?1080:1000}}>
-          <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'11px var(--layout-card-pad)',
-            background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
+          <div style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
+            background:'linear-gradient(180deg,var(--surface-sunken),#fff)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
             {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
           </div>
 
@@ -1047,7 +1061,7 @@ function ViewAnuncios({dados,loading,onRefresh}){
             const editado=rascunho[a.sku]!==undefined;
 
             return (
-              <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'10px var(--layout-card-pad)',
+              <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
                 alignItems:'center',borderBottom:'1px solid var(--border-subtle)',
                 background:editado?'var(--surface-selected)':'transparent',
                 transition:'background-color var(--duration-fast) var(--ease-standard)'}}>
@@ -1107,9 +1121,9 @@ function ViewAnuncios({dados,loading,onRefresh}){
 
       {/* Barra fixa de salvar */}
       {alterados.length>0&&(
-        <div style={{position:'fixed',bottom:0,left:0,right:0,background:'var(--surface-nav)',borderTop:'1px solid var(--border-inverse)',
+        <div style={{position:'fixed',bottom:0,left:0,right:0,background:'rgba(16,13,20,.96)',borderTop:'1px solid var(--border-inverse)',
           padding:'var(--space-3) var(--layout-gutter)',display:'flex',alignItems:'center',justifyContent:'space-between',
-          gap:'var(--space-3)',flexWrap:'wrap',zIndex:50,boxShadow:'var(--shadow-lg)',
+          gap:'var(--space-3)',flexWrap:'wrap',zIndex:50,boxShadow:'var(--shadow-lg)',backdropFilter:'blur(16px)',
           paddingBottom:'calc(var(--space-3) + env(safe-area-inset-bottom))'}}>
           <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)',flexWrap:'wrap'}}>
             <Icon name="pencil" size={16} color="var(--action-primary)"/>
@@ -1309,16 +1323,16 @@ const NAV=[
 /* Sidebar — casca escura, item ativo em laranja sólido */
 function Sidebar({active,onSelect,seller,onSair}){
   return (
-    <aside style={{width:'var(--layout-sidebar-w)',minHeight:'100vh',background:'var(--surface-nav)',display:'flex',
-      flexDirection:'column',position:'fixed',top:0,left:0,zIndex:30}}>
+    <aside style={{width:'var(--layout-sidebar-w)',minHeight:'100vh',background:'radial-gradient(circle at 30% 0%,rgba(255,89,14,.20),transparent 28%),radial-gradient(circle at 0% 68%,rgba(79,1,136,.30),transparent 34%),linear-gradient(180deg,#16111B,var(--surface-nav))',display:'flex',
+      flexDirection:'column',position:'fixed',top:0,left:0,zIndex:30,borderRight:'1px solid rgba(255,255,255,.08)',boxShadow:'18px 0 42px -38px rgba(0,0,0,.9)'}}>
       <div style={{height:'var(--layout-topbar-h)',display:'flex',alignItems:'center',padding:'0 var(--space-5)',flexShrink:0}}>
         <Logo height={21} inverse/>
       </div>
-      <nav style={{flex:1,padding:'var(--space-2) var(--space-3)',display:'flex',flexDirection:'column',gap:2,overflowY:'auto'}}>
+      <nav style={{flex:1,padding:'var(--space-3)',display:'flex',flexDirection:'column',gap:4,overflowY:'auto'}}>
         {NAV.map(it=><NavItem key={it.id} item={it} active={active===it.id} onSelect={onSelect}/>)}
       </nav>
-      <div style={{padding:'var(--space-3)',borderTop:'1px solid var(--border-inverse)',display:'flex',alignItems:'center',gap:10}}>
-        <span style={{width:32,height:32,borderRadius:'50%',background:'var(--purple-500)',color:'#fff',display:'flex',
+      <div style={{padding:'var(--space-3)',borderTop:'1px solid var(--border-inverse)',display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.025)'}}>
+        <span style={{width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,var(--orange-500),var(--purple-500))',color:'#fff',display:'flex',
           alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)'}}>
           {(seller?.nickname||'·').slice(0,2).toUpperCase()}
         </span>
@@ -1337,11 +1351,13 @@ function NavItem({item,active,onSelect}){
   return (
     <button onClick={()=>onSelect(item.id)} aria-current={active?'page':undefined}
       onMouseEnter={()=>setHv(true)} onMouseLeave={()=>setHv(false)}
-      style={{display:'flex',alignItems:'center',gap:11,width:'100%',height:'var(--control-h-md)',padding:'0 10px',
-        borderRadius:'var(--radius-md)',border:'none',cursor:'pointer',textAlign:'left',transition:'var(--tr)',
+      style={{display:'flex',alignItems:'center',gap:11,width:'100%',height:'var(--control-h-lg)',padding:'0 12px',
+        borderRadius:'var(--radius-lg)',border:active?'1px solid rgba(255,255,255,.16)':'1px solid transparent',cursor:'pointer',textAlign:'left',transition:'var(--tr),transform var(--duration-fast) var(--ease-out)',
         fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',
-        background:active?'var(--action-primary)':hv?'rgba(255,255,255,.07)':'transparent',
-        color:active?'#fff':hv?'#fff':'var(--on-dark-muted)'}}>
+        background:active?'linear-gradient(135deg,var(--orange-500),var(--purple-500))':hv?'rgba(255,255,255,.075)':'transparent',
+        color:active?'#fff':hv?'#fff':'var(--on-dark-muted)',
+        boxShadow:active?'0 14px 28px -20px rgba(255,89,14,.95),inset 0 1px 0 rgba(255,255,255,.22)':'none',
+        transform:hv&&!active?'translateX(2px)':'none'}}>
       <Icon name={item.icon} size={18}/>
       <span className="ell" style={{flex:1}}>{item.label}</span>
     </button>
@@ -1351,8 +1367,8 @@ function NavItem({item,active,onSelect}){
 /* Bottom nav — mesmas rotas do desktop, nada é escondido no mobile */
 function BottomNav({active,onSelect}){
   return (
-    <nav style={{position:'fixed',bottom:0,left:0,right:0,minHeight:'var(--layout-bottomnav-h)',background:'var(--surface-nav)',
-      borderTop:'1px solid var(--border-inverse)',zIndex:40,display:'flex',alignItems:'stretch',
+    <nav style={{position:'fixed',bottom:0,left:0,right:0,minHeight:'var(--layout-bottomnav-h)',background:'rgba(16,13,20,.96)',
+      borderTop:'1px solid var(--border-inverse)',zIndex:40,display:'flex',alignItems:'stretch',backdropFilter:'blur(14px)',
       paddingBottom:'env(safe-area-inset-bottom)'}}>
       {NAV.map(it=>{
         const on=active===it.id;
@@ -1441,13 +1457,13 @@ function AppLogado({user,erroConexao}){
         minHeight:'100vh',paddingBottom:isMobile?'calc(var(--layout-bottomnav-h) + env(safe-area-inset-bottom))':0}}>
 
         {/* TopBar — clara, na área de trabalho */}
-        <header style={{minHeight:'var(--layout-topbar-h)',background:'var(--surface-card)',
-          borderBottom:'1px solid var(--border-subtle)',display:'flex',alignItems:'center',justifyContent:'space-between',
+        <header style={{minHeight:'var(--layout-topbar-h)',background:'rgba(255,255,255,.84)',
+          borderBottom:'1px solid rgba(226,224,232,.78)',display:'flex',alignItems:'center',justifyContent:'space-between',
           padding:isMobile?'0 var(--layout-gutter-mobile)':'0 var(--layout-gutter)',gap:'var(--space-3)',
-          position:'sticky',top:0,zIndex:20}}>
+          position:'sticky',top:0,zIndex:20,backdropFilter:'blur(16px)',boxShadow:'0 12px 30px -30px rgba(31,24,42,.5)'}}>
           <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',minWidth:0}}>
             {isMobile&&<IconBtn icon="menu" label="Abrir menu" onClick={()=>setDrawer(true)}/>}
-            <h1 className="ell" style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{titulo}</h1>
+            <h1 className="ell" style={{fontSize:isMobile?'var(--text-lg)':'var(--text-xl)',fontWeight:'var(--weight-extrabold)',color:'var(--text-strong)',letterSpacing:'0'}}>{titulo}</h1>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',flexShrink:0}}>
             {dados?.hora&&!isMobile&&<span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>Atualizado {dados.hora}</span>}
@@ -1458,7 +1474,7 @@ function AppLogado({user,erroConexao}){
         </header>
 
         <main style={{flex:1,padding:isMobile?'var(--layout-gutter-mobile)':'var(--layout-gutter)',
-          maxWidth:'var(--layout-max-content)',width:'100%',minWidth:0}}>
+          maxWidth:'var(--layout-max-content)',width:'100%',minWidth:0,animation:'rise var(--duration-slow) var(--ease-out)'}}>
           {(err||erroConexao)&&<div style={{marginBottom:'var(--layout-grid-gap)'}}>
             <Note tone="danger" icon="alert-octagon">{err||erroConexao}</Note>
           </div>}
