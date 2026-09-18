@@ -151,6 +151,17 @@ const BRL=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).fo
 const NUM=v=>new Intl.NumberFormat('pt-BR').format(v||0);
 const PCT=v=>`${(+(v||0)).toFixed(1)}%`;
 const call=(fn,args={})=>functions.httpsCallable(fn)(args).then(r=>r.data);
+
+// Captura o code do OAuth UMA UNICA VEZ, antes do React montar.
+// A URL e limpa na hora para nao haver risco de reuso (o ML invalida o code no 1o uso).
+const OAUTH_CODE=(()=>{
+  try{
+    const c=new URLSearchParams(window.location.search).get('code');
+    if(c){window.history.replaceState({},document.title,window.location.pathname);return c;}
+  }catch{}
+  return null;
+})();
+let OAUTH_CONSUMIDO=false;
 </script>
 
 <script type="text/babel">
@@ -402,17 +413,9 @@ function TelaLogin(){
 }
 
 /* ══ CONECTAR ML ════════════════════════════════════════════ */
-function TelaConectar({user,onOk}){
-  const [conectando,setConectando]=useState(false),[err,setErr]=useState('');
-  useEffect(()=>{
-    const code=new URLSearchParams(window.location.search).get('code');
-    if(code){window.history.replaceState({},'',window.location.pathname);conectar(code);}
-  },[]);
-  async function conectar(code){
-    setConectando(true);setErr('');
-    try{const r=await call('mlTokenExchange',{code});if(r.success)onOk();}
-    catch(e){setErr('Erro: '+(e.message||'Tente novamente'));setConectando(false);}
-  }
+function TelaConectar({user,onOk,erro}){
+  const conectando=false;
+  const err=erro||'';
   const go=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
 
   if(conectando)return (
@@ -772,6 +775,19 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
 
 /* ══ VIEW: ANÚNCIOS (edição em lote) ════════════════════════ */
 function ViewAnuncios({dados,loading,onRefresh}){
+  const [sync,setSync]=useState({loading:false,resumo:null,erro:''});
+
+  async function sincronizar(){
+    setSync({loading:true,resumo:null,erro:''});
+    try{
+      const r=await call('mlSincronizarAnuncios');
+      setSync({loading:false,resumo:r.resumo,erro:''});
+      onRefresh();
+    }catch(e){
+      setSync({loading:false,resumo:null,erro:e.message||'Falha ao sincronizar'});
+    }
+  }
+
   const [busca,setBusca]=useState('');
   const [rascunho,setRascunho]=useState({});   // {sku:{custo,imposto}}
   const [salvando,setSalvando]=useState(false);
@@ -848,11 +864,11 @@ function ViewAnuncios({dados,loading,onRefresh}){
   }
 
   const GRID=multiConta
-    ? '56px minmax(0,1fr) 84px 96px 88px 60px 72px 104px 84px 100px'
-    : '56px minmax(0,1fr) 96px 88px 60px 72px 104px 84px 100px';
+    ? '56px minmax(0,1fr) 84px 96px 88px 60px 84px 104px 84px'
+    : '56px minmax(0,1fr) 96px 88px 60px 84px 104px 84px';
   const HEADS=multiConta
-    ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','Margem']
-    : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','Margem'];
+    ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %']
+    : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %'];
 
   if(loading)return (
     <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
@@ -898,8 +914,32 @@ function ViewAnuncios({dados,loading,onRefresh}){
             <span style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',fontSize:'var(--text-sm)',color:'var(--text-muted)',pointerEvents:'none'}}>%</span>
           </div>
           <Btn variant="neutral" size="md" onClick={aplicarImpostoTodos}>Aplicar a todos</Btn>
+          <Btn variant="secondary" size="md" icon="refresh-cw" onClick={sincronizar} disabled={sync.loading}>
+            {sync.loading?'Sincronizando…':'Buscar novos'}
+          </Btn>
         </div>
       </div>
+
+      {/* Resultado da sincronizacao */}
+      {sync.erro&&(
+        <div style={{marginBottom:'var(--layout-grid-gap)'}}>
+          <Note tone="danger" icon="alert-octagon">{sync.erro}</Note>
+        </div>
+      )}
+      {sync.resumo&&(
+        <div style={{marginBottom:'var(--layout-grid-gap)'}}>
+          <Note tone="success" icon="check-circle-2">
+            {sync.resumo.map((r,i)=>(
+              <span key={i}>
+                {i>0&&' · '}
+                <strong>{r.conta}</strong>{r.erro
+                  ? `: ${r.erro}`
+                  : `: ${r.total} anúncios (${r.ativos} ativos, ${r.pausados} pausados)${r.semCusto>0?` — ${r.semCusto} sem custo`:''}`}
+              </span>
+            ))}
+          </Note>
+        </div>
+      )}
 
       {/* Tabela */}
       <Card pad={false} style={{overflow:'auto'}}>
@@ -913,10 +953,6 @@ function ViewAnuncios({dados,loading,onRefresh}){
             const custoV=val(a,'custo'),impV=val(a,'imposto');
             const c=parseFloat(custoV)||0,imp=parseFloat(impV)||0;
             const editado=rascunho[a.sku]!==undefined;
-            // margem estimada: preço - custo - imposto - ~13% tarifa média
-            const tarifaEst=a.preco*0.13;
-            const lucroEst=a.preco-c-(a.preco*imp/100)-tarifaEst;
-            const margemEst=a.preco>0?(lucroEst/a.preco)*100:0;
 
             return (
               <div key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'10px var(--layout-card-pad)',
@@ -951,15 +987,6 @@ function ViewAnuncios({dados,loading,onRefresh}){
                     onChange={e=>setCampo(a.sku,'imposto',e.target.value)}
                     style={{height:'var(--control-h-sm)',padding:'0 8px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                 </div>
-                <div style={{display:'flex',flexDirection:'column',gap:2,alignItems:'flex-end'}}>
-                  {c>0?(
-                    <>
-                      <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-extrabold)',
-                        color:lucroEst>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>{BRL(lucroEst)}</span>
-                      <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{PCT(margemEst)}</span>
-                    </>
-                  ):<span style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>—</span>}
-                </div>
               </div>
             );
           })}
@@ -973,16 +1000,17 @@ function ViewAnuncios({dados,loading,onRefresh}){
         </div>
       </Card>
 
-      <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.5,maxWidth:640}}>
-        A margem exibida é uma estimativa usando tarifa média de 13%. A margem real de cada venda aparece na tela de Pedidos.
-      </p>
-
       {/* Mensagem de sucesso sem alterações pendentes */}
       {alterados.length===0&&msg&&(
         <div style={{marginTop:'var(--space-3)',display:'inline-flex'}}>
           <Note tone={msg.startsWith('Erro')?'danger':'success'} icon={msg.startsWith('Erro')?'alert-octagon':'check-circle-2'}>{msg}</Note>
         </div>
       )}
+
+      <p style={{fontSize:'var(--text-xs)',color:'var(--on-dark-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
+        O Mercado Livre consolida as visitas em até 48 horas — os números de hoje costumam aparecer baixos ou zerados.
+        Use "Buscar novos" depois de criar anúncios para trazê-los ao sistema.
+      </p>
 
       {/* Barra fixa de salvar */}
       {alterados.length>0&&(
@@ -1010,7 +1038,18 @@ function ViewAnuncios({dados,loading,onRefresh}){
 /* ══ VIEW: CONTAS ═══════════════════════════════════════════ */
 function ViewContas({dados,onRefresh}){
   const [removendo,setRemovendo]=useState(null);
+  const [diag,setDiag]=useState({loading:false,resultado:null,erro:''});
   const contas=dados?.contas||[];
+
+  async function rodarDiagnostico(){
+    setDiag({loading:true,resultado:null,erro:''});
+    try{
+      const r=await call('mlDiagnosticoAds');
+      setDiag({loading:false,resultado:r,erro:''});
+    }catch(e){
+      setDiag({loading:false,resultado:null,erro:e.message||'Falha ao rodar diagnóstico'});
+    }
+  }
 
   async function remover(id){
     if(!confirm('Remover esta conta? Os dados dela deixarão de aparecer.'))return;
@@ -1050,9 +1089,61 @@ function ViewContas({dados,onRefresh}){
           Conecte quantas contas do Mercado Livre quiser. Os dados são somados no dashboard e você pode filtrar por conta.
         </p>
         <div style={{marginBottom:'var(--space-4)'}}>
-          <Note tone="warning" icon="alert-triangle">Saia da conta atual no Mercado Livre antes de conectar outra.</Note>
+          <Note tone="warning" icon="alert-triangle">
+            Antes de clicar, <strong>saia da conta atual no site do Mercado Livre</strong> (ou use uma janela anônima).
+            Continuando logado na mesma conta, o ML reconecta ela de novo em vez da nova.
+          </Note>
         </div>
-        <Btn icon="plus" onClick={conectar}>Conectar nova conta</Btn>
+        <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap'}}>
+          <Btn icon="plus" onClick={conectar}>Conectar nova conta</Btn>
+          <Btn variant="secondary" icon="external-link" onClick={()=>window.open('https://www.mercadolivre.com.br/jms/mlb/lgz/logout','_blank')}>
+            Sair do ML primeiro
+          </Btn>
+        </div>
+      </Card>
+
+      <Card title="Diagnóstico do Product Ads">
+        <p style={{fontSize:'var(--text-sm)',color:'var(--text-body)',marginBottom:'var(--space-4)',lineHeight:1.6}}>
+          Roda um teste em cada rota da API de publicidade do Mercado Livre e mostra a resposta crua.
+          Use quando os dados de ads não estiverem vindo automaticamente.
+        </p>
+        <Btn variant="secondary" icon="stethoscope" onClick={rodarDiagnostico} disabled={diag.loading}>
+          {diag.loading?'Testando rotas…':'Rodar diagnóstico'}
+        </Btn>
+
+        {diag.erro&&(
+          <div style={{marginTop:'var(--space-4)'}}>
+            <Note tone="danger" icon="alert-octagon">{diag.erro}</Note>
+          </div>
+        )}
+
+        {diag.resultado&&(
+          <div style={{marginTop:'var(--space-4)'}}>
+            {diag.resultado.diagnostico.map(c=>(
+              <div key={c.userId} style={{marginBottom:'var(--space-5)'}}>
+                <div style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',marginBottom:'var(--space-2)',
+                  display:'flex',alignItems:'center',gap:'var(--space-2)'}}>
+                  <Icon name="store" size={15} color="var(--status-brand-solid)"/>{c.conta}
+                </div>
+                {c.testes.map((t,i)=>(
+                  <div key={i} style={{borderTop:'1px solid var(--border-subtle)',padding:'var(--space-3) 0'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',marginBottom:6,flexWrap:'wrap'}}>
+                      <Badge tone={t.status===200?'success':t.status===404?'warning':'danger'}>{t.status}</Badge>
+                      <span className="mono" style={{fontSize:'var(--text-xs)',color:'var(--text-body)',wordBreak:'break-all'}}>{t.nome}</span>
+                    </div>
+                    <div className="mono" style={{background:'var(--surface-sunken)',borderRadius:'var(--radius-sm)',padding:'8px 10px',
+                      fontSize:11,lineHeight:1.6,color:'var(--text-subtle)',wordBreak:'break-all',maxHeight:120,overflow:'auto'}}>
+                      {t.resumo}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <Note tone="info" icon="info">
+              Copie esse resultado e me mande. Com os códigos e as respostas eu descubro qual rota sua conta aceita.
+            </Note>
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -1215,7 +1306,7 @@ function Drawer({open,onClose,active,onSelect,seller,onSair}){
 }
 
 /* ══ APP LOGADO ═════════════════════════════════════════════ */
-function AppLogado({user}){
+function AppLogado({user,erroConexao}){
   const [view,setView]=useState('dashboard');
   const [periodo,setPeriodo]=useState('hoje');
   const [dados,setDados]=useState(null);
@@ -1275,8 +1366,8 @@ function AppLogado({user}){
 
         <main style={{flex:1,padding:isMobile?'var(--layout-gutter-mobile)':'var(--layout-gutter)',
           maxWidth:'var(--layout-max-content)',width:'100%',minWidth:0}}>
-          {err&&<div style={{marginBottom:'var(--layout-grid-gap)'}}>
-            <Note tone="danger" icon="alert-octagon">{err}</Note>
+          {(err||erroConexao)&&<div style={{marginBottom:'var(--layout-grid-gap)'}}>
+            <Note tone="danger" icon="alert-octagon">{err||erroConexao}</Note>
           </div>}
 
           {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={setPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')}/>}
@@ -1312,6 +1403,31 @@ function AppLogado({user}){
 /* ══ ROOT ═══════════════════════════════════════════════════ */
 function App(){
   const [user,setUser]=useState(undefined),[mlOk,setMlOk]=useState(null),[chk,setChk]=useState(false);
+  const [conectandoConta,setConectandoConta]=useState(false);
+  const [erroConexao,setErroConexao]=useState('');
+  const [nonce,setNonce]=useState(0);
+
+  // Troca o code do OAuth por token — exatamente uma vez por carregamento.
+  // Roda tanto na 1a conexao quanto ao adicionar contas extras.
+  useEffect(()=>{
+    if(!user||!OAUTH_CODE||OAUTH_CONSUMIDO)return;
+    OAUTH_CONSUMIDO=true;
+    (async()=>{
+      setConectandoConta(true);setErroConexao('');
+      try{
+        const r=await call('mlTokenExchange',{code:OAUTH_CODE});
+        if(r.success){setMlOk(true);setNonce(n=>n+1);}
+      }catch(e){
+        const m=String(e.message||'');
+        setErroConexao(
+          /invalid_grant|already used|expired/i.test(m)
+            ? 'O código de autorização expirou ou já foi usado. Clique em "Conectar nova conta" novamente.'
+            : (m||'Não foi possível conectar a conta')
+        );
+      }finally{setConectandoConta(false);}
+    })();
+  },[user]);
+
   useEffect(()=>auth.onAuthStateChanged(async u=>{
     setUser(u);
     if(u){
@@ -1334,8 +1450,16 @@ function App(){
     </div>
   );
   if(!user)return <TelaLogin/>;
-  if(!mlOk)return <TelaConectar user={user} onOk={()=>setMlOk(true)}/>;
-  return <AppLogado user={user}/>;
+
+  if(conectandoConta)return (
+    <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:'var(--space-4)'}}>
+      <Logo height={24} inverse/>
+      <div style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)'}}>Conectando conta do Mercado Livre…</div>
+    </div>
+  );
+
+  if(!mlOk)return <TelaConectar user={user} onOk={()=>setMlOk(true)} erro={erroConexao}/>;
+  return <AppLogado user={user} key={nonce} erroConexao={erroConexao}/>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
