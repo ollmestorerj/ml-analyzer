@@ -108,6 +108,8 @@
   --press-scale:.97;
   --tr:background-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard);
 }
+.only-wide{display:block}
+@media (max-width:760px){.only-wide{display:none}}
 @media (prefers-reduced-motion:reduce){:root{--duration-fast:0ms;--duration-base:0ms;--duration-slow:0ms;--press-scale:1}}
 
 /* ═══ Base ═══ */
@@ -342,8 +344,9 @@ const PeriodFilter=({value,onChange})=>(
       return <button key={p} onClick={()=>onChange(p)} aria-pressed={on}
         style={{height:32,padding:'0 13px',borderRadius:'var(--radius-pill)',fontSize:'var(--text-xs)',
           fontWeight:'var(--weight-semibold)',cursor:'pointer',transition:'var(--tr)',
-          background:on?'var(--action-primary)':'transparent',color:on?'#fff':'var(--on-dark-muted)',
-          border:`1px solid ${on?'var(--action-primary)':'var(--border-inverse)'}`}}>{PLABEL[p]}</button>;
+          background:on?'var(--action-primary)':'var(--surface-card)',color:on?'#fff':'var(--text-body)',
+          border:`1px solid ${on?'var(--action-primary)':'var(--border-default)'}`,
+          boxShadow:on?'none':'var(--shadow-xs)'}}>{PLABEL[p]}</button>;
     })}
   </div>
 );
@@ -357,14 +360,81 @@ const ContaFilter=({contas,ativas,onToggle})=>{
         return <button key={c.id} onClick={()=>onToggle(c.id)} aria-pressed={on}
           style={{display:'inline-flex',alignItems:'center',gap:6,height:32,padding:'0 12px',borderRadius:'var(--radius-pill)',
             cursor:'pointer',fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',transition:'var(--tr)',
-            background:on?'rgba(255,255,255,.1)':'transparent',
-            border:`1px solid ${on?'var(--action-primary)':'var(--border-inverse)'}`,
-            color:on?'#fff':'var(--on-dark-muted)'}}>
+            background:on?'var(--status-brand-bg)':'var(--surface-card)',
+            border:`1px solid ${on?'var(--action-primary)':'var(--border-default)'}`,
+            color:on?'var(--status-brand-fg)':'var(--text-muted)',
+            boxShadow:on?'none':'var(--shadow-xs)'}}>
           <Icon name="store" size={13}/>{c.nickname}</button>;
       })}
     </div>
   );
 };
+
+/* ══ PAGINAÇÃO ══════════════════════════════════════════════ */
+const POR_PAGINA = 50;
+
+// Hook: fatia uma lista em páginas e reseta ao trocar de filtro
+function usePaginacao(lista, deps=[]) {
+  const [pagina,setPagina] = useState(1);
+  const total   = lista?.length || 0;
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+
+  useEffect(()=>{ setPagina(1); }, deps);
+  useEffect(()=>{ if(pagina>paginas) setPagina(paginas); }, [paginas,pagina]);
+
+  const inicio = (pagina-1) * POR_PAGINA;
+  const fatia  = (lista||[]).slice(inicio, inicio + POR_PAGINA);
+
+  return { pagina, setPagina, paginas, total, fatia, inicio, fim: inicio + fatia.length };
+}
+
+function Paginacao({ pagina, setPagina, paginas, total, inicio, fim, rotulo='itens' }) {
+  if (total === 0) return null;
+
+  // Janela de páginas: 1 … 4 5 [6] 7 8 … 20
+  const nums = [];
+  const range = (a,b) => { for(let i=a;i<=b;i++) nums.push(i); };
+  if (paginas <= 7) range(1,paginas);
+  else if (pagina <= 4) { range(1,5); nums.push('…'); nums.push(paginas); }
+  else if (pagina >= paginas-3) { nums.push(1); nums.push('…'); range(paginas-4,paginas); }
+  else { nums.push(1); nums.push('…'); range(pagina-1,pagina+1); nums.push('…'); nums.push(paginas); }
+
+  const btn = (conteudo, onClick, ativo, desabilitado, key) => (
+    <button key={key} onClick={onClick} disabled={desabilitado}
+      aria-current={ativo?'page':undefined}
+      style={{minWidth:32,height:32,padding:'0 9px',borderRadius:'var(--radius-md)',
+        fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',
+        cursor:desabilitado?'default':'pointer',transition:'var(--tr)',
+        background:ativo?'var(--action-primary)':'var(--surface-card)',
+        color:ativo?'#fff':desabilitado?'var(--text-disabled)':'var(--text-body)',
+        border:`1px solid ${ativo?'var(--action-primary)':'var(--border-default)'}`,
+        boxShadow:ativo?'none':'var(--shadow-xs)',
+        display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
+      {conteudo}
+    </button>
+  );
+
+  return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
+      flexWrap:'wrap',padding:'var(--space-3) var(--layout-card-pad)',
+      borderTop:'1px solid var(--border-subtle)',background:'var(--surface-sunken)'}}>
+
+      <span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
+        {inicio+1}–{fim} de {NUM(total)} {rotulo}
+      </span>
+
+      {paginas > 1 && (
+        <div style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
+          {btn(<Icon name="chevron-left" size={14}/>, ()=>setPagina(p=>Math.max(1,p-1)), false, pagina===1, 'prev')}
+          {nums.map((n,i)=> n==='…'
+            ? <span key={`e${i}`} style={{padding:'0 4px',color:'var(--text-disabled)',fontSize:'var(--text-xs)'}}>…</span>
+            : btn(n, ()=>setPagina(n), n===pagina, false, n))}
+          {btn(<Icon name="chevron-right" size={14}/>, ()=>setPagina(p=>Math.min(paginas,p+1)), false, pagina===paginas, 'next')}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ══ LOGIN ══════════════════════════════════════════════════ */
 function TelaLogin(){
@@ -467,7 +537,10 @@ const THead=({children,align})=>(
     letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',textAlign:align||'left'}}>{children}</div>
 );
 
-function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios}){
+function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,paginar=true,resetKey}){
+  const pg = usePaginacao(pedidos, [resetKey, pedidos?.length]);
+  const linhas = paginar ? pg.fatia : (pedidos||[]);
+
   const GRID=multiConta
     ? '52px minmax(0,1fr) 84px 96px 92px 48px 96px 84px 84px 84px 108px'
     : '52px minmax(0,1fr) 96px 92px 48px 96px 84px 84px 84px 108px';
@@ -494,7 +567,7 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios}){
           background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
           {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
         </div>
-        {pedidos?.length>0?pedidos.map((p,i)=>(
+        {linhas.length>0?linhas.map((p,i)=>(
           <div key={p.id||i} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'11px var(--layout-card-pad)',
             alignItems:'center',borderBottom:'1px solid var(--border-subtle)',transition:'background-color var(--duration-fast) var(--ease-standard)'}}
             onMouseEnter={e=>e.currentTarget.style.background='var(--surface-hover)'}
@@ -524,6 +597,7 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios}){
             description="Troque o período ou a conta no filtro acima."/>
         )}
       </div>
+      {paginar&&<Paginacao {...pg} rotulo="pedidos"/>}
     </Card>
   );
 }
@@ -668,40 +742,56 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
   return (
     <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
 
-      {/* HERO — a casca escura: faturamento, lucro e filtros globais */}
-      <section style={{background:'var(--surface-nav)',borderRadius:'var(--radius-2xl)',padding:'22px var(--space-6)',
-        display:'flex',gap:'var(--space-6)',flexWrap:'wrap',justifyContent:'space-between',alignItems:'flex-start'}}>
-        <div style={{display:'flex',gap:'var(--space-9)',flexWrap:'wrap',flex:1,minWidth:240}}>
-          <div>
-            <Overline onDark>Faturamento</Overline>
-            {loading?<div style={{marginTop:8}}><Skel w={180} h={38}/></div>:(
-              <div className="tab" style={{fontSize:'var(--text-4xl)',fontWeight:'var(--weight-extrabold)',color:'#fff',
-                letterSpacing:'var(--tracking-display)',marginTop:3,lineHeight:1.05}}>{BRL(m.fat)}</div>
-            )}
-            {!loading&&<div className="tab" style={{fontSize:'var(--text-xs)',color:'var(--on-dark-muted)',marginTop:6}}>
-              {NUM(m.pedidosDia)} pedidos · {NUM(m.qtd)} unidades</div>}
+      {/* CABEÇALHO — faturamento, lucro e filtros */}
+      <Card pad={false}>
+        <div style={{padding:'var(--space-5) var(--layout-card-pad)',display:'flex',gap:'var(--space-6)',
+          flexWrap:'wrap',justifyContent:'space-between',alignItems:'flex-start'}}>
+
+          <div style={{display:'flex',gap:'var(--space-8)',flexWrap:'wrap',flex:1,minWidth:240}}>
+            {/* Faturamento */}
+            <div>
+              <Overline>Faturamento</Overline>
+              {loading?<div style={{marginTop:8}}><Skel w={180} h={38}/></div>:(
+                <div className="tab" style={{fontSize:'var(--text-4xl)',fontWeight:'var(--weight-extrabold)',
+                  color:'var(--text-strong)',letterSpacing:'var(--tracking-display)',marginTop:3,lineHeight:1.05}}>{BRL(m.fat)}</div>
+              )}
+              {!loading&&<div className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:6}}>
+                {NUM(m.pedidosDia)} pedidos · {NUM(m.qtd)} unidades</div>}
+            </div>
+
+            {/* Divisor */}
+            <div style={{width:1,alignSelf:'stretch',background:'var(--border-subtle)'}} className="only-wide"/>
+
+            {/* Lucro */}
+            <div>
+              <Overline>Lucro</Overline>
+              {loading?<div style={{marginTop:8}}><Skel w={140} h={30}/></div>:(
+                <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:3}}>
+                  <span className="tab" style={{fontSize:'var(--text-3xl)',fontWeight:'var(--weight-extrabold)',
+                    color:(m.lucro||0)>=0?'var(--status-success-fg)':'var(--status-danger-fg)',
+                    letterSpacing:'var(--tracking-tight)',lineHeight:1.1}}>{BRL(m.lucro)}</span>
+                  <span className="tab" style={{fontSize:'var(--text-sm)',color:'var(--text-muted)',
+                    fontWeight:'var(--weight-bold)'}}>({PCT(m.margem)})</span>
+                </div>
+              )}
+              {!loading&&m.semCusto>0&&(
+                <button onClick={onIrParaAnuncios} style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:6,
+                  background:'transparent',border:'none',padding:0,cursor:'pointer',
+                  fontSize:'var(--text-xs)',color:'var(--status-warning-fg)',fontWeight:'var(--weight-semibold)'}}>
+                  <Icon name="alert-triangle" size={12}/>
+                  {m.semCusto} {m.semCusto===1?'venda sem custo':'vendas sem custo'}
+                </button>
+              )}
+            </div>
           </div>
-          <div>
-            <Overline onDark>Lucro</Overline>
-            {loading?<div style={{marginTop:8}}><Skel w={140} h={30}/></div>:(
-              <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:3}}>
-                <span className="tab" style={{fontSize:'var(--text-3xl)',fontWeight:'var(--weight-extrabold)',
-                  color:(m.lucro||0)>=0?'#5FD6AC':'#FF8A98',letterSpacing:'var(--tracking-tight)',lineHeight:1.1}}>{BRL(m.lucro)}</span>
-                <span className="tab" style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)',fontWeight:'var(--weight-bold)'}}>({PCT(m.margem)})</span>
-              </div>
-            )}
-            {!loading&&m.semCusto>0&&(
-              <div style={{fontSize:'var(--text-xs)',color:'#FFC95C',marginTop:6,display:'flex',alignItems:'center',gap:5}}>
-                <Icon name="alert-triangle" size={12} color="#FFC95C"/>{m.semCusto} {m.semCusto===1?'venda sem custo':'vendas sem custo'}
-              </div>
-            )}
+
+          {/* Filtros */}
+          <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)',alignItems:'flex-end'}}>
+            <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
+            <PeriodFilter value={periodo} onChange={setPeriodo}/>
           </div>
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)',alignItems:'flex-end'}}>
-          <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
-          <PeriodFilter value={periodo} onChange={setPeriodo}/>
-        </div>
-      </section>
+      </Card>
 
       {/* KPIs */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'var(--layout-grid-gap)'}}>
@@ -764,10 +854,10 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
       {/* PEDIDOS */}
       <div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)',gap:'var(--space-3)'}}>
-          <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Últimos pedidos</h2>
+          <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Pedidos</h2>
           <Badge>{NUM(dados?.pedidos?.length||0)} no período</Badge>
         </div>
-        <TabelaPedidos pedidos={dados?.pedidos?.slice(0,15)} loading={loading} multiConta={multiConta} onRefresh={onRefresh} onIrParaAnuncios={onIrParaAnuncios}/>
+        <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={onRefresh} onIrParaAnuncios={onIrParaAnuncios} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
       </div>
     </div>
   );
@@ -811,6 +901,8 @@ function ViewAnuncios({dados,loading,onRefresh}){
     const q=busca.toLowerCase();
     return a.titulo.toLowerCase().includes(q)||String(a.sku).toLowerCase().includes(q);
   });
+
+  const pg = usePaginacao(anuncios, [busca, soSemCusto, todos.length]);
 
   // Valor atual de um campo: rascunho tem prioridade sobre o dado salvo
   const val=(a,campo)=>{
@@ -949,7 +1041,7 @@ function ViewAnuncios({dados,loading,onRefresh}){
             {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
           </div>
 
-          {anuncios.map((a,i)=>{
+          {pg.fatia.map((a,i)=>{
             const custoV=val(a,'custo'),impV=val(a,'imposto');
             const c=parseFloat(custoV)||0,imp=parseFloat(impV)||0;
             const editado=rascunho[a.sku]!==undefined;
@@ -998,6 +1090,7 @@ function ViewAnuncios({dados,loading,onRefresh}){
               action={(busca||soSemCusto)&&<Btn variant="neutral" size="sm" onClick={()=>{setBusca('');setSoSemCusto(false);}}>Limpar filtros</Btn>}/>
           )}
         </div>
+        <Paginacao {...pg} rotulo="anúncios"/>
       </Card>
 
       {/* Mensagem de sucesso sem alterações pendentes */}
@@ -1007,7 +1100,7 @@ function ViewAnuncios({dados,loading,onRefresh}){
         </div>
       )}
 
-      <p style={{fontSize:'var(--text-xs)',color:'var(--on-dark-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
+      <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
         O Mercado Livre consolida as visitas em até 48 horas — os números de hoje costumam aparecer baixos ou zerados.
         Use "Buscar novos" depois de criar anúncios para trazê-los ao sistema.
       </p>
@@ -1374,18 +1467,19 @@ function AppLogado({user,erroConexao}){
 
           {view==='pedidos'&&(
             <div>
-              <section style={{background:'var(--surface-nav)',borderRadius:'var(--radius-2xl)',padding:'var(--space-4) var(--space-5)',
-                display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',flexWrap:'wrap',marginBottom:'var(--layout-grid-gap)'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
+                flexWrap:'wrap',marginBottom:'var(--layout-grid-gap)'}}>
                 <div style={{display:'flex',alignItems:'baseline',gap:'var(--space-2)'}}>
-                  <span className="tab" style={{fontSize:'var(--text-2xl)',fontWeight:'var(--weight-extrabold)',color:'#fff',letterSpacing:'var(--tracking-tight)'}}>{NUM(dados?.pedidos?.length||0)}</span>
-                  <span style={{fontSize:'var(--text-sm)',color:'var(--on-dark-muted)'}}>pedidos no período</span>
+                  <span className="tab" style={{fontSize:'var(--text-2xl)',fontWeight:'var(--weight-extrabold)',
+                    color:'var(--text-strong)',letterSpacing:'var(--tracking-tight)'}}>{NUM(dados?.pedidos?.length||0)}</span>
+                  <span style={{fontSize:'var(--text-sm)',color:'var(--text-muted)'}}>pedidos no período</span>
                 </div>
                 <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap',justifyContent:'flex-end'}}>
                   <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
                   <PeriodFilter value={periodo} onChange={setPeriodo}/>
                 </div>
-              </section>
-              <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')}/>
+              </div>
+              <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={()=>setView('anuncios')} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
             </div>
           )}
 
