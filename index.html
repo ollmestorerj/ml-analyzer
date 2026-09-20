@@ -366,21 +366,127 @@ const Note=({tone='neutral',icon,children})=>{
 };
 /* ══ FILTROS ════════════════════════════════════════════════ */
 const PERIODOS=['hoje','ontem','7d','30d','mes'];
-const PLABEL={hoje:'Hoje',ontem:'Ontem','7d':'7 dias','30d':'30 dias',mes:'Mês atual'};
+const PLABEL={hoje:'Hoje',ontem:'Ontem','7d':'7 dias','30d':'30 dias',mes:'Mês atual',personalizado:'Período'};
+
+// AAAA-MM-DD de hoje no fuso de Brasília
+const hojeISO=()=>new Date(Date.now()-3*3600000).toISOString().split('T')[0];
+const diasISO=n=>{const d=new Date(Date.now()-3*3600000);d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];};
+const fmtData=d=>d?d.split('-').reverse().join('/'):'';
+const contaDias=(a,b)=>a&&b?Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/86400000)+1:0;
 /* Pílulas sobre a faixa escura (casca) */
-const PeriodFilter=({value,onChange})=>(
-  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-    {PERIODOS.map(p=>{
-      const on=value===p;
-      return <button key={p} onClick={()=>onChange(p)} aria-pressed={on}
-        style={{height:32,padding:'0 13px',borderRadius:'var(--radius-pill)',fontSize:'var(--text-xs)',
-          fontWeight:'var(--weight-semibold)',cursor:'pointer',transition:'var(--tr)',
-          background:on?'var(--purple-500)':'var(--surface-card)',color:on?'#fff':'var(--text-body)',
-          border:`1px solid ${on?'var(--purple-500)':'var(--border-default)'}`,
-          boxShadow:'none'}}>{PLABEL[p]}</button>;
-    })}
-  </div>
-);
+const PeriodFilter=({value,onChange,intervalo,onIntervalo})=>{
+  const [aberto,setAberto]=useState(false);
+  const [de,setDe]=useState(intervalo?.from||diasISO(-6));
+  const [ate,setAte]=useState(intervalo?.to||hojeISO());
+  const [erro,setErro]=useState('');
+  const caixa=useRef(null);
+
+  useEffect(()=>{
+    if(!aberto)return;
+    const fora=e=>{if(caixa.current&&!caixa.current.contains(e.target))setAberto(false);};
+    const esc=e=>{if(e.key==='Escape')setAberto(false);};
+    document.addEventListener('mousedown',fora);
+    document.addEventListener('keydown',esc);
+    return()=>{document.removeEventListener('mousedown',fora);document.removeEventListener('keydown',esc);};
+  },[aberto]);
+
+  useEffect(()=>{
+    if(intervalo?.from)setDe(intervalo.from);
+    if(intervalo?.to)setAte(intervalo.to);
+  },[intervalo]);
+
+  function aplicar(){
+    if(!de||!ate){setErro('Escolha as duas datas');return;}
+    let a=de,b=ate;
+    if(a>b){const t=a;a=b;b=t;}
+    const dias=contaDias(a,b);
+    if(dias>180){setErro('No máximo 180 dias por vez');return;}
+    if(b>hojeISO()){setErro('A data final não pode ser no futuro');return;}
+    setErro('');setAberto(false);
+    onIntervalo({from:a,to:b});
+  }
+
+  // Atalhos comuns dentro do seletor
+  const atalhos=[
+    ['Últimos 10 dias', diasISO(-9),  hojeISO()],
+    ['Últimos 15 dias', diasISO(-14), hojeISO()],
+    ['Últimos 90 dias', diasISO(-89), hojeISO()],
+    ['Mês passado',     (()=>{const d=new Date(Date.now()-3*3600000);d.setDate(1);d.setMonth(d.getMonth()-1);return d.toISOString().split('T')[0];})(),
+                        (()=>{const d=new Date(Date.now()-3*3600000);d.setDate(0);return d.toISOString().split('T')[0];})()],
+  ];
+
+  const ativo=value==='personalizado';
+  const rotuloIntervalo=ativo&&intervalo
+    ? (intervalo.from===intervalo.to ? fmtData(intervalo.from) : `${fmtData(intervalo.from)} – ${fmtData(intervalo.to)}`)
+    : 'Escolher período';
+
+  const pill=(on)=>({height:32,padding:'0 13px',borderRadius:'var(--radius-pill)',fontSize:'var(--text-xs)',
+    fontWeight:'var(--weight-semibold)',cursor:'pointer',transition:'var(--tr)',
+    background:on?'var(--purple-500)':'var(--surface-card)',color:on?'#fff':'var(--text-body)',
+    border:`1px solid ${on?'var(--purple-500)':'var(--border-default)'}`});
+
+  return (
+    <div style={{display:'flex',gap:5,flexWrap:'wrap',alignItems:'center'}}>
+      {PERIODOS.map(p=>{
+        const on=value===p;
+        return <button key={p} onClick={()=>onChange(p)} aria-pressed={on} style={pill(on)}>{PLABEL[p]}</button>;
+      })}
+
+      {/* Intervalo personalizado */}
+      <div ref={caixa} style={{position:'relative'}}>
+        <button onClick={()=>setAberto(v=>!v)} aria-pressed={ativo} aria-expanded={aberto}
+          style={{...pill(ativo),display:'inline-flex',alignItems:'center',gap:6}}>
+          <Icon name="calendar-range" size={13}/>
+          {rotuloIntervalo}
+          <Icon name={aberto?'chevron-up':'chevron-down'} size={13}/>
+        </button>
+
+        {aberto&&(
+          <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,zIndex:40,width:296,
+            background:'var(--surface-card)',border:'1px solid var(--border-default)',
+            borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-lg)',padding:'var(--space-4)'}}>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'var(--space-3)',marginBottom:'var(--space-3)'}}>
+              {[['De',de,setDe],['Até',ate,setAte]].map(([lbl,val,set])=>(
+                <div key={lbl}>
+                  <label style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',color:'var(--text-muted)',
+                    display:'block',marginBottom:5,letterSpacing:'var(--tracking-caps)',textTransform:'uppercase'}}>{lbl}</label>
+                  <input className="fld" type="date" value={val} max={hojeISO()}
+                    onChange={e=>{set(e.target.value);setErro('');}}
+                    style={{height:'var(--control-h-md)',padding:'0 10px',fontSize:'var(--text-xs)'}}/>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:'var(--space-3)'}}>
+              {atalhos.map(([lbl,a,b])=>(
+                <button key={lbl} onClick={()=>{setDe(a);setAte(b);setErro('');}}
+                  style={{height:26,padding:'0 9px',borderRadius:'var(--radius-pill)',cursor:'pointer',
+                    fontSize:'var(--text-2xs)',fontWeight:'var(--weight-semibold)',
+                    background:'var(--surface-sunken)',border:'1px solid var(--border-subtle)',color:'var(--text-body)'}}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+
+            {erro&&<div style={{marginBottom:'var(--space-3)'}}><Note tone="danger" icon="alert-octagon">{erro}</Note></div>}
+
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-2)'}}>
+              <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+                {contaDias(de>ate?ate:de, de>ate?de:ate)} {contaDias(de,ate)===1?'dia':'dias'}
+              </span>
+              <div style={{display:'flex',gap:'var(--space-2)'}}>
+                <Btn variant="ghost" size="sm" onClick={()=>setAberto(false)}>Cancelar</Btn>
+                <Btn size="sm" icon="check" onClick={aplicar}>Aplicar</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const ContaFilter=({contas,ativas,onToggle})=>{
   if(!contas||contas.length<2)return null;
   return (
@@ -554,11 +660,23 @@ const THead=({children,align})=>(
 );
 function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,paginar=true,resetKey,initialFilter='todos'}){
   const [filtro,setFiltro]=useState(initialFilter);
-  const [ordem,setOrdem]=useState('original');
+  const [ordem,setOrdem]=useState('recente');
   useEffect(()=>setFiltro(initialFilter),[initialFilter]);
+
+  // Momento do pedido em milissegundos — usado para ordenar por data
+  const quando=p=>{
+    const t=new Date(p.dataISO||'').getTime();
+    return Number.isFinite(t)?t:0;
+  };
+  // Desempate pelo id (o ML numera crescente, então id maior é mais novo)
+  const porId=(a,b)=>String(b.id).localeCompare(String(a.id),undefined,{numeric:true});
+
   const filtrados=(pedidos||[]).filter(p=>filtro==='todos'||(filtro==='prejuizo'?p.temCusto&&p.lucro<0:!p.temCusto));
-  if(ordem==='valor')filtrados.sort((a,b)=>(b.valor||0)-(a.valor||0));
-  if(ordem==='lucro')filtrados.sort((a,b)=>(a.temCusto?Number(a.lucro):Infinity)-(b.temCusto?Number(b.lucro):Infinity));
+
+  if(ordem==='recente')filtrados.sort((a,b)=>{const d=quando(b)-quando(a);return d||porId(a,b);});
+  if(ordem==='antigo') filtrados.sort((a,b)=>{const d=quando(a)-quando(b);return d||porId(b,a);});
+  if(ordem==='valor')  filtrados.sort((a,b)=>(b.valor||0)-(a.valor||0));
+  if(ordem==='lucro')  filtrados.sort((a,b)=>(a.temCusto?Number(a.lucro):Infinity)-(b.temCusto?Number(b.lucro):Infinity));
   const pg = usePaginacao(filtrados, [resetKey, pedidos?.length,filtro,ordem]);
   const linhas = paginar ? pg.fatia : filtrados;
   const GRID=multiConta
@@ -582,7 +700,7 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
     <div>
       <div className="toolbar">
         <select aria-label="Filtrar pedidos" className="fld" style={{width:'auto'}} value={filtro} onChange={e=>setFiltro(e.target.value)}><option value="todos">Todos os pedidos</option><option value="prejuizo">Com prejuízo</option><option value="semCusto">Sem custo cadastrado</option></select>
-        <select aria-label="Ordenar pedidos" className="fld" style={{width:'auto'}} value={ordem} onChange={e=>setOrdem(e.target.value)}><option value="original">Ordem original</option><option value="valor">Maior valor</option><option value="lucro">Menor lucro</option></select>
+        <select aria-label="Ordenar pedidos" className="fld" style={{width:'auto'}} value={ordem} onChange={e=>setOrdem(e.target.value)}><option value="recente">Mais recente primeiro</option><option value="antigo">Mais antigo primeiro</option><option value="valor">Maior valor</option><option value="lucro">Menor lucro</option></select>
         <span style={{fontSize:12,color:'var(--text-muted)'}}>{NUM(filtrados.length)} pedidos</span>
       </div>
     <Card pad={false}>
@@ -601,7 +719,8 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
             <div className="ell" title={p.titulo} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{p.titulo}</div>
             {multiConta&&<div data-label="Conta" className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{p.conta}</div>}
             <div data-label="SKU" className="ell mono" title={p.sku} style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.sku}</div>
-            <div data-label="Data" className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.data}</div>
+            <div data-label="Data" className="mono" title={p.dataISO?new Date(p.dataISO).toLocaleString('pt-BR'):undefined}
+              style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.data}</div>
             <div data-label="Quantidade" className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',textAlign:'right'}}>{p.qtde}</div>
             <div data-label="Valor" className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',textAlign:'right'}}>{BRL(p.valor)}</div>
             <div data-label="Tarifa" className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',textAlign:'right'}}>{BRL(p.tarifa)}</div>
@@ -752,7 +871,7 @@ function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
   );
 }
 /* ══ VIEW: DASHBOARD ════════════════════════════════════════ */
-function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios,onIrParaPrejuizos}){
+function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios,onIrParaPrejuizos}){
   const m=dados?.metricas||{},ads=dados?.ads||{};
   const multiConta=(dados?.contasUsadas?.length||0)>1;
   const negativos=(dados?.pedidos||[]).filter(p=>p.temCusto&&p.lucro<0).length;
@@ -769,7 +888,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
     <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
       {/* CABEÇALHO — faturamento, lucro e filtros */}
       <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
-        <PeriodFilter value={periodo} onChange={setPeriodo}/>
+        <PeriodFilter value={periodo} onChange={setPeriodo} intervalo={intervalo} onIntervalo={onIntervalo}/>
         <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
       </div>
       <section className="dashboard-overview" aria-label="Resultado do período" aria-busy={loading}>
@@ -778,7 +897,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
           ['Lucro',BRL(lucroExib),m.semCusto>0?'Parcial: existem vendas sem custo'
             :descontarAds&&temAds?`Já descontado ${BRL(invAds)} de publicidade`
             :'Após custos, tarifas, frete e impostos'],
-          ['Margem',PCT(margemExib),descontarAds&&temAds?'Sobre o faturamento, com ads descontado':'Sobre o faturamento do período'],
+          ['Margem',PCT(margemExib),descontarAds&&temAds?'Sobre o faturamento, com ads descontado':`Sobre o faturamento · ${rotuloPeriodo||''}`],
         ].map(([label,value,caption],i)=><div key={label}>
           <Overline>{label}</Overline>
           {loading?<div style={{margin:'12px 0'}}><Skel h={36}/></div>:<div className="metric-value" style={{color:i===0?'var(--text-strong)':lucroExib<0?'var(--status-danger-fg)':'var(--purple-500)'}}>{value}</div>}
@@ -864,7 +983,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,contasAtivas,toggleCont
         </Card>
       )}
       {/* ADS */}
-      {!loading&&<PainelAds ads={ads} dataRef={m.from} onSalvo={onRefresh} periodoLabel={PLABEL[periodo]}/>}
+      {!loading&&<PainelAds ads={ads} dataRef={m.from} onSalvo={onRefresh} periodoLabel={rotuloPeriodo}/>}
       {/* PEDIDOS */}
       <div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)',gap:'var(--space-3)'}}>
@@ -1668,7 +1787,7 @@ function ViewContas({dados,onRefresh}){
    e o CORS bloqueia). Mova para uma Cloud Function 'mlAnalisarIA' e troque o
    fetch por: const d = await call('mlAnalisarIA', {periodo, metricas, ads, top, ped});
    Nunca coloque a chave da API neste arquivo — ele é público. */
-function ViewIA({dados,periodo}){
+function ViewIA({dados,periodo,rotuloPeriodo}){
   const [analise,setAnalise]=useState(''),[loading,setLoading]=useState(false);
   async function gerar(){
     if(!dados)return;
@@ -1679,7 +1798,7 @@ function ViewIA({dados,periodo}){
       const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,
           system:`Você é especialista em Mercado Livre e gestão de e-commerce. Analise os dados e entregue:\n\nDIAGNÓSTICO\nPontos fortes e de atenção do período.\n\nANÁLISE DE MARGEM\nComente a margem e onde há espaço de melhoria.\n\nTOP 3 AÇÕES\nAções concretas e priorizadas.\n\nALERTAS\nEstoque crítico, produtos sem custo cadastrado, margem negativa.\n\nSeja direto, use os números reais. Não use emoji.`,
-          messages:[{role:'user',content:`Período: ${PLABEL[periodo]}\nMétricas: ${JSON.stringify(dados.metricas)}\nAds: ${JSON.stringify(dados.ads)}\nTop anúncios: ${JSON.stringify(top)}\nPedidos recentes: ${JSON.stringify(ped)}`}]})});
+          messages:[{role:'user',content:`Período: ${rotuloPeriodo||PLABEL[periodo]}\nMétricas: ${JSON.stringify(dados.metricas)}\nAds: ${JSON.stringify(dados.ads)}\nTop anúncios: ${JSON.stringify(top)}\nPedidos recentes: ${JSON.stringify(ped)}`}]})});
       const d=await r.json();
       setAnalise(d.content?.[0]?.text||'Erro ao gerar análise');
     }catch(e){setAnalise('Erro: '+e.message);}
@@ -1707,7 +1826,7 @@ function ViewIA({dados,periodo}){
       {analise&&(
         <Card>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'var(--space-3)',flexWrap:'wrap',marginBottom:'var(--space-4)'}}>
-            <Overline>Diagnóstico · {new Date().toLocaleDateString('pt-BR')} · {PLABEL[periodo]}</Overline>
+            <Overline>Diagnóstico · {new Date().toLocaleDateString('pt-BR')} · {rotuloPeriodo||PLABEL[periodo]}</Overline>
             <Btn variant="neutral" size="sm" onClick={gerar} icon="refresh-cw">Reanalisar</Btn>
           </div>
           <div style={{fontSize:'var(--text-md)',color:'var(--text-body)',lineHeight:1.75,whiteSpace:'pre-wrap',textWrap:'pretty'}}>{analise}</div>
@@ -1835,6 +1954,7 @@ function Drawer({open,onClose,active,onSelect,seller,onSair}){
 function AppLogado({user,erroConexao}){
   const [view,setView]=useState('dashboard');
   const [periodo,setPeriodo]=useState('hoje');
+  const [intervalo,setIntervalo]=useState(null);   // {from,to} quando periodo='personalizado'
   const [dados,setDados]=useState(null);
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState('');
@@ -1860,13 +1980,13 @@ function AppLogado({user,erroConexao}){
     h();mq.addEventListener('change',h);
     return()=>mq.removeEventListener('change',h);
   },[]);
-  useEffect(()=>{carregar();},[periodo,contasAtivas]);
+  useEffect(()=>{carregar();},[periodo,intervalo,contasAtivas]);
   async function carregar(force=false){
     if(force!==true&&!descartarSeNecessario())return;
     const currentRequest=++requestId.current;
     setLoading(true);setErr('');
     try{
-      const r=await call('mlGetDados',{periodo,contas:contasAtivas.length?contasAtivas:null});
+      const r=await call('mlGetDados',{periodo,intervalo:periodo==='personalizado'?intervalo:null,contas:contasAtivas.length?contasAtivas:null});
       if(currentRequest!==requestId.current)return;
       setDados({...r,hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
       if(contasAtivas.length===0&&r.contas?.length)setContasAtivas(r.contas.filter(c=>c.ativa).map(c=>c.id));
@@ -1874,6 +1994,12 @@ function AppLogado({user,erroConexao}){
     finally{if(currentRequest===requestId.current)setLoading(false);}
   }
   const toggleConta=id=>setContasAtivas(a=>a.includes(id)?(a.length>1?a.filter(x=>x!==id):a):[...a,id]);
+  const escolherPeriodo=p=>{setIntervalo(null);setPeriodo(p);};
+  const escolherIntervalo=iv=>{setIntervalo(iv);setPeriodo('personalizado');};
+  // Rotulo do periodo para o cabecalho e a IA
+  const rotuloPeriodo=periodo==='personalizado'&&intervalo
+    ? (intervalo.from===intervalo.to ? fmtData(intervalo.from) : `${fmtData(intervalo.from)} a ${fmtData(intervalo.to)}`)
+    : PLABEL[periodo];
   const multiConta=(dados?.contasUsadas?.length||0)>1;
   const titulo=NAV.find(n=>n.id===view)?.label;
   return (
@@ -1903,14 +2029,14 @@ function AppLogado({user,erroConexao}){
           <div className="workspace-status" role="status" aria-live="polite">
             <span className={loading?'spin':undefined}><Icon name={loading?'loader-circle':err?'circle-alert':'circle-check'} size={14} color={err?'var(--status-danger-fg)':'var(--text-accent)'}/></span>
             <span>{loading?'Atualizando dados…':err?'Atualização não concluída':dados?.hora?<>Dados recebidos às <time>{dados.hora}</time></>:'Aguardando dados'}</span>
-            <span style={{marginLeft:'auto'}}>{PLABEL[periodo]}</span>
+            <span style={{marginLeft:'auto'}}>{rotuloPeriodo}</span>
           </div>
           {(err||erroConexao)&&<div role="alert" style={{marginBottom:'var(--layout-grid-gap)'}}>
             <Note tone="danger" icon="alert-octagon">{err||erroConexao}{dados&&<span> Os dados exibidos são da última atualização concluída.</span>}</Note>
             {err&&<div style={{marginTop:8}}><Btn variant="neutral" icon="refresh-cw" disabled={loading} onClick={carregar}>Tentar novamente</Btn></div>}
           </div>}
           {!dados&&!loading&&err?null:<>
-          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={setPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos}/>}
+          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos}/>}
           {view==='pedidos'&&(
             <div>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
@@ -1922,7 +2048,7 @@ function AppLogado({user,erroConexao}){
                 </div>
                 <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap',justifyContent:'flex-end'}}>
                   <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
-                  <PeriodFilter value={periodo} onChange={setPeriodo}/>
+                  <PeriodFilter value={periodo} onChange={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo}/>
                 </div>
               </div>
               <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} initialFilter={filtroPedidos} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
@@ -1930,7 +2056,7 @@ function AppLogado({user,erroConexao}){
           )}
           {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos}/>}
           {view==='concorrentes'&&<ViewConcorrentes/>}
-          {view==='ia'&&<ViewIA dados={dados} periodo={periodo}/>}
+          {view==='ia'&&<ViewIA dados={dados} periodo={periodo} rotuloPeriodo={rotuloPeriodo}/>}
           {view==='contas'&&<ViewContas dados={dados} onRefresh={carregar}/>}
           </>}
         </main>
