@@ -1005,6 +1005,59 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
         {m.semCusto>0&&<div className="attention"><div className="attention-copy"><Icon name="triangle-alert" color="var(--status-warning-fg)"/><span><strong>{NUM(m.semCusto)} vendas sem custo</strong><br/>O resultado está incompleto.</span></div><Btn variant="neutral" size="sm" icon="pencil" onClick={onIrParaAnuncios}>Revisar custos</Btn></div>}
         {negativos>0&&<div className="attention"><div className="attention-copy"><Icon name="trending-down" color="var(--status-danger-fg)"/><span><strong>{NUM(negativos)} pedidos com prejuízo</strong><br/>Confira os custos e as tarifas dessas vendas.</span></div><Btn variant="neutral" size="sm" icon="arrow-right" onClick={onIrParaPrejuizos}>Ver pedidos</Btn></div>}
       </section>}
+      {/* Diagnóstico — aparece quando nao veio pedido ou alguma conta falhou */}
+      {!loading&&dados&&((dados.falhas?.length>0)||(m.pedidosDia===0&&dados.debug?.length>0))&&(
+        <Card icon="stethoscope" title="Por que não veio nada?"
+          subtitle="Trilha do que o servidor conseguiu buscar em cada conta">
+
+          {dados.falhas?.length>0&&(
+            <div style={{marginBottom:'var(--space-4)'}}>
+              <Note tone="danger" icon="alert-octagon">
+                {dados.falhas.map((f,i)=>(
+                  <div key={i} style={{marginBottom:i<dados.falhas.length-1?6:0}}>
+                    <strong>{f.conta}</strong>: {f.erro}
+                  </div>
+                ))}
+              </Note>
+            </div>
+          )}
+
+          {dados.debug?.map((d,i)=>(
+            <div key={i} style={{borderTop:i?'1px solid var(--border-subtle)':'none',paddingTop:i?'var(--space-3)':0,
+              marginTop:i?'var(--space-3)':0}}>
+              <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',
+                marginBottom:'var(--space-2)',display:'flex',alignItems:'center',gap:6}}>
+                <Icon name="store" size={14} color="var(--status-brand-solid)"/>{d.conta}
+                <span className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',fontWeight:'var(--weight-regular)'}}>{d.periodo}</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:'var(--space-3)'}}>
+                {[
+                  ['Anúncios',d.anunciosEncontrados],
+                  ['Pedidos brutos',d.pedidosBrutos],
+                  ['Detalhes obtidos',d.detalhesObtidos],
+                  ['Vindos do cache',d.doCache],
+                  ['Válidos',d.validos],
+                  ['Cancelados',d.cancelados],
+                ].map(([lbl,val])=>(
+                  <div key={lbl}>
+                    <Overline>{lbl}</Overline>
+                    <div className="tab" style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-extrabold)',
+                      color:val===0?'var(--status-danger-fg)':'var(--text-strong)',marginTop:2}}>{NUM(val)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div style={{marginTop:'var(--space-4)'}}>
+            <Note icon="info">
+              Se <strong>Pedidos brutos</strong> vier zero, o Mercado Livre não devolveu vendas nesse período.
+              Se vier número mas <strong>Válidos</strong> for zero, o problema está no processamento — me mande este print.
+            </Note>
+          </div>
+        </Card>
+      )}
+
       {/* KPIs */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'var(--layout-grid-gap)'}}>
         {loading?[...Array(4)].map((_,i)=>(
