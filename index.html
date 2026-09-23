@@ -374,11 +374,94 @@ const diasISO=n=>{const d=new Date(Date.now()-3*3600000);d.setDate(d.getDate()+n
 const fmtData=d=>d?d.split('-').reverse().join('/'):'';
 const contaDias=(a,b)=>a&&b?Math.round((new Date(b+'T12:00:00Z')-new Date(a+'T12:00:00Z'))/86400000)+1:0;
 /* Pílulas sobre a faixa escura (casca) */
+// Calendario de intervalo: primeiro clique marca o inicio, segundo marca o fim
+function Calendario({de,ate,onEscolher,max}){
+  const base=de?new Date(de+'T12:00:00Z'):new Date(Date.now()-3*3600000);
+  const [mes,setMes]=useState(new Date(base.getFullYear(),base.getMonth(),1));
+  const [hover,setHover]=useState(null);
+
+  const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const DIAS=['D','S','T','Q','Q','S','S'];
+
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+  // Monta a grade do mes, completando com os dias vizinhos
+  const primeiro=new Date(mes.getFullYear(),mes.getMonth(),1);
+  const inicioGrade=new Date(primeiro);
+  inicioGrade.setDate(1-primeiro.getDay());
+  const celulas=[];
+  for(let i=0;i<42;i++){
+    const d=new Date(inicioGrade);
+    d.setDate(inicioGrade.getDate()+i);
+    celulas.push(d);
+  }
+
+  const selecionando=de&&!ate;
+  const fimVirtual=ate||(selecionando?hover:null);
+
+  function clique(dISO){
+    if(dISO>max)return;
+    if(!de||ate){ onEscolher(dISO,null); return; }      // comeca de novo
+    if(dISO<de){ onEscolher(dISO,de); return; }          // clicou antes: inverte
+    onEscolher(de,dISO);                                  // fecha o intervalo
+  }
+
+  const podeVoltar=true;
+  const podeAvancar=iso(new Date(mes.getFullYear(),mes.getMonth()+1,1))<=max;
+
+  return (
+    <div>
+      {/* Cabecalho do mes */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)'}}>
+        <IconBtn icon="chevron-left" label="Mês anterior" size={28}
+          onClick={()=>setMes(new Date(mes.getFullYear(),mes.getMonth()-1,1))} disabled={!podeVoltar}/>
+        <span style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
+          {MESES[mes.getMonth()]} {mes.getFullYear()}
+        </span>
+        <IconBtn icon="chevron-right" label="Próximo mês" size={28}
+          onClick={()=>setMes(new Date(mes.getFullYear(),mes.getMonth()+1,1))} disabled={!podeAvancar}/>
+      </div>
+
+      {/* Dias da semana */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2,marginBottom:4}}>
+        {DIAS.map((d,i)=><div key={i} style={{textAlign:'center',fontSize:'var(--text-2xs)',
+          fontWeight:'var(--weight-bold)',color:'var(--text-subtle)',padding:'4px 0'}}>{d}</div>)}
+      </div>
+
+      {/* Grade */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:2}}
+        onMouseLeave={()=>setHover(null)}>
+        {celulas.map((d,i)=>{
+          const dISO=iso(d);
+          const doMes=d.getMonth()===mes.getMonth();
+          const futuro=dISO>max;
+          const ehInicio=dISO===de;
+          const ehFim=dISO===ate;
+          const dentro=de&&fimVirtual&&dISO>de&&dISO<fimVirtual;
+          const extremo=ehInicio||ehFim;
+
+          return (
+            <button key={i} onClick={()=>clique(dISO)} onMouseEnter={()=>setHover(dISO)}
+              disabled={futuro}
+              style={{height:32,border:'none',borderRadius:extremo?'var(--radius-md)':dentro?0:'var(--radius-md)',
+                cursor:futuro?'default':'pointer',fontSize:'var(--text-xs)',
+                fontWeight:extremo?'var(--weight-bold)':'var(--weight-medium)',
+                background:extremo?'var(--purple-500)':dentro?'var(--status-accent-bg)':'transparent',
+                color:futuro?'var(--text-disabled)':extremo?'#fff':doMes?'var(--text-body)':'var(--text-subtle)',
+                opacity:doMes||extremo?1:.45,transition:'var(--tr)'}}>
+              {d.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const PeriodFilter=({value,onChange,intervalo,onIntervalo})=>{
   const [aberto,setAberto]=useState(false);
-  const [de,setDe]=useState(intervalo?.from||diasISO(-6));
-  const [ate,setAte]=useState(intervalo?.to||hojeISO());
-  const [erro,setErro]=useState('');
+  const [de,setDe]=useState(intervalo?.from||null);
+  const [ate,setAte]=useState(intervalo?.to||null);
   const caixa=useRef(null);
 
   useEffect(()=>{
@@ -391,34 +474,37 @@ const PeriodFilter=({value,onChange,intervalo,onIntervalo})=>{
   },[aberto]);
 
   useEffect(()=>{
-    if(intervalo?.from)setDe(intervalo.from);
-    if(intervalo?.to)setAte(intervalo.to);
+    setDe(intervalo?.from||null);
+    setAte(intervalo?.to||null);
   },[intervalo]);
 
-  function aplicar(){
-    if(!de||!ate){setErro('Escolha as duas datas');return;}
-    let a=de,b=ate;
-    if(a>b){const t=a;a=b;b=t;}
-    const dias=contaDias(a,b);
-    if(dias>180){setErro('No máximo 180 dias por vez');return;}
-    if(b>hojeISO()){setErro('A data final não pode ser no futuro');return;}
-    setErro('');setAberto(false);
-    onIntervalo({from:a,to:b});
+  // Escolheu os dois extremos: aplica na hora
+  function escolher(a,b){
+    setDe(a);setAte(b);
+    if(a&&b){
+      const dias=contaDias(a,b);
+      if(dias>180){return;}
+      setAberto(false);
+      onIntervalo({from:a,to:b});
+    }
   }
 
-  // Atalhos comuns dentro do seletor
   const atalhos=[
-    ['Últimos 10 dias', diasISO(-9),  hojeISO()],
-    ['Últimos 15 dias', diasISO(-14), hojeISO()],
-    ['Últimos 90 dias', diasISO(-89), hojeISO()],
-    ['Mês passado',     (()=>{const d=new Date(Date.now()-3*3600000);d.setDate(1);d.setMonth(d.getMonth()-1);return d.toISOString().split('T')[0];})(),
-                        (()=>{const d=new Date(Date.now()-3*3600000);d.setDate(0);return d.toISOString().split('T')[0];})()],
+    ['10 dias', diasISO(-9),  hojeISO()],
+    ['15 dias', diasISO(-14), hojeISO()],
+    ['90 dias', diasISO(-89), hojeISO()],
+    ['Mês passado',
+      (()=>{const d=new Date(Date.now()-3*3600000);d.setDate(1);d.setMonth(d.getMonth()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;})(),
+      (()=>{const d=new Date(Date.now()-3*3600000);d.setDate(0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;})()],
   ];
 
   const ativo=value==='personalizado';
-  const rotuloIntervalo=ativo&&intervalo
+  const rotulo=ativo&&intervalo
     ? (intervalo.from===intervalo.to ? fmtData(intervalo.from) : `${fmtData(intervalo.from)} – ${fmtData(intervalo.to)}`)
     : 'Escolher período';
+
+  const dias=de&&ate?contaDias(de,ate):0;
+  const longo=dias>180;
 
   const pill=(on)=>({height:32,padding:'0 13px',borderRadius:'var(--radius-pill)',fontSize:'var(--text-xs)',
     fontWeight:'var(--weight-semibold)',cursor:'pointer',transition:'var(--tr)',
@@ -432,35 +518,24 @@ const PeriodFilter=({value,onChange,intervalo,onIntervalo})=>{
         return <button key={p} onClick={()=>onChange(p)} aria-pressed={on} style={pill(on)}>{PLABEL[p]}</button>;
       })}
 
-      {/* Intervalo personalizado */}
       <div ref={caixa} style={{position:'relative'}}>
         <button onClick={()=>setAberto(v=>!v)} aria-pressed={ativo} aria-expanded={aberto}
           style={{...pill(ativo),display:'inline-flex',alignItems:'center',gap:6}}>
           <Icon name="calendar-range" size={13}/>
-          {rotuloIntervalo}
+          {rotulo}
           <Icon name={aberto?'chevron-up':'chevron-down'} size={13}/>
         </button>
 
         {aberto&&(
-          <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,zIndex:40,width:296,
+          <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,zIndex:40,width:308,
             background:'var(--surface-card)',border:'1px solid var(--border-default)',
             borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-lg)',padding:'var(--space-4)'}}>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'var(--space-3)',marginBottom:'var(--space-3)'}}>
-              {[['De',de,setDe],['Até',ate,setAte]].map(([lbl,val,set])=>(
-                <div key={lbl}>
-                  <label style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',color:'var(--text-muted)',
-                    display:'block',marginBottom:5,letterSpacing:'var(--tracking-caps)',textTransform:'uppercase'}}>{lbl}</label>
-                  <input className="fld" type="date" value={val} max={hojeISO()}
-                    onChange={e=>{set(e.target.value);setErro('');}}
-                    style={{height:'var(--control-h-md)',padding:'0 10px',fontSize:'var(--text-xs)'}}/>
-                </div>
-              ))}
-            </div>
+            <Calendario de={de} ate={ate} max={hojeISO()} onEscolher={escolher}/>
 
-            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:'var(--space-3)'}}>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5,margin:'var(--space-3) 0'}}>
               {atalhos.map(([lbl,a,b])=>(
-                <button key={lbl} onClick={()=>{setDe(a);setAte(b);setErro('');}}
+                <button key={lbl} onClick={()=>escolher(a,b)}
                   style={{height:26,padding:'0 9px',borderRadius:'var(--radius-pill)',cursor:'pointer',
                     fontSize:'var(--text-2xs)',fontWeight:'var(--weight-semibold)',
                     background:'var(--surface-sunken)',border:'1px solid var(--border-subtle)',color:'var(--text-body)'}}>
@@ -469,16 +544,18 @@ const PeriodFilter=({value,onChange,intervalo,onIntervalo})=>{
               ))}
             </div>
 
-            {erro&&<div style={{marginBottom:'var(--space-3)'}}><Note tone="danger" icon="alert-octagon">{erro}</Note></div>}
+            {longo&&<div style={{marginBottom:'var(--space-2)'}}>
+              <Note tone="danger" icon="alert-octagon">No máximo 180 dias por vez</Note>
+            </div>}
 
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-2)'}}>
+            <div style={{borderTop:'1px solid var(--border-subtle)',paddingTop:'var(--space-3)',
+              display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-2)'}}>
               <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
-                {contaDias(de>ate?ate:de, de>ate?de:ate)} {contaDias(de,ate)===1?'dia':'dias'}
+                {!de?'Clique no dia inicial'
+                  :!ate?'Agora clique no dia final'
+                  :`${dias} ${dias===1?'dia':'dias'} · ${fmtData(de)} – ${fmtData(ate)}`}
               </span>
-              <div style={{display:'flex',gap:'var(--space-2)'}}>
-                <Btn variant="ghost" size="sm" onClick={()=>setAberto(false)}>Cancelar</Btn>
-                <Btn size="sm" icon="check" onClick={aplicar}>Aplicar</Btn>
-              </div>
+              {de&&<Btn variant="ghost" size="sm" onClick={()=>{setDe(null);setAte(null);}}>Limpar</Btn>}
             </div>
           </div>
         )}
@@ -871,7 +948,7 @@ function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
   );
 }
 /* ══ VIEW: DASHBOARD ════════════════════════════════════════ */
-function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios,onIrParaPrejuizos}){
+function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios,onIrParaPrejuizos,onIrParaSkus}){
   const m=dados?.metricas||{},ads=dados?.ads||{};
   const multiConta=(dados?.contasUsadas?.length||0)>1;
   const negativos=(dados?.pedidos||[]).filter(p=>p.temCusto&&p.lucro<0).length;
@@ -986,9 +1063,12 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
       {!loading&&<PainelAds ads={ads} dataRef={m.from} onSalvo={onRefresh} periodoLabel={rotuloPeriodo}/>}
       {/* PEDIDOS */}
       <div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)',gap:'var(--space-3)'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)',gap:'var(--space-3)',flexWrap:'wrap'}}>
           <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Pedidos</h2>
-          <Badge>{NUM(dados?.pedidos?.length||0)} no período</Badge>
+          <div style={{display:'flex',gap:'var(--space-2)',alignItems:'center'}}>
+            <Badge>{NUM(dados?.pedidos?.length||0)} no período</Badge>
+            {onIrParaSkus&&<Btn variant="neutral" size="sm" icon="boxes" onClick={onIrParaSkus}>Ver por produto</Btn>}
+          </div>
         </div>
         <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={onRefresh} onIrParaAnuncios={onIrParaAnuncios} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
       </div>
@@ -1265,6 +1345,244 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     </div>
   );
 }
+/* ══ VIEW: POR SKU ══════════════════════════════════════════ */
+const CLASSE_TOM={A:'success',B:'info',C:'neutral'};
+
+function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,
+                   contasAtivas,toggleConta,onIrParaAnuncios}){
+  const [busca,setBusca]=useState('');
+  const [ordem,setOrdem]=useState('faturamento');
+  const [classe,setClasse]=useState('todas');
+
+  const todos=dados?.skus||[];
+  const multiConta=(dados?.contasUsadas?.length||0)>1;
+
+  let lista=todos.filter(x=>{
+    if(classe!=='todas'&&x.classe!==classe)return false;
+    if(!busca)return true;
+    const q=busca.toLowerCase();
+    return String(x.sku).toLowerCase().includes(q)||String(x.titulo||'').toLowerCase().includes(q);
+  });
+
+  const ord={
+    faturamento:(a,b)=>b.faturamento-a.faturamento,
+    lucro:      (a,b)=>b.lucro-a.lucro,
+    margem:     (a,b)=>(b.margem??-999)-(a.margem??-999),
+    unidades:   (a,b)=>b.unidades-a.unidades,
+    canceladas: (a,b)=>b.canceladas-a.canceladas,
+    prejuizo:   (a,b)=>a.lucro-b.lucro,
+  }[ordem];
+  lista=[...lista].sort(ord);
+
+  const pg=usePaginacao(lista,[busca,ordem,classe,todos.length]);
+
+  // Totais do que está filtrado
+  const tot=lista.reduce((a,x)=>({
+    faturamento:a.faturamento+x.faturamento,
+    lucro:a.lucro+x.lucro,
+    unidades:a.unidades+x.unidades,
+    canceladas:a.canceladas+x.canceladas,
+  }),{faturamento:0,lucro:0,unidades:0,canceladas:0});
+
+  const semCusto=todos.filter(x=>!x.temCusto&&x.faturamento>0).length;
+  const negativos=todos.filter(x=>x.temCusto&&x.lucro<0).length;
+
+  const GRID=multiConta
+    ? '40px 52px minmax(0,1fr) 96px 112px 104px 78px 74px 78px 60px'
+    : '40px 52px minmax(0,1fr) 112px 104px 78px 74px 78px 60px';
+  const HEADS=multiConta
+    ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Canceladas','ABC']
+    : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Canceladas','ABC'];
+
+  if(loading)return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
+      {[...Array(6)].map((_,i)=>(
+        <Card key={i}>
+          <div style={{display:'flex',gap:'var(--space-3)',alignItems:'center'}}>
+            <Skel w={48} h={48} r="var(--radius-md)"/>
+            <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={14}/><Skel w="40%" h={11}/></div>
+            <Skel w={90} h={26}/><Skel w={80} h={26}/>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+
+      {/* Filtros de período */}
+      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
+        <PeriodFilter value={periodo} onChange={setPeriodo} intervalo={intervalo} onIntervalo={onIntervalo}/>
+        <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
+      </div>
+
+      {/* Resumo do que está na tela */}
+      <section className="dashboard-overview" aria-label="Totais por produto">
+        {[
+          ['Faturamento',BRL(tot.faturamento),`${NUM(lista.length)} ${lista.length===1?'produto':'produtos'}`],
+          ['Lucro',BRL(tot.lucro),tot.faturamento>0?`Margem de ${PCT(tot.lucro/tot.faturamento*100)}`:'—'],
+          ['Unidades',NUM(tot.unidades),tot.canceladas>0?`${NUM(tot.canceladas)} vendas canceladas`:'Nenhum cancelamento'],
+        ].map(([label,value,caption],i)=>(
+          <div key={label}>
+            <Overline>{label}</Overline>
+            <div className="metric-value" style={{color:i===1?(tot.lucro<0?'var(--status-danger-fg)':'var(--purple-500)'):'var(--text-strong)'}}>{value}</div>
+            <div className="metric-caption">{caption}</div>
+          </div>
+        ))}
+      </section>
+
+      {/* Avisos */}
+      {(semCusto>0||negativos>0)&&(
+        <section aria-label="Pontos de atenção">
+          {semCusto>0&&<div className="attention">
+            <div className="attention-copy">
+              <Icon name="triangle-alert" color="var(--status-warning-fg)"/>
+              <span><strong>{NUM(semCusto)} {semCusto===1?'produto vendeu':'produtos venderam'} sem custo cadastrado</strong><br/>O lucro desses está superestimado.</span>
+            </div>
+            <Btn variant="neutral" size="sm" icon="pencil" onClick={onIrParaAnuncios}>Cadastrar custos</Btn>
+          </div>}
+          {negativos>0&&<div className="attention">
+            <div className="attention-copy">
+              <Icon name="trending-down" color="var(--status-danger-fg)"/>
+              <span><strong>{NUM(negativos)} {negativos===1?'produto deu':'produtos deram'} prejuízo</strong><br/>Revise preço, custo ou frete.</span>
+            </div>
+            <Btn variant="neutral" size="sm" icon="arrow-down" onClick={()=>setOrdem('prejuizo')}>Ver os piores</Btn>
+          </div>}
+        </section>
+      )}
+
+      {/* Barra de ferramentas */}
+      <div>
+        <div className="toolbar">
+          <div style={{position:'relative',flex:'1 1 240px',maxWidth:340}}>
+            <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
+              <Icon name="search" size={16} color="var(--text-subtle)"/>
+            </span>
+            <input aria-label="Buscar produto" className="fld" value={busca} onChange={e=>setBusca(e.target.value)}
+              placeholder="Buscar por SKU ou título" style={{height:'var(--control-h-md)',padding:'0 12px 0 38px'}}/>
+          </div>
+          <select aria-label="Ordenar" className="fld" style={{width:'auto'}} value={ordem} onChange={e=>setOrdem(e.target.value)}>
+            <option value="faturamento">Maior faturamento</option>
+            <option value="lucro">Maior lucro</option>
+            <option value="margem">Maior margem</option>
+            <option value="unidades">Mais vendidos</option>
+            <option value="canceladas">Mais cancelados</option>
+            <option value="prejuizo">Maior prejuízo</option>
+          </select>
+          <select aria-label="Curva ABC" className="fld" style={{width:'auto'}} value={classe} onChange={e=>setClasse(e.target.value)}>
+            <option value="todas">Curva ABC: todas</option>
+            <option value="A">Classe A — 80% do faturamento</option>
+            <option value="B">Classe B — próximos 15%</option>
+            <option value="C">Classe C — últimos 5%</option>
+          </select>
+        </div>
+
+        {(busca||classe!=='todas')&&(
+          <div className="filter-summary" aria-live="polite">
+            <span>{NUM(lista.length)} de {NUM(todos.length)} produtos</span>
+            {busca&&<button className="filter-chip" onClick={()=>setBusca('')}>{busca}<Icon name="x" size={12}/></button>}
+            {classe!=='todas'&&<button className="filter-chip" onClick={()=>setClasse('todas')}>Classe {classe}<Icon name="x" size={12}/></button>}
+            <Btn variant="ghost" size="sm" onClick={()=>{setBusca('');setClasse('todas');}}>Limpar filtros</Btn>
+          </div>
+        )}
+
+        {/* Tabela */}
+        <Card pad={false}>
+          <div className="data-scroll">
+            <div className="data-grid" style={{minWidth:multiConta?1020:940}}>
+              <div className="data-head" style={{display:'grid',gridTemplateColumns:GRID,gap:8,
+                padding:'12px var(--layout-card-pad)',background:'linear-gradient(180deg,var(--surface-sunken),#fff)',
+                borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
+                {HEADS.map((h,i)=><THead key={i} align={i>=3&&h&&h!=='Conta'?'right':'left'}>{h}</THead>)}
+              </div>
+
+              {pg.fatia.map(x=>(
+                <div className="data-row" key={x.sku} style={{display:'grid',gridTemplateColumns:GRID,gap:8,
+                  padding:'12px var(--layout-card-pad)',alignItems:'center',borderBottom:'1px solid var(--border-subtle)'}}>
+
+                  <span className="tab" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',
+                    color:x.posicao<=3?'var(--action-primary)':'var(--text-subtle)'}}>{x.posicao}</span>
+
+                  <Thumb src={x.foto} alt={x.titulo} size={44}/>
+
+                  <div style={{minWidth:0}}>
+                    <div className="ell" title={x.titulo} style={{fontSize:'var(--text-sm)',
+                      fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{x.titulo}</div>
+                    <div style={{display:'flex',gap:6,alignItems:'center',marginTop:4,flexWrap:'wrap'}}>
+                      <span className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{x.sku}</span>
+                      {!x.temCusto&&<Badge tone="warning" dot>Sem custo</Badge>}
+                      {x.estoque!=null&&x.estoque<=3&&<Badge tone="danger">Estoque {x.estoque}</Badge>}
+                      {x.status&&x.status!=='active'&&<Badge tone="neutral">Pausado</Badge>}
+                    </div>
+                  </div>
+
+                  {multiConta&&<div data-label="Conta" className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{x.conta}</div>}
+
+                  {/* Faturamento com a barra da participação */}
+                  <div data-label="Faturamento" style={{textAlign:'right'}}>
+                    <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{BRL(x.faturamento)}</div>
+                    <div style={{height:4,background:'var(--viz-track)',borderRadius:'var(--radius-pill)',marginTop:4,overflow:'hidden'}}>
+                      <div style={{width:`${Math.min(100,x.pctFaturamento)}%`,height:'100%',background:'var(--viz-1)'}}/>
+                    </div>
+                    <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{PCT(x.pctFaturamento)} do total</span>
+                  </div>
+
+                  <div data-label="Lucro" style={{textAlign:'right'}}>
+                    {x.temCusto?(
+                      <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-extrabold)',
+                        color:x.lucro>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>{BRL(x.lucro)}</span>
+                    ):<span style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>—</span>}
+                  </div>
+
+                  <div data-label="Margem" className="tab" style={{textAlign:'right',fontSize:'var(--text-sm)',
+                    fontWeight:'var(--weight-semibold)',
+                    color:!x.temCusto?'var(--text-subtle)':x.margem>=15?'var(--status-success-fg)':x.margem>=0?'var(--status-warning-fg)':'var(--status-danger-fg)'}}>
+                    {x.temCusto?PCT(x.margem):'—'}
+                  </div>
+
+                  <div data-label="Vendas" style={{textAlign:'right'}}>
+                    <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>{NUM(x.unidades)}</div>
+                    <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>
+                      {NUM(x.pedidos)} {x.pedidos===1?'pedido':'pedidos'}
+                    </span>
+                  </div>
+
+                  <div data-label="Canceladas" style={{textAlign:'right'}}>
+                    {x.canceladas>0?(
+                      <>
+                        <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--status-danger-fg)'}}>{NUM(x.canceladas)}</div>
+                        <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{PCT(x.taxaCancelamento)}</span>
+                      </>
+                    ):<span className="tab" style={{fontSize:'var(--text-sm)',color:'var(--text-subtle)'}}>0</span>}
+                  </div>
+
+                  <div data-label="Curva ABC" style={{textAlign:'right'}}>
+                    <Badge tone={CLASSE_TOM[x.classe]}>{x.classe}</Badge>
+                  </div>
+                </div>
+              ))}
+
+              {lista.length===0&&(
+                <Empty icon="package-search"
+                  title={busca||classe!=='todas'?'Nenhum produto encontrado':'Nenhuma venda no período'}
+                  description={busca||classe!=='todas'?'Ajuste a busca ou o filtro da curva.':'Troque o período no filtro acima.'}
+                  action={(busca||classe!=='todas')&&<Btn variant="neutral" size="sm" onClick={()=>{setBusca('');setClasse('todas');}}>Limpar filtros</Btn>}/>
+              )}
+            </div>
+          </div>
+          <Paginacao {...pg} rotulo="produtos"/>
+        </Card>
+
+        <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
+          A curva ABC divide os produtos pela participação acumulada no faturamento: <strong>A</strong> concentra os primeiros 80%,
+          <strong> B</strong> os 15% seguintes e <strong>C</strong> os 5% finais. Os cancelamentos não entram no faturamento nem no lucro.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* ══ VIEW: CONCORRENTES ═════════════════════════════════════ */
 // Rotulo curto para cada tipo de mudanca detectada
 const TOM_MUDANCA={
@@ -1839,6 +2157,7 @@ function ViewIA({dados,periodo,rotuloPeriodo}){
 const NAV=[
   {id:'dashboard',icon:'layout-dashboard',label:'Visão geral',curto:'Início'},
   {id:'pedidos',icon:'shopping-cart',label:'Pedidos',curto:'Pedidos'},
+  {id:'skus',icon:'boxes',label:'Por produto',curto:'Produtos'},
   {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
   {id:'concorrentes',icon:'crosshair',label:'Concorrentes',curto:'Rivais'},
   {id:'ia',icon:'sparkles',label:'Análise IA',curto:'IA'},
@@ -2036,7 +2355,7 @@ function AppLogado({user,erroConexao}){
             {err&&<div style={{marginTop:8}}><Btn variant="neutral" icon="refresh-cw" disabled={loading} onClick={carregar}>Tentar novamente</Btn></div>}
           </div>}
           {!dados&&!loading&&err?null:<>
-          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos}/>}
+          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos} onIrParaSkus={()=>navegar('skus')}/>}
           {view==='pedidos'&&(
             <div>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
@@ -2054,6 +2373,7 @@ function AppLogado({user,erroConexao}){
               <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} initialFilter={filtroPedidos} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
             </div>
           )}
+          {view==='skus'&&<ViewSkus dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onIrParaAnuncios={revisarCustos}/>}
           {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos}/>}
           {view==='concorrentes'&&<ViewConcorrentes/>}
           {view==='ia'&&<ViewIA dados={dados} periodo={periodo} rotuloPeriodo={rotuloPeriodo}/>}
