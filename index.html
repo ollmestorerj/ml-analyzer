@@ -955,6 +955,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
 
   // Descontar o investimento em ads do lucro — so quando o usuario pede
   const [descontarAds,setDescontarAds]=useState(false);
+  const [modoProdutos,setModoProdutos]=useState('grade');
   const invAds   = m.investimentoAds ?? ads?.investimento ?? 0;
   const temAds   = invAds > 0;
   const lucroExib  = descontarAds&&temAds ? (m.lucroComAds  ?? (m.lucro-invAds)) : m.lucro;
@@ -1114,13 +1115,51 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
       )}
       {/* ADS */}
       {!loading&&<PainelAds ads={ads} dataRef={m.from} onSalvo={onRefresh} periodoLabel={rotuloPeriodo}/>}
+      {/* RESULTADO POR PRODUTO */}
+      {!loading&&dados?.skus?.length>0&&(
+        <div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)',
+            gap:'var(--space-3)',flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'baseline',gap:'var(--space-2)',flexWrap:'wrap'}}>
+              <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Produtos</h2>
+              <span style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
+                {NUM(dados.skus.length)} {dados.skus.length===1?'vendido':'vendidos'} · {rotuloPeriodo}
+              </span>
+            </div>
+            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              {[['grade','grid-2x2','Cards'],['tabela','table','Tabela']].map(([id,ic,lbl])=>{
+                const on=modoProdutos===id;
+                return <button key={id} onClick={()=>setModoProdutos(id)} aria-pressed={on} title={lbl}
+                  style={{display:'inline-flex',alignItems:'center',gap:5,height:32,padding:'0 12px',
+                    borderRadius:'var(--radius-md)',cursor:'pointer',fontSize:'var(--text-xs)',
+                    fontWeight:'var(--weight-semibold)',transition:'var(--tr)',
+                    background:on?'var(--surface-active)':'transparent',
+                    border:`1px solid ${on?'var(--border-strong)':'transparent'}`,
+                    color:on?'var(--text-strong)':'var(--text-muted)'}}>
+                  <Icon name={ic} size={14}/>{lbl}
+                </button>;
+              })}
+            </div>
+          </div>
+
+          {modoProdutos==='grade'
+            ? <GradeSkus dados={dados} loading={loading} limite={12}
+                rotuloPeriodo={rotuloPeriodo} onVerTodos={onIrParaSkus}/>
+            : <>
+                <TabelaSkus dados={dados} loading={loading} onRefresh={onRefresh} compacta limite={10}/>
+                <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
+                  Custo e imposto são editáveis aqui mesmo — inclusive para produtos que já não têm estoque.
+                </p>
+              </>}
+        </div>
+      )}
+
       {/* PEDIDOS */}
       <div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-3)',gap:'var(--space-3)',flexWrap:'wrap'}}>
           <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Pedidos</h2>
           <div style={{display:'flex',gap:'var(--space-2)',alignItems:'center'}}>
             <Badge>{NUM(dados?.pedidos?.length||0)} no período</Badge>
-            {onIrParaSkus&&<Btn variant="neutral" size="sm" icon="boxes" onClick={onIrParaSkus}>Ver por produto</Btn>}
           </div>
         </div>
         <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={onRefresh} onIrParaAnuncios={onIrParaAnuncios} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
@@ -1157,7 +1196,9 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     if(soSemCusto){
       if(a.custo>0)return false;
     }
-    if(status!=='todos'&&(status==='active'?a.status!=='active':a.status==='active'))return false;
+    if(status==='active'&&a.status!=='active')return false;
+    if(status==='inactive'&&a.status==='active')return false;
+    if(status==='semestoque'&&(a.estoque??1)>0)return false;
     if(!busca)return true;
     const q=busca.toLowerCase();
     return String(a.titulo||'').toLowerCase().includes(q)||String(a.sku).toLowerCase().includes(q);
@@ -1277,14 +1318,14 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
         </div>
       </div>
       <div className="toolbar">
-        <select className="fld" aria-label="Status do anúncio" style={{width:'auto'}} value={status} onChange={e=>setStatus(e.target.value)}><option value="todos">Todos os status</option><option value="active">Ativos</option><option value="inactive">Inativos</option></select>
+        <select className="fld" aria-label="Status do anúncio" style={{width:'auto'}} value={status} onChange={e=>setStatus(e.target.value)}><option value="todos">Todos os status</option><option value="active">Ativos</option><option value="inactive">Pausados e encerrados</option><option value="semestoque">Sem estoque</option></select>
         <select className="fld" aria-label="Ordenar anúncios" style={{width:'auto'}} value={ordem} onChange={e=>setOrdem(e.target.value)}><option value="original">Ordem original</option><option value="titulo">Título: A a Z</option><option value="vendas">Mais vendidos</option><option value="estoque">Menor estoque</option><option value="preco">Maior preço</option></select>
       </div>
       <div className="filter-summary" aria-live="polite">
         <span>{NUM(anuncios.length)} de {NUM(todos.length)} anúncios</span>
         {busca&&<button className="filter-chip" onClick={()=>setBusca('')} aria-label="Remover busca">{busca}<Icon name="x" size={12}/></button>}
         {soSemCusto&&<button className="filter-chip" onClick={()=>setSoSemCusto(false)}>Sem custo<Icon name="x" size={12}/></button>}
-        {status!=='todos'&&<button className="filter-chip" onClick={()=>setStatus('todos')}>{status==='active'?'Ativos':'Inativos'}<Icon name="x" size={12}/></button>}
+        {status!=='todos'&&<button className="filter-chip" onClick={()=>setStatus('todos')}>{{active:'Ativos',inactive:'Pausados e encerrados',semestoque:'Sem estoque'}[status]}<Icon name="x" size={12}/></button>}
         {(busca||soSemCusto||status!=='todos')&&<Btn variant="ghost" size="sm" onClick={()=>{setBusca('');setSoSemCusto(false);setStatus('todos');}}>Limpar filtros</Btn>}
       </div>
       {/* Resultado da sincronizacao */}
@@ -1329,7 +1370,10 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
                   <div className="ell" title={a.titulo} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{a.titulo}</div>
                   <div style={{marginTop:5,display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
                     {editado&&<Badge tone="brand">Não salvo</Badge>}
-                    <Badge tone={a.status==='active'?'success':'neutral'} dot>{a.status==='active'?'Ativo':'Inativo'}</Badge>
+                    <Badge tone={a.status==='active'?'success':a.status==='paused'?'warning':'neutral'} dot>
+                      {a.status==='active'?'Ativo':a.status==='paused'?'Pausado':a.status==='closed'?'Encerrado':a.status}
+                    </Badge>
+                    {(a.estoque??0)===0&&<Badge tone="neutral">Sem estoque</Badge>}
                     <span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>{NUM(a.vendas)} vendas</span>
                   </div>
                 </div>
@@ -1398,17 +1442,214 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     </div>
   );
 }
-/* ══ VIEW: POR SKU ══════════════════════════════════════════ */
+/* ══ GRADE DE PRODUTOS ══════════════════════════════════════
+   Cards com anel de participação — troca a métrica pelas pílulas. */
+
+// Anel de progresso: mostra a fatia daquele produto na métrica escolhida
+function Anel({pct,cor='var(--green-500)',tamanho=44,grossura=4,children}){
+  const r=(tamanho-grossura)/2;
+  const circ=2*Math.PI*r;
+  const preenchido=Math.max(0,Math.min(100,pct||0));
+  return (
+    <div style={{position:'relative',width:tamanho,height:tamanho,flexShrink:0}}>
+      <svg width={tamanho} height={tamanho} style={{display:'block',transform:'rotate(-90deg)'}}>
+        <circle cx={tamanho/2} cy={tamanho/2} r={r} fill="none"
+          stroke="var(--viz-track)" strokeWidth={grossura}/>
+        <circle cx={tamanho/2} cy={tamanho/2} r={r} fill="none"
+          stroke={cor} strokeWidth={grossura} strokeLinecap="round"
+          strokeDasharray={`${circ*preenchido/100} ${circ}`}
+          style={{transition:'stroke-dasharray var(--duration-slow) var(--ease-out)'}}/>
+      </svg>
+      <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Definição de cada métrica: como ordenar, formatar e colorir
+const METRICAS_SKU={
+  faturamento:{
+    label:'Faturamento', cor:'var(--green-500)',
+    valor:x=>x.faturamento, fmt:BRL,
+    ok:x=>x.faturamento>0,
+  },
+  lucro:{
+    label:'Lucro', cor:'var(--purple-500)',
+    valor:x=>x.temCusto?x.lucro:null, fmt:v=>v==null?'—':BRL(v),
+    ok:x=>x.temCusto,
+    corValor:x=>x.lucro>=0?'var(--status-success-fg)':'var(--status-danger-fg)',
+  },
+  unidades:{
+    label:'Vendas', cor:'var(--blue-500)',
+    valor:x=>x.unidades, fmt:v=>`${NUM(v)} un`,
+    ok:x=>x.unidades>0,
+  },
+  canceladas:{
+    label:'Canceladas', cor:'var(--red-500)',
+    valor:x=>x.canceladas, fmt:v=>`${NUM(v)} ${v===1?'venda':'vendas'}`,
+    ok:x=>x.canceladas>0,
+  },
+  margem:{
+    label:'Margem', cor:'var(--amber-500)',
+    valor:x=>x.temCusto?x.margem:null, fmt:v=>v==null?'—':PCT(v),
+    ok:x=>x.temCusto, semFatia:true,
+    corValor:x=>x.margem>=15?'var(--status-success-fg)':x.margem>=0?'var(--status-warning-fg)':'var(--status-danger-fg)',
+  },
+  estoque:{
+    label:'Estoque', cor:'var(--viz-6)',
+    valor:x=>x.estoque, fmt:v=>v==null?'—':`${NUM(v)} un`,
+    ok:x=>x.estoque!=null, semFatia:true,
+    corValor:x=>x.estoque<=3?'var(--status-danger-fg)':'var(--text-strong)',
+  },
+};
+
+function GradeSkus({dados,loading,limite=12,onVerTodos,rotuloPeriodo}){
+  const [metrica,setMetrica]=useState('faturamento');
+  const todos=dados?.skus||[];
+  const def=METRICAS_SKU[metrica];
+
+  // Ordena pela métrica e calcula a fatia de cada um
+  const lista=todos
+    .filter(def.ok)
+    .map(x=>({...x,_v:def.valor(x)}))
+    .sort((a,b)=>(b._v??-Infinity)-(a._v??-Infinity));
+
+  const soma=lista.reduce((a,x)=>a+(Number(x._v)||0),0);
+  const comFatia=lista.map(x=>({
+    ...x,
+    _pct: def.semFatia
+      ? Math.max(0,Math.min(100,Number(x._v)||0))
+      : (soma>0?((Number(x._v)||0)/soma)*100:0),
+  }));
+
+  const exibidos=comFatia.slice(0,limite);
+
+  if(loading)return (
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:'var(--space-3)'}}>
+      {[...Array(8)].map((_,i)=>(
+        <div key={i} style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',
+          borderRadius:'var(--radius-xl)',padding:'var(--space-3)',display:'flex',gap:'var(--space-3)',alignItems:'center'}}>
+          <Skel w={44} h={44} r="50%"/><Skel w={44} h={44} r="var(--radius-md)"/>
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}><Skel h={12}/><Skel w="60%" h={11}/></div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Pílulas de métrica */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center',marginBottom:'var(--space-4)'}}>
+        {['faturamento','lucro','unidades','canceladas'].map(k=>{
+          const on=metrica===k;
+          return <button key={k} onClick={()=>setMetrica(k)} aria-pressed={on}
+            style={{height:34,padding:'0 16px',borderRadius:'var(--radius-pill)',cursor:'pointer',
+              fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',transition:'var(--tr)',
+              background:on?'var(--neutral-900)':'var(--surface-card)',
+              color:on?'#fff':'var(--text-body)',
+              border:`1px solid ${on?'var(--neutral-900)':'var(--border-default)'}`}}>
+            {METRICAS_SKU[k].label}
+          </button>;
+        })}
+
+        <span style={{width:1,height:22,background:'var(--border-default)',margin:'0 4px'}}/>
+
+        {['margem','estoque'].map(k=>{
+          const on=metrica===k;
+          return <button key={k} onClick={()=>setMetrica(k)} aria-pressed={on}
+            style={{height:34,padding:'0 16px',borderRadius:'var(--radius-pill)',cursor:'pointer',
+              fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',transition:'var(--tr)',
+              background:on?'var(--neutral-900)':'var(--surface-card)',
+              color:on?'#fff':'var(--text-body)',
+              border:`1px solid ${on?'var(--neutral-900)':'var(--border-default)'}`}}>
+            {METRICAS_SKU[k].label}
+          </button>;
+        })}
+
+        {onVerTodos&&(
+          <Btn variant="neutral" size="sm" icon="list" onClick={onVerTodos} style={{marginLeft:'auto'}}>
+            Ver em tabela
+          </Btn>
+        )}
+      </div>
+
+      {/* Grade */}
+      {exibidos.length>0?(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(296px,1fr))',gap:'var(--space-3)'}}>
+          {exibidos.map((x,i)=>{
+            const corValor=def.corValor?def.corValor(x):'var(--text-strong)';
+            return (
+              <div key={x.sku} title={x.titulo}
+                style={{background:'var(--surface-card)',border:'1px solid var(--border-default)',
+                  borderRadius:'var(--radius-xl)',padding:'var(--space-3)',
+                  display:'flex',alignItems:'center',gap:'var(--space-3)',minWidth:0,
+                  boxShadow:'var(--shadow-xs)',transition:'var(--tr)'}}
+                onMouseEnter={e=>{e.currentTarget.style.boxShadow='var(--shadow-sm)';e.currentTarget.style.borderColor='var(--border-strong)';}}
+                onMouseLeave={e=>{e.currentTarget.style.boxShadow='var(--shadow-xs)';e.currentTarget.style.borderColor='var(--border-default)';}}>
+
+                <Anel pct={x._pct} cor={def.cor}>
+                  <span className="tab" style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-extrabold)',
+                    color:'var(--text-strong)',letterSpacing:'-.02em'}}>
+                    {def.semFatia?(i+1):`${x._pct.toFixed(x._pct<10?1:0)}%`}
+                  </span>
+                </Anel>
+
+                <Thumb src={x.foto} alt={x.titulo} size={44}/>
+
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',color:'var(--text-body)',
+                    lineHeight:1.35,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>
+                    {x.titulo}
+                  </div>
+                  <div style={{display:'flex',gap:5,alignItems:'center',marginTop:3,flexWrap:'wrap'}}>
+                    <span className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{x.sku}</span>
+                    {!x.temCusto&&<Badge tone="warning">Sem custo</Badge>}
+                  </div>
+                </div>
+
+                <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',
+                  color:corValor,whiteSpace:'nowrap'}}>
+                  {def.fmt(x._v)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ):(
+        <Card>
+          <Empty icon="package-search"
+            title={metrica==='canceladas'?'Nenhum cancelamento no período':'Nada para mostrar aqui'}
+            description={metrica==='lucro'||metrica==='margem'
+              ?'Cadastre o custo dos produtos para ver o lucro.'
+              :`Troque a métrica ou o período${rotuloPeriodo?` (${rotuloPeriodo})`:''}.`}/>
+        </Card>
+      )}
+
+      {comFatia.length>limite&&(
+        <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)'}}>
+          Mostrando {limite} de {NUM(comFatia.length)} produtos ordenados por {def.label.toLowerCase()}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ══ TABELA POR SKU (usada na Visão geral e na aba Produtos) ══ */
 const CLASSE_TOM={A:'success',B:'info',C:'neutral'};
 
-function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,
-                   contasAtivas,toggleConta,onIrParaAnuncios}){
+function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null}){
   const [busca,setBusca]=useState('');
   const [ordem,setOrdem]=useState('faturamento');
   const [classe,setClasse]=useState('todas');
+  const [rascunho,setRascunho]=useState({});
+  const [salvando,setSalvando]=useState(false);
+  const [msg,setMsg]=useState('');
 
   const todos=dados?.skus||[];
   const multiConta=(dados?.contasUsadas?.length||0)>1;
+
+  useEffect(()=>{setRascunho({});setMsg('');},[dados]);
 
   let lista=todos.filter(x=>{
     if(classe!=='todas'&&x.classe!==classe)return false;
@@ -1419,94 +1660,83 @@ function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotulo
 
   const ord={
     faturamento:(a,b)=>b.faturamento-a.faturamento,
-    lucro:      (a,b)=>b.lucro-a.lucro,
-    margem:     (a,b)=>(b.margem??-999)-(a.margem??-999),
-    unidades:   (a,b)=>b.unidades-a.unidades,
-    canceladas: (a,b)=>b.canceladas-a.canceladas,
-    prejuizo:   (a,b)=>a.lucro-b.lucro,
+    lucro:(a,b)=>b.lucro-a.lucro,
+    margem:(a,b)=>(b.margem??-999)-(a.margem??-999),
+    unidades:(a,b)=>b.unidades-a.unidades,
+    canceladas:(a,b)=>b.canceladas-a.canceladas,
+    prejuizo:(a,b)=>a.lucro-b.lucro,
   }[ordem];
   lista=[...lista].sort(ord);
 
+  const limitada=limite?lista.slice(0,limite):lista;
   const pg=usePaginacao(lista,[busca,ordem,classe,todos.length]);
+  const linhas=limite?limitada:pg.fatia;
 
-  // Totais do que está filtrado
-  const tot=lista.reduce((a,x)=>({
-    faturamento:a.faturamento+x.faturamento,
-    lucro:a.lucro+x.lucro,
-    unidades:a.unidades+x.unidades,
-    canceladas:a.canceladas+x.canceladas,
-  }),{faturamento:0,lucro:0,unidades:0,canceladas:0});
+  // ── Edição de custo direto aqui: funciona mesmo para produto sem estoque ──
+  const val=(x,campo)=>{
+    const r=rascunho[x.sku];
+    if(r&&r[campo]!==undefined)return r[campo];
+    return (campo==='custo'?x.custoUnit:x.impostoPct)||'';
+  };
+  const setCampo=(sku,campo,v)=>{setRascunho(d=>({...d,[sku]:{...(d[sku]||{}),[campo]:v}}));setMsg('');};
 
-  const semCusto=todos.filter(x=>!x.temCusto&&x.faturamento>0).length;
-  const negativos=todos.filter(x=>x.temCusto&&x.lucro<0).length;
+  const alterados=Object.keys(rascunho).filter(sku=>{
+    const x=todos.find(t=>String(t.sku)===String(sku));
+    if(!x)return false;
+    const r=rascunho[sku];
+    const c=r.custo!==undefined?parseFloat(r.custo)||0:(x.custoUnit||0);
+    const i=r.imposto!==undefined?parseFloat(r.imposto)||0:(x.impostoPct||0);
+    return c!==(x.custoUnit||0)||i!==(x.impostoPct||0);
+  });
+
+  async function salvarTudo(){
+    if(!alterados.length)return;
+    const invalido=alterados.some(sku=>{
+      const r=rascunho[sku];
+      return (r.custo!==undefined&&r.custo!==''&&(!Number.isFinite(Number(r.custo))||Number(r.custo)<0))||
+             (r.imposto!==undefined&&r.imposto!==''&&(!Number.isFinite(Number(r.imposto))||Number(r.imposto)<0||Number(r.imposto)>100));
+    });
+    if(invalido){setMsg('Erro: custo não pode ser negativo e imposto deve ficar entre 0 e 100%.');return;}
+    setSalvando(true);setMsg('');
+    try{
+      const itens=alterados.map(sku=>{
+        const x=todos.find(t=>String(t.sku)===String(sku));
+        const r=rascunho[sku];
+        return{sku,
+          custo:r.custo!==undefined?parseFloat(r.custo)||0:(x.custoUnit||0),
+          imposto:r.imposto!==undefined?parseFloat(r.imposto)||0:(x.impostoPct||0)};
+      });
+      await call('mlSalvarCustosLote',{itens});
+      setMsg(`${itens.length} ${itens.length===1?'produto salvo':'produtos salvos'}`);
+      setRascunho({});
+      onRefresh?.(true);
+    }catch(e){setMsg('Erro: '+e.message);}
+    finally{setSalvando(false);}
+  }
 
   const GRID=multiConta
-    ? '40px 52px minmax(0,1fr) 96px 112px 104px 78px 74px 78px 60px'
-    : '40px 52px minmax(0,1fr) 112px 104px 78px 74px 78px 60px';
+    ? '34px 48px minmax(0,1fr) 84px 104px 96px 68px 66px 70px 92px 68px 48px'
+    : '34px 48px minmax(0,1fr) 104px 96px 68px 66px 70px 92px 68px 48px';
   const HEADS=multiConta
-    ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Canceladas','ABC']
-    : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Canceladas','ABC'];
+    ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC']
+    : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC'];
 
   if(loading)return (
-    <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
-      {[...Array(6)].map((_,i)=>(
-        <Card key={i}>
-          <div style={{display:'flex',gap:'var(--space-3)',alignItems:'center'}}>
-            <Skel w={48} h={48} r="var(--radius-md)"/>
-            <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={14}/><Skel w="40%" h={11}/></div>
-            <Skel w={90} h={26}/><Skel w={80} h={26}/>
-          </div>
-        </Card>
+    <Card pad={false}>
+      {[...Array(5)].map((_,i)=>(
+        <div key={i} style={{padding:'14px var(--layout-card-pad)',borderBottom:i<4?'1px solid var(--border-subtle)':'none',
+          display:'flex',gap:'var(--space-3)',alignItems:'center'}}>
+          <Skel w={44} h={44} r="var(--radius-md)"/>
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={13}/><Skel w="35%" h={11}/></div>
+          <Skel w={80} h={24}/><Skel w={80} h={24}/>
+        </div>
       ))}
-    </div>
+    </Card>
   );
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
-
-      {/* Filtros de período */}
-      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
-        <PeriodFilter value={periodo} onChange={setPeriodo} intervalo={intervalo} onIntervalo={onIntervalo}/>
-        <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
-      </div>
-
-      {/* Resumo do que está na tela */}
-      <section className="dashboard-overview" aria-label="Totais por produto">
-        {[
-          ['Faturamento',BRL(tot.faturamento),`${NUM(lista.length)} ${lista.length===1?'produto':'produtos'}`],
-          ['Lucro',BRL(tot.lucro),tot.faturamento>0?`Margem de ${PCT(tot.lucro/tot.faturamento*100)}`:'—'],
-          ['Unidades',NUM(tot.unidades),tot.canceladas>0?`${NUM(tot.canceladas)} vendas canceladas`:'Nenhum cancelamento'],
-        ].map(([label,value,caption],i)=>(
-          <div key={label}>
-            <Overline>{label}</Overline>
-            <div className="metric-value" style={{color:i===1?(tot.lucro<0?'var(--status-danger-fg)':'var(--purple-500)'):'var(--text-strong)'}}>{value}</div>
-            <div className="metric-caption">{caption}</div>
-          </div>
-        ))}
-      </section>
-
-      {/* Avisos */}
-      {(semCusto>0||negativos>0)&&(
-        <section aria-label="Pontos de atenção">
-          {semCusto>0&&<div className="attention">
-            <div className="attention-copy">
-              <Icon name="triangle-alert" color="var(--status-warning-fg)"/>
-              <span><strong>{NUM(semCusto)} {semCusto===1?'produto vendeu':'produtos venderam'} sem custo cadastrado</strong><br/>O lucro desses está superestimado.</span>
-            </div>
-            <Btn variant="neutral" size="sm" icon="pencil" onClick={onIrParaAnuncios}>Cadastrar custos</Btn>
-          </div>}
-          {negativos>0&&<div className="attention">
-            <div className="attention-copy">
-              <Icon name="trending-down" color="var(--status-danger-fg)"/>
-              <span><strong>{NUM(negativos)} {negativos===1?'produto deu':'produtos deram'} prejuízo</strong><br/>Revise preço, custo ou frete.</span>
-            </div>
-            <Btn variant="neutral" size="sm" icon="arrow-down" onClick={()=>setOrdem('prejuizo')}>Ver os piores</Btn>
-          </div>}
-        </section>
-      )}
-
-      {/* Barra de ferramentas */}
-      <div>
+    <div style={{paddingBottom:alterados.length>0?96:0}}>
+      {!compacta&&(
         <div className="toolbar">
           <div style={{position:'relative',flex:'1 1 240px',maxWidth:340}}>
             <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
@@ -1525,60 +1755,54 @@ function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotulo
           </select>
           <select aria-label="Curva ABC" className="fld" style={{width:'auto'}} value={classe} onChange={e=>setClasse(e.target.value)}>
             <option value="todas">Curva ABC: todas</option>
-            <option value="A">Classe A — 80% do faturamento</option>
-            <option value="B">Classe B — próximos 15%</option>
-            <option value="C">Classe C — últimos 5%</option>
+            <option value="A">Classe A</option>
+            <option value="B">Classe B</option>
+            <option value="C">Classe C</option>
           </select>
         </div>
+      )}
 
-        {(busca||classe!=='todas')&&(
-          <div className="filter-summary" aria-live="polite">
-            <span>{NUM(lista.length)} de {NUM(todos.length)} produtos</span>
-            {busca&&<button className="filter-chip" onClick={()=>setBusca('')}>{busca}<Icon name="x" size={12}/></button>}
-            {classe!=='todas'&&<button className="filter-chip" onClick={()=>setClasse('todas')}>Classe {classe}<Icon name="x" size={12}/></button>}
-            <Btn variant="ghost" size="sm" onClick={()=>{setBusca('');setClasse('todas');}}>Limpar filtros</Btn>
-          </div>
-        )}
+      <Card pad={false}>
+        <div className="data-scroll" style={compacta?{maxHeight:'none'}:undefined}>
+          <div className="data-grid" style={{minWidth:multiConta?1120:1040}}>
+            <div className="data-head" style={{display:'grid',gridTemplateColumns:GRID,gap:8,
+              padding:'12px var(--layout-card-pad)',background:'linear-gradient(180deg,var(--surface-sunken),#fff)',
+              borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
+              {HEADS.map((h,i)=><THead key={i} align={i>=3&&h&&h!=='Conta'?'right':'left'}>{h}</THead>)}
+            </div>
 
-        {/* Tabela */}
-        <Card pad={false}>
-          <div className="data-scroll">
-            <div className="data-grid" style={{minWidth:multiConta?1020:940}}>
-              <div className="data-head" style={{display:'grid',gridTemplateColumns:GRID,gap:8,
-                padding:'12px var(--layout-card-pad)',background:'linear-gradient(180deg,var(--surface-sunken),#fff)',
-                borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
-                {HEADS.map((h,i)=><THead key={i} align={i>=3&&h&&h!=='Conta'?'right':'left'}>{h}</THead>)}
-              </div>
-
-              {pg.fatia.map(x=>(
-                <div className="data-row" key={x.sku} style={{display:'grid',gridTemplateColumns:GRID,gap:8,
-                  padding:'12px var(--layout-card-pad)',alignItems:'center',borderBottom:'1px solid var(--border-subtle)'}}>
+            {linhas.map(x=>{
+              const editado=alterados.includes(String(x.sku));
+              return (
+                <div className="data-row" data-dirty={editado} key={x.sku}
+                  style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
+                    alignItems:'center',borderBottom:'1px solid var(--border-subtle)',
+                    background:editado?'var(--surface-selected)':'transparent'}}>
 
                   <span className="tab" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',
                     color:x.posicao<=3?'var(--action-primary)':'var(--text-subtle)'}}>{x.posicao}</span>
 
-                  <Thumb src={x.foto} alt={x.titulo} size={44}/>
+                  <Thumb src={x.foto} alt={x.titulo} size={40}/>
 
                   <div style={{minWidth:0}}>
                     <div className="ell" title={x.titulo} style={{fontSize:'var(--text-sm)',
                       fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{x.titulo}</div>
                     <div style={{display:'flex',gap:6,alignItems:'center',marginTop:4,flexWrap:'wrap'}}>
                       <span className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{x.sku}</span>
-                      {!x.temCusto&&<Badge tone="warning" dot>Sem custo</Badge>}
+                      {editado&&<Badge tone="brand">Não salvo</Badge>}
+                      {!x.temCusto&&!editado&&<Badge tone="warning" dot>Sem custo</Badge>}
                       {x.estoque!=null&&x.estoque<=3&&<Badge tone="danger">Estoque {x.estoque}</Badge>}
-                      {x.status&&x.status!=='active'&&<Badge tone="neutral">Pausado</Badge>}
+                      {x.estoque===0&&<Badge tone="neutral">Sem estoque</Badge>}
                     </div>
                   </div>
 
                   {multiConta&&<div data-label="Conta" className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{x.conta}</div>}
 
-                  {/* Faturamento com a barra da participação */}
                   <div data-label="Faturamento" style={{textAlign:'right'}}>
                     <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{BRL(x.faturamento)}</div>
                     <div style={{height:4,background:'var(--viz-track)',borderRadius:'var(--radius-pill)',marginTop:4,overflow:'hidden'}}>
                       <div style={{width:`${Math.min(100,x.pctFaturamento)}%`,height:'100%',background:'var(--viz-1)'}}/>
                     </div>
-                    <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{PCT(x.pctFaturamento)} do total</span>
                   </div>
 
                   <div data-label="Lucro" style={{textAlign:'right'}}>
@@ -1596,9 +1820,7 @@ function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotulo
 
                   <div data-label="Vendas" style={{textAlign:'right'}}>
                     <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>{NUM(x.unidades)}</div>
-                    <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>
-                      {NUM(x.pedidos)} {x.pedidos===1?'pedido':'pedidos'}
-                    </span>
+                    <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{NUM(x.pedidos)}p</span>
                   </div>
 
                   <div data-label="Canceladas" style={{textAlign:'right'}}>
@@ -1610,28 +1832,144 @@ function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotulo
                     ):<span className="tab" style={{fontSize:'var(--text-sm)',color:'var(--text-subtle)'}}>0</span>}
                   </div>
 
+                  {/* Custo editável — o SKU vem das vendas, então aparece mesmo sem estoque */}
+                  <div data-label="Custo unitário (R$)" className="cost-cell" style={{position:'relative'}}>
+                    <span className="cost-prefix" style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',
+                      fontSize:'var(--text-2xs)',color:'var(--text-muted)',pointerEvents:'none'}}>R$</span>
+                    <input disabled={salvando} className="fld mono" type="number" min="0" step="0.01"
+                      value={val(x,'custo')} placeholder="0,00" aria-label={`Custo de ${x.titulo}`}
+                      onChange={e=>setCampo(x.sku,'custo',e.target.value)}
+                      style={{height:'var(--control-h-sm)',padding:'0 6px 0 26px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
+                  </div>
+
+                  <div data-label="Imposto (%)" className="tax-cell">
+                    <input disabled={salvando} className="fld mono" type="number" min="0" max="100" step="0.1"
+                      value={val(x,'imposto')} placeholder="0" aria-label={`Imposto de ${x.titulo}`}
+                      onChange={e=>setCampo(x.sku,'imposto',e.target.value)}
+                      style={{height:'var(--control-h-sm)',padding:'0 6px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
+                  </div>
+
                   <div data-label="Curva ABC" style={{textAlign:'right'}}>
                     <Badge tone={CLASSE_TOM[x.classe]}>{x.classe}</Badge>
                   </div>
                 </div>
-              ))}
+              );
+            })}
 
-              {lista.length===0&&(
-                <Empty icon="package-search"
-                  title={busca||classe!=='todas'?'Nenhum produto encontrado':'Nenhuma venda no período'}
-                  description={busca||classe!=='todas'?'Ajuste a busca ou o filtro da curva.':'Troque o período no filtro acima.'}
-                  action={(busca||classe!=='todas')&&<Btn variant="neutral" size="sm" onClick={()=>{setBusca('');setClasse('todas');}}>Limpar filtros</Btn>}/>
-              )}
-            </div>
+            {lista.length===0&&(
+              <Empty icon="package-search"
+                title={busca||classe!=='todas'?'Nenhum produto encontrado':'Nenhuma venda no período'}
+                description={busca||classe!=='todas'?'Ajuste a busca ou o filtro da curva.':'Troque o período no filtro acima.'}
+                action={(busca||classe!=='todas')&&<Btn variant="neutral" size="sm" onClick={()=>{setBusca('');setClasse('todas');}}>Limpar filtros</Btn>}/>
+            )}
           </div>
-          <Paginacao {...pg} rotulo="produtos"/>
-        </Card>
+        </div>
+        {!limite&&<Paginacao {...pg} rotulo="produtos"/>}
+      </Card>
 
-        <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
-          A curva ABC divide os produtos pela participação acumulada no faturamento: <strong>A</strong> concentra os primeiros 80%,
-          <strong> B</strong> os 15% seguintes e <strong>C</strong> os 5% finais. Os cancelamentos não entram no faturamento nem no lucro.
-        </p>
+      {alterados.length===0&&msg&&(
+        <div style={{marginTop:'var(--space-3)',display:'inline-flex'}}>
+          <Note tone={msg.startsWith('Erro')?'danger':'success'} icon={msg.startsWith('Erro')?'alert-octagon':'check-circle-2'}>{msg}</Note>
+        </div>
+      )}
+
+      {alterados.length>0&&(
+        <div className="save-bar" role="region" aria-label="Alterações pendentes"
+          style={{position:'fixed',bottom:0,left:0,right:0,background:'rgba(16,13,20,.96)',
+            borderTop:'1px solid var(--border-inverse)',padding:'var(--space-3) var(--layout-gutter)',
+            display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
+            flexWrap:'wrap',zIndex:50,boxShadow:'var(--shadow-lg)',
+            paddingBottom:'calc(var(--space-3) + env(safe-area-inset-bottom))'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)',flexWrap:'wrap'}}>
+            <Icon name="pencil" size={16} color="var(--action-primary)"/>
+            <span style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'#fff'}}>
+              {alterados.length} {alterados.length===1?'produto alterado':'produtos alterados'}
+            </span>
+            {msg&&<span style={{fontSize:'var(--text-sm)',color:msg.startsWith('Erro')?'#FF8A98':'#5FD6AC'}}>{msg}</span>}
+          </div>
+          <div style={{display:'flex',gap:'var(--space-2)'}}>
+            <Btn variant="dark" size="md" disabled={salvando} onClick={()=>{setRascunho({});setMsg('');}}>Descartar</Btn>
+            <Btn size="md" icon="check" onClick={salvarTudo} disabled={salvando}>{salvando?'Salvando…':'Salvar tudo'}</Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ VIEW: POR SKU (tela cheia, com filtros) ════════════════ */
+function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,
+                   contasAtivas,toggleConta,onRefresh}){
+  const todos=dados?.skus||[];
+  const tot=todos.reduce((a,x)=>({
+    faturamento:a.faturamento+x.faturamento,
+    lucro:a.lucro+x.lucro,
+    unidades:a.unidades+x.unidades,
+    canceladas:a.canceladas+x.canceladas,
+  }),{faturamento:0,lucro:0,unidades:0,canceladas:0});
+
+  const semCusto=todos.filter(x=>!x.temCusto&&x.faturamento>0).length;
+  const negativos=todos.filter(x=>x.temCusto&&x.lucro<0).length;
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
+        <PeriodFilter value={periodo} onChange={setPeriodo} intervalo={intervalo} onIntervalo={onIntervalo}/>
+        <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
       </div>
+
+      <section className="dashboard-overview" aria-label="Totais por produto">
+        {[
+          ['Faturamento',BRL(tot.faturamento),`${NUM(todos.length)} ${todos.length===1?'produto':'produtos'} · ${rotuloPeriodo}`],
+          ['Lucro',BRL(tot.lucro),tot.faturamento>0?`Margem de ${PCT(tot.lucro/tot.faturamento*100)}`:'—'],
+          ['Unidades',NUM(tot.unidades),tot.canceladas>0?`${NUM(tot.canceladas)} vendas canceladas`:'Nenhum cancelamento'],
+        ].map(([label,value,caption],i)=>(
+          <div key={label}>
+            <Overline>{label}</Overline>
+            {loading?<div style={{margin:'12px 0'}}><Skel h={34}/></div>
+              :<div className="metric-value" style={{color:i===1?(tot.lucro<0?'var(--status-danger-fg)':'var(--purple-500)'):'var(--text-strong)'}}>{value}</div>}
+            <div className="metric-caption">{loading?'Carregando…':caption}</div>
+          </div>
+        ))}
+      </section>
+
+      {!loading&&(semCusto>0||negativos>0)&&(
+        <section aria-label="Pontos de atenção">
+          {semCusto>0&&<div className="attention">
+            <div className="attention-copy">
+              <Icon name="triangle-alert" color="var(--status-warning-fg)"/>
+              <span><strong>{NUM(semCusto)} {semCusto===1?'produto vendeu':'produtos venderam'} sem custo cadastrado</strong><br/>
+              Preencha na coluna Custo un. abaixo — funciona até para itens sem estoque.</span>
+            </div>
+          </div>}
+          {negativos>0&&<div className="attention">
+            <div className="attention-copy">
+              <Icon name="trending-down" color="var(--status-danger-fg)"/>
+              <span><strong>{NUM(negativos)} {negativos===1?'produto deu':'produtos deram'} prejuízo</strong><br/>
+              Revise preço, custo ou frete desses itens.</span>
+            </div>
+          </div>}
+        </section>
+      )}
+
+      {/* Visão em cards */}
+      {!loading&&todos.length>0&&(
+        <Card title="Ranking visual" subtitle="Troque a métrica para reordenar os produtos">
+          <GradeSkus dados={dados} loading={loading} limite={24} rotuloPeriodo={rotuloPeriodo}/>
+        </Card>
+      )}
+
+      {/* Tabela completa, com edição de custo */}
+      <div>
+        <h3 style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',
+          marginBottom:'var(--space-3)'}}>Tabela detalhada</h3>
+        <TabelaSkus dados={dados} loading={loading} onRefresh={onRefresh}/>
+      </div>
+
+      <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',lineHeight:1.6}}>
+        A curva ABC divide os produtos pela participação acumulada no faturamento: <strong>A</strong> concentra os primeiros 80%,
+        <strong> B</strong> os 15% seguintes e <strong>C</strong> os 5% finais. Cancelamentos não entram no faturamento nem no lucro.
+      </p>
     </div>
   );
 }
@@ -2426,7 +2764,7 @@ function AppLogado({user,erroConexao}){
               <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} initialFilter={filtroPedidos} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
             </div>
           )}
-          {view==='skus'&&<ViewSkus dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onIrParaAnuncios={revisarCustos}/>}
+          {view==='skus'&&<ViewSkus dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar}/>}
           {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos}/>}
           {view==='concorrentes'&&<ViewConcorrentes/>}
           {view==='ia'&&<ViewIA dados={dados} periodo={periodo} rotuloPeriodo={rotuloPeriodo}/>}
