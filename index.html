@@ -2327,6 +2327,172 @@ function ViewConcorrentes(){
   );
 }
 
+/* ══ SINCRONIZAÇÃO DO HISTÓRICO ═════════════════════════════
+   Baixa os pedidos antigos mês a mês. Depois disso, consultar
+   qualquer período vira leitura do banco, sem ir ao Mercado Livre. */
+function PainelSincronizacao(){
+  const [status,setStatus]=useState(null);
+  const [meses,setMeses]=useState(12);
+  const [rodando,setRodando]=useState(false);
+  const [erro,setErro]=useState('');
+  const [ultimo,setUltimo]=useState(null);
+  const parar=useRef(false);
+
+  useEffect(()=>{
+    verStatus();
+    return()=>{parar.current=true;};
+  },[]);
+
+  async function verStatus(){
+    try{const r=await call('mlSincronizarStatus');setStatus(r.existe?r:null);}
+    catch{setStatus(null);}
+  }
+
+  // Processa a fila um bloco por vez, até acabar
+  async function processarFila(){
+    parar.current=false;
+    setRodando(true);setErro('');
+    try{
+      for(let i=0;i<400;i++){
+        if(parar.current)break;
+        const r=await call('mlSincronizarLote');
+        setUltimo(r.atual||null);
+        setStatus(st=>({...(st||{}),
+          rodando:!r.concluido,total:r.total,concluidos:r.concluidos,
+          restantes:r.restantes,pedidosBaixados:r.pedidosBaixados}));
+        if(r.concluido)break;
+      }
+    }catch(e){setErro(e.message||'A sincronização falhou');}
+    finally{setRodando(false);verStatus();}
+  }
+
+  async function iniciar(){
+    setErro('');setUltimo(null);
+    try{
+      await call('mlSincronizarIniciar',{meses});
+      await processarFila();
+    }catch(e){setErro(e.message||'Não consegui iniciar');setRodando(false);}
+  }
+
+  async function limpar(){
+    if(!confirm('Apagar todo o histórico baixado? Você precisará sincronizar de novo.'))return;
+    setRodando(true);
+    try{await call('mlLimparCache');setStatus(null);setUltimo(null);}
+    catch(e){setErro(e.message);}
+    finally{setRodando(false);}
+  }
+
+  const pct=status?.total>0?Math.round((status.concluidos/status.total)*100):0;
+  const emAndamento=rodando||status?.rodando;
+
+  return (
+    <Card icon="database-backup" title="Histórico de vendas"
+      subtitle="Baixe os pedidos antigos uma vez — depois qualquer período carrega na hora">
+
+      {!status&&!rodando&&(
+        <>
+          <p style={{fontSize:'var(--text-sm)',color:'var(--text-body)',lineHeight:1.7,marginBottom:'var(--space-4)'}}>
+            Hoje cada consulta busca tudo no Mercado Livre, e é por isso que demora.
+            Sincronizando, os pedidos ficam guardados e só as vendas novas do dia vão à API.
+          </p>
+          <div style={{display:'flex',gap:'var(--space-3)',alignItems:'flex-end',flexWrap:'wrap'}}>
+            <div>
+              <label htmlFor="sync-meses" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',
+                display:'block',marginBottom:6,color:'var(--text-muted)'}}>Quanto tempo para trás</label>
+              <select id="sync-meses" className="fld" style={{width:'auto'}}
+                value={meses} onChange={e=>setMeses(Number(e.target.value))}>
+                <option value={3}>3 meses</option>
+                <option value={6}>6 meses</option>
+                <option value={12}>1 ano</option>
+                <option value={24}>2 anos</option>
+              </select>
+            </div>
+            <Btn icon="download" onClick={iniciar}>Sincronizar histórico</Btn>
+          </div>
+          <div style={{marginTop:'var(--space-4)'}}>
+            <Note icon="info">
+              Roda mês a mês, em segundo plano. Pode levar bastante tempo na primeira vez —
+              deixe a aba aberta. Se fechar, é só voltar aqui e continuar de onde parou.
+            </Note>
+          </div>
+        </>
+      )}
+
+      {status&&(
+        <>
+          {/* Barra de progresso */}
+          <div style={{marginBottom:'var(--space-4)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',
+              marginBottom:'var(--space-2)',gap:'var(--space-3)',flexWrap:'wrap'}}>
+              <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
+                {NUM(status.concluidos)} de {NUM(status.total)} blocos
+              </span>
+              <span className="tab" style={{fontSize:'var(--text-2xl)',fontWeight:'var(--weight-extrabold)',
+                color:pct===100?'var(--status-success-fg)':'var(--purple-500)'}}>{pct}%</span>
+            </div>
+            <div style={{height:8,background:'var(--viz-track)',borderRadius:'var(--radius-pill)',overflow:'hidden'}}>
+              <div style={{width:`${pct}%`,height:'100%',borderRadius:'var(--radius-pill)',
+                background:pct===100?'var(--status-success-solid)':'var(--purple-500)',
+                transition:'width var(--duration-base) var(--ease-out)'}}/>
+            </div>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:'var(--space-4)'}}>
+            {[
+              ['Pedidos baixados',NUM(status.pedidosBaixados||0)],
+              ['Faltam',NUM(status.restantes||0)],
+              ['Período',status.periodo?`${fmtData(status.periodo.from)} – ${fmtData(status.periodo.to)}`:'—'],
+            ].map(([lbl,val])=>(
+              <div key={lbl}>
+                <Overline>{lbl}</Overline>
+                <div className="tab" style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',
+                  color:'var(--text-strong)',marginTop:2}}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {ultimo&&emAndamento&&(
+            <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)'}}>
+              Baixando {ultimo.conta} · {ultimo.mes}
+              {ultimo.pedidos>0&&` — ${NUM(ultimo.pedidos)} pedidos`}
+            </p>
+          )}
+
+          <div style={{display:'flex',gap:'var(--space-2)',marginTop:'var(--space-4)',flexWrap:'wrap'}}>
+            {emAndamento?(
+              <Btn variant="neutral" icon="pause" onClick={()=>{parar.current=true;}}>Pausar</Btn>
+            ):status.restantes>0?(
+              <Btn icon="play" onClick={processarFila}>Continuar</Btn>
+            ):(
+              <Btn variant="neutral" icon="refresh-cw" onClick={iniciar}>Sincronizar de novo</Btn>
+            )}
+            {!emAndamento&&<Btn variant="ghost" icon="trash-2" onClick={limpar}>Limpar histórico</Btn>}
+          </div>
+
+          {status.erros?.length>0&&(
+            <div style={{marginTop:'var(--space-4)'}}>
+              <Note tone="warning" icon="triangle-alert">
+                Alguns blocos falharam: {status.erros.slice(0,3).join(' · ')}
+                {status.erros.length>3&&` e mais ${status.erros.length-3}`}
+              </Note>
+            </div>
+          )}
+
+          {!emAndamento&&status.restantes===0&&(
+            <div style={{marginTop:'var(--space-4)'}}>
+              <Note tone="success" icon="check-circle-2">
+                Histórico completo. Agora os períodos já baixados carregam do banco, sem ir ao Mercado Livre.
+              </Note>
+            </div>
+          )}
+        </>
+      )}
+
+      {erro&&<div style={{marginTop:'var(--space-4)'}}><Note tone="danger" icon="alert-octagon">{erro}</Note></div>}
+    </Card>
+  );
+}
+
 /* ══ VIEW: CONTAS ═══════════════════════════════════════════ */
 function ViewContas({dados,onRefresh}){
   const [removendo,setRemovendo]=useState(null);
@@ -2362,6 +2528,7 @@ function ViewContas({dados,onRefresh}){
   const conectar=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
   return (
     <div style={{maxWidth:660,display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <PainelSincronizacao/>
       <Card title="Contas conectadas" pad={false}>
         <div style={{borderTop:'1px solid var(--border-subtle)'}}>
           {contas.map((c,i)=>(
@@ -2491,59 +2658,295 @@ function ViewContas({dados,onRefresh}){
   );
 }
 /* ══ VIEW: ANÁLISE IA ═══════════════════════════════════════
-   ATENÇÃO: a chamada abaixo vai direto do navegador para a API da Anthropic.
-   Isso não funciona em produção (faltam os headers x-api-key e anthropic-version,
-   e o CORS bloqueia). Mova para uma Cloud Function 'mlAnalisarIA' e troque o
-   fetch por: const d = await call('mlAnalisarIA', {periodo, metricas, ads, top, ped});
-   Nunca coloque a chave da API neste arquivo — ele é público. */
+   A chamada roda na Cloud Function 'mlAnalisar' — a chave da Anthropic
+   fica no servidor, nunca neste arquivo (que é público). */
 function ViewIA({dados,periodo,rotuloPeriodo}){
-  const [analise,setAnalise]=useState(''),[loading,setLoading]=useState(false);
-  async function gerar(){
-    if(!dados)return;
-    setLoading(true);setAnalise('');
-    const top=dados.anuncios?.slice(0,15).map(a=>({titulo:a.titulo,preco:BRL(a.preco),visitas:a.visitas,estoque:a.estoque,vendas:a.vendas,custo:a.custo}));
-    const ped=dados.pedidos?.slice(0,10).map(p=>({titulo:p.titulo,valor:BRL(p.valor),lucro:BRL(p.lucro),margem:PCT(p.margem)}));
+  const [analises,setAnalises]=useState(null);
+  const [carregandoLista,setCarregandoLista]=useState(true);
+  const [rodando,setRodando]=useState(false);
+  const [resposta,setResposta]=useState(null);
+  const [erro,setErro]=useState('');
+  const [pergunta,setPergunta]=useState('');
+  const [editando,setEditando]=useState(null);
+  const [rascunho,setRascunho]=useState('');
+  const [salvando,setSalvando]=useState(false);
+  const [historico,setHistorico]=useState(null);
+  const [verHistorico,setVerHistorico]=useState(false);
+
+  useEffect(()=>{carregarAnalises();},[]);
+
+  async function carregarAnalises(){
+    setCarregandoLista(true);
     try{
-      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,
-          system:`Você é especialista em Mercado Livre e gestão de e-commerce. Analise os dados e entregue:\n\nDIAGNÓSTICO\nPontos fortes e de atenção do período.\n\nANÁLISE DE MARGEM\nComente a margem e onde há espaço de melhoria.\n\nTOP 3 AÇÕES\nAções concretas e priorizadas.\n\nALERTAS\nEstoque crítico, produtos sem custo cadastrado, margem negativa.\n\nSeja direto, use os números reais. Não use emoji.`,
-          messages:[{role:'user',content:`Período: ${rotuloPeriodo||PLABEL[periodo]}\nMétricas: ${JSON.stringify(dados.metricas)}\nAds: ${JSON.stringify(dados.ads)}\nTop anúncios: ${JSON.stringify(top)}\nPedidos recentes: ${JSON.stringify(ped)}`}]})});
-      const d=await r.json();
-      setAnalise(d.content?.[0]?.text||'Erro ao gerar análise');
-    }catch(e){setAnalise('Erro: '+e.message);}
-    finally{setLoading(false);}
+      const r=await call('mlAnalisesDisponiveis');
+      setAnalises(r.analises||[]);
+    }catch(e){setErro(e.message||'Não consegui carregar as análises');}
+    finally{setCarregandoLista(false);}
   }
+
+  async function rodar({tipo,livre}={}){
+    if(!dados){setErro('Carregue os dados de um período antes de analisar');return;}
+    setRodando(true);setErro('');setResposta(null);
+    try{
+      const r=await call('mlAnalisar',{dados,tipo:tipo||null,perguntaLivre:livre||null,periodoRotulo:rotuloPeriodo});
+      setResposta({...r,tipo,pergunta:livre,quando:new Date()});
+      if(livre)setPergunta('');
+      setHistorico(null);
+    }catch(e){setErro(e.message||'A análise falhou');}
+    finally{setRodando(false);}
+  }
+
+  async function salvarPrompt(id){
+    setSalvando(true);
+    try{await call('mlSalvarPrompt',{id,prompt:rascunho});setEditando(null);setRascunho('');carregarAnalises();}
+    catch(e){setErro(e.message);}
+    finally{setSalvando(false);}
+  }
+
+  async function restaurarPrompt(id){
+    setSalvando(true);
+    try{await call('mlSalvarPrompt',{id,prompt:''});setEditando(null);setRascunho('');carregarAnalises();}
+    catch(e){setErro(e.message);}
+    finally{setSalvando(false);}
+  }
+
+  async function abrirHistorico(){
+    setVerHistorico(true);
+    if(historico)return;
+    try{const r=await call('mlHistoricoAnalises');setHistorico(r.historico||[]);}
+    catch{setHistorico([]);}
+  }
+
+  const semDados=!dados||!(dados.metricas?.pedidosDia>0);
+
   return (
-    <div style={{maxWidth:780}}>
-      {!loading&&!analise&&(
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+
+      {/* O que será analisado */}
+      <Card icon="database" title="Dados desta análise"
+        subtitle={`O modelo recebe exatamente o que está carregado agora — ${rotuloPeriodo}`}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(112px,1fr))',gap:'var(--space-4)'}}>
+          {[
+            ['Pedidos',NUM(dados?.metricas?.pedidosDia||0)],
+            ['Produtos',NUM(dados?.skus?.length||0)],
+            ['Faturamento',BRL(dados?.metricas?.fat||0)],
+            ['Contas',NUM(dados?.contasUsadas?.length||0)],
+          ].map(([lbl,val])=>(
+            <div key={lbl}>
+              <Overline>{lbl}</Overline>
+              <div className="tab" style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-extrabold)',
+                color:'var(--text-strong)',marginTop:2}}>{val}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:'var(--space-4)'}}>
+          <Badge tone={dados?.comparativo?'success':'neutral'} dot>
+            {dados?.comparativo?'Com comparativo':'Sem comparativo'}
+          </Badge>
+          <Badge tone={dados?.ads?.investimento>0?'success':'neutral'} dot>
+            {dados?.ads?.investimento>0?'Com dados de ads':'Sem ads'}
+          </Badge>
+          <Badge tone={(dados?.metricas?.visitasTotal||dados?.metricas?.vis)>0?'success':'warning'} dot>
+            {(dados?.metricas?.visitasTotal||dados?.metricas?.vis)>0?'Com visitas':'Visitas indisponíveis'}
+          </Badge>
+          {dados?.metricas?.semCusto>0&&<Badge tone="warning">{NUM(dados.metricas.semCusto)} vendas sem custo</Badge>}
+        </div>
+        {semDados&&(
+          <div style={{marginTop:'var(--space-4)'}}>
+            <Note tone="warning" icon="triangle-alert">
+              Não há vendas no período carregado. Troque o período na Visão geral antes de pedir a análise.
+            </Note>
+          </div>
+        )}
+      </Card>
+
+      {erro&&<Note tone="danger" icon="alert-octagon">{erro}</Note>}
+
+      {/* Pergunta livre */}
+      <Card icon="message-circle-question" title="Pergunte o que quiser"
+        subtitle="Escreva uma pergunta específica sobre os números deste período">
+        <textarea className="fld" value={pergunta} onChange={e=>setPergunta(e.target.value)}
+          placeholder="Ex: compare o desempenho das duas contas e diga qual está mais saudável"
+          rows={3} disabled={rodando}
+          style={{resize:'vertical',padding:'10px 12px',fontSize:'var(--text-sm)',lineHeight:1.6}}/>
+        <div style={{display:'flex',justifyContent:'flex-end',marginTop:'var(--space-3)'}}>
+          <Btn icon="sparkles" onClick={()=>rodar({livre:pergunta})}
+            disabled={rodando||!pergunta.trim()||semDados}>
+            {rodando?'Analisando…':'Perguntar'}
+          </Btn>
+        </div>
+      </Card>
+
+      {/* Análises prontas */}
+      <div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+          marginBottom:'var(--space-3)',gap:'var(--space-3)',flexWrap:'wrap'}}>
+          <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Análises prontas</h2>
+          <Btn variant="neutral" size="sm" icon="history" onClick={abrirHistorico}>Histórico</Btn>
+        </div>
+
+        {carregandoLista?(
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:'var(--space-3)'}}>
+            {[...Array(6)].map((_,i)=><Card key={i}><Skel h={16}/><div style={{marginTop:10}}><Skel w="80%" h={12}/></div></Card>)}
+          </div>
+        ):(
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'var(--space-3)'}}>
+            {(analises||[]).map(a=>(
+              <div key={a.id} style={{background:'var(--surface-card)',border:'1px solid var(--border-default)',
+                borderRadius:'var(--radius-xl)',padding:'var(--space-4)',display:'flex',flexDirection:'column',
+                gap:'var(--space-3)',boxShadow:'var(--shadow-xs)'}}>
+                <div style={{display:'flex',alignItems:'flex-start',gap:'var(--space-3)'}}>
+                  <span style={{width:36,height:36,borderRadius:'var(--radius-md)',background:'var(--status-brand-bg)',
+                    display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <Icon name={a.icone} size={17} color="var(--status-brand-solid)"/>
+                  </span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
+                      {a.titulo}
+                    </div>
+                    <div style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',lineHeight:1.5,marginTop:3}}>
+                      {a.descricao}
+                    </div>
+                  </div>
+                  {a.editado&&<Badge tone="accent">Editada</Badge>}
+                </div>
+
+                {editando===a.id?(
+                  <>
+                    <textarea className="fld mono" value={rascunho} onChange={e=>setRascunho(e.target.value)}
+                      rows={10} style={{resize:'vertical',padding:'10px 12px',fontSize:'var(--text-2xs)',lineHeight:1.6}}/>
+                    <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap'}}>
+                      <Btn size="sm" icon="check" onClick={()=>salvarPrompt(a.id)} disabled={salvando}>Salvar</Btn>
+                      <Btn variant="neutral" size="sm" onClick={()=>{setEditando(null);setRascunho('');}}>Cancelar</Btn>
+                      {a.editado&&<Btn variant="ghost" size="sm" icon="rotate-ccw"
+                        onClick={()=>restaurarPrompt(a.id)} disabled={salvando}>Restaurar original</Btn>}
+                    </div>
+                  </>
+                ):(
+                  <div style={{display:'flex',gap:'var(--space-2)',marginTop:'auto',flexWrap:'wrap'}}>
+                    <Btn size="sm" icon="sparkles" onClick={()=>rodar({tipo:a.id})} disabled={rodando||semDados}>
+                      Analisar
+                    </Btn>
+                    <Btn variant="neutral" size="sm" icon="pencil"
+                      onClick={()=>{setEditando(a.id);setRascunho(a.prompt);}}>
+                      Editar pergunta
+                    </Btn>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Rodando */}
+      {rodando&&(
         <Card>
-          <Empty icon="sparkles" title="Diagnóstico da conta com IA"
-            description="Análise das métricas do período, margem por produto e as próximas ações prioritárias."
-            action={<Btn onClick={gerar} icon="sparkles">Gerar análise</Btn>}/>
-        </Card>
-      )}
-      {loading&&(
-        <Card>
-          <div style={{display:'flex',flexDirection:'column',gap:'var(--space-3)',padding:'var(--space-4) 0'}}>
-            <Skel w="40%" h={13}/><Skel h={13}/><Skel h={13}/><Skel w="75%" h={13}/>
-            <div style={{height:'var(--space-4)'}}/>
-            <Skel w="35%" h={13}/><Skel h={13}/><Skel w="60%" h={13}/>
-            <div style={{fontSize:'var(--text-sm)',color:'var(--text-muted)',marginTop:'var(--space-3)'}}>Analisando sua conta…</div>
+          <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)',padding:'var(--space-4) 0',justifyContent:'center'}}>
+            <Icon name="loader" size={18} color="var(--status-brand-solid)"/>
+            <span style={{fontSize:'var(--text-sm)',color:'var(--text-muted)'}}>
+              Lendo os números do período e escrevendo a análise…
+            </span>
           </div>
         </Card>
       )}
-      {analise&&(
-        <Card>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'var(--space-3)',flexWrap:'wrap',marginBottom:'var(--space-4)'}}>
-            <Overline>Diagnóstico · {new Date().toLocaleDateString('pt-BR')} · {rotuloPeriodo||PLABEL[periodo]}</Overline>
-            <Btn variant="neutral" size="sm" onClick={gerar} icon="refresh-cw">Reanalisar</Btn>
+
+      {/* Resultado */}
+      {resposta&&!rodando&&(
+        <Card pad={false}>
+          <div style={{padding:'var(--layout-card-pad)',borderBottom:'1px solid var(--border-subtle)',
+            display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',flexWrap:'wrap'}}>
+            <div>
+              <Overline>
+                {resposta.pergunta?'Pergunta livre':(analises||[]).find(a=>a.id===resposta.tipo)?.titulo||'Análise'}
+                {' · '}{resposta.quando.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
+              </Overline>
+              {resposta.pergunta&&(
+                <div style={{fontSize:'var(--text-sm)',color:'var(--text-body)',marginTop:4,fontStyle:'italic'}}>
+                  “{resposta.pergunta}”
+                </div>
+              )}
+            </div>
+            <Btn variant="neutral" size="sm" icon="copy"
+              onClick={()=>navigator.clipboard?.writeText(resposta.texto)}>Copiar</Btn>
           </div>
-          <div style={{fontSize:'var(--text-md)',color:'var(--text-body)',lineHeight:1.75,whiteSpace:'pre-wrap',textWrap:'pretty'}}>{analise}</div>
+
+          <div style={{padding:'var(--layout-card-pad)',fontSize:'var(--text-md)',color:'var(--text-body)',
+            lineHeight:1.85,whiteSpace:'pre-wrap'}}>
+            {resposta.texto}
+          </div>
+
+          {resposta.enviado&&(
+            <details style={{borderTop:'1px solid var(--border-subtle)',padding:'var(--space-3) var(--layout-card-pad)'}}>
+              <summary style={{cursor:'pointer',fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',
+                color:'var(--text-muted)',display:'flex',alignItems:'center',gap:6}}>
+                <Icon name="list-checks" size={13}/>O que foi enviado ao modelo
+              </summary>
+              <div style={{marginTop:'var(--space-3)',display:'grid',
+                gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'var(--space-3)'}}>
+                {[
+                  ['Período',resposta.enviado.periodo?.rotulo],
+                  ['Contas',(resposta.enviado.periodo?.contas||[]).join(', ')||'—'],
+                  ['Pedidos',NUM(resposta.enviado.pedidos)],
+                  ['Produtos',NUM(resposta.enviado.produtos)],
+                  ['Anúncios sem venda',NUM(resposta.enviado.anunciosSemVenda)],
+                  ['Estoque crítico',NUM(resposta.enviado.estoqueCritico)],
+                  ['Comparativo',resposta.enviado.temComparativo?'sim':'não'],
+                  ['Ads',resposta.enviado.temAds?'sim':'não'],
+                  ['Visitas',resposta.enviado.temVisitas?'sim':'não'],
+                ].map(([lbl,val])=>(
+                  <div key={lbl}>
+                    <Overline>{lbl}</Overline>
+                    <div style={{fontSize:'var(--text-xs)',color:'var(--text-body)',marginTop:2}}>{val}</div>
+                  </div>
+                ))}
+              </div>
+              {resposta.uso&&(
+                <p className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',marginTop:'var(--space-3)'}}>
+                  {NUM(resposta.uso.input_tokens)} tokens enviados · {NUM(resposta.uso.output_tokens)} recebidos · {resposta.modelo}
+                </p>
+              )}
+            </details>
+          )}
+        </Card>
+      )}
+
+      {/* Histórico */}
+      {verHistorico&&(
+        <Card icon="history" title="Análises anteriores"
+          action={<IconBtn icon="x" label="Fechar" onClick={()=>setVerHistorico(false)}/>}>
+          {!historico?(
+            <Skel h={60}/>
+          ):historico.length===0?(
+            <Empty icon="history" title="Nenhuma análise ainda"
+              description="As análises que você gerar ficam guardadas aqui."/>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
+              {historico.map(h=>(
+                <details key={h.id} style={{background:'var(--surface-sunken)',borderRadius:'var(--radius-lg)',
+                  padding:'var(--space-3)'}}>
+                  <summary style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'var(--space-2)',
+                    flexWrap:'wrap',fontSize:'var(--text-sm)'}}>
+                    <Badge tone={h.tipo==='livre'?'accent':'neutral'}>{h.tipo==='livre'?'Pergunta':h.tipo}</Badge>
+                    <span style={{color:'var(--text-body)'}}>{h.periodo||'—'}</span>
+                    <span style={{color:'var(--text-subtle)',fontSize:'var(--text-xs)',marginLeft:'auto'}}>
+                      {h.criadoEm?new Date(h.criadoEm).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}
+                    </span>
+                  </summary>
+                  {h.pergunta&&<p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',
+                    fontStyle:'italic',margin:'var(--space-2) 0'}}>“{h.pergunta}”</p>}
+                  <div style={{marginTop:'var(--space-3)',fontSize:'var(--text-sm)',color:'var(--text-body)',
+                    lineHeight:1.8,whiteSpace:'pre-wrap'}}>{h.texto}</div>
+                </details>
+              ))}
+            </div>
+          )}
         </Card>
       )}
     </div>
   );
 }
+
 /* ══ NAVEGAÇÃO ══════════════════════════════════════════════ */
 const NAV=[
   {id:'dashboard',icon:'layout-dashboard',label:'Visão geral',curto:'Início'},
