@@ -162,6 +162,7 @@ button:disabled{transform:none!important}
 .data-row[data-dirty=true]:hover{background:var(--surface-selected)!important}
 .save-bar{left:var(--layout-sidebar-w)!important;background:var(--neutral-900)!important;backdrop-filter:none!important}
 .mobile-label{display:none}
+.so-mobile{display:none}
 .nav-shell{height:100dvh;min-height:0!important;background:var(--neutral-900)!important;box-shadow:none!important}
 .app-topbar{background:#fff!important;backdrop-filter:none!important;box-shadow:none!important}
 .auth-page{background:var(--surface-page)!important}.auth-panel{background:#fff!important;border-color:var(--border-default)!important;box-shadow:var(--shadow-sm)!important;backdrop-filter:none!important}
@@ -184,6 +185,8 @@ button:disabled{transform:none!important}
  .data-row .cost-cell input,.data-row .tax-cell input{width:140px;height:44px!important;font-size:16px!important}.data-row .cost-prefix{display:none}
  .data-row .profit-cell{flex-direction:row!important;flex-wrap:wrap}
  .data-row .mobile-secondary{font-size:12px!important}
+ .data-row>[data-label].so-desktop{display:none!important}
+ .so-mobile{display:inline!important}
  .save-bar{gap:8px!important}.save-bar>div{width:100%;justify-content:space-between}
  .toolbar-actions{width:100%;gap:8px!important}.toolbar-actions>button{flex:1}
  .toolbar select{max-width:100%}.filter-summary{gap:8px}
@@ -799,14 +802,14 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
             <Thumb src={p.foto} alt={p.titulo}/>
             <div className="ell" title={p.titulo} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{p.titulo}</div>
             {multiConta&&<div data-label="Conta" className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{p.conta}</div>}
-            <div data-label="SKU" className="ell mono" title={p.sku} style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.sku}</div>
-            <div data-label="Data" className="mono" title={p.dataISO?new Date(p.dataISO).toLocaleString('pt-BR'):undefined}
+            <div data-label="SKU" className="ell mono so-desktop" title={p.sku} style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.sku}</div>
+            <div data-label="Data" className="mono so-desktop" title={p.dataISO?new Date(p.dataISO).toLocaleString('pt-BR'):undefined}
               style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.data}</div>
             <div data-label="Quantidade" className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',textAlign:'right'}}>{p.qtde}</div>
             <div data-label="Valor" className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',textAlign:'right'}}>{BRL(p.valor)}</div>
-            <div data-label="Tarifa" className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',textAlign:'right'}}>{BRL(p.tarifa)}</div>
-            <div data-label="Frete" className="tab" style={{fontSize:'var(--text-xs)',color:'var(--status-warning-fg)',textAlign:'right'}}>{BRL(p.frete)}</div>
-            <div data-label="Custo" style={{textAlign:'right'}}><CustoDisplay valor={p.custo} onIrParaAnuncios={onIrParaAnuncios}/></div>
+            <div data-label="Tarifa" className="tab so-desktop" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',textAlign:'right'}}>{BRL(p.tarifa)}</div>
+            <div data-label="Frete" className="tab so-desktop" style={{fontSize:'var(--text-xs)',color:'var(--status-warning-fg)',textAlign:'right'}}>{BRL(p.frete)}</div>
+            <div data-label="Custo" className="so-desktop" style={{textAlign:'right'}}><CustoDisplay valor={p.custo} onIrParaAnuncios={onIrParaAnuncios}/></div>
             <div data-label="Lucro / margem" className="profit-cell" style={{display:'flex',flexDirection:'column',gap:2,alignItems:'flex-end'}}>
               {p.temCusto?(
                 <>
@@ -1172,92 +1175,6 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
               </div>
             );
           })()}
-
-          {/* Detalhamento, fechado por padrão */}
-          {dados.comparativo&&(
-            <details style={{borderTop:'1px solid var(--border-subtle)'}}>
-              <summary style={{cursor:'pointer',padding:'11px var(--layout-card-pad)',
-                fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',color:'var(--text-muted)',
-                display:'flex',alignItems:'center',gap:6}}>
-                <Icon name="git-compare-arrows" size={13}/>
-                Comparar tudo com {fmtData(dados.comparativo.from)} – {fmtData(dados.comparativo.to)}
-              </summary>
-
-              <div style={{padding:'0 var(--layout-card-pad) var(--layout-card-pad)'}}>
-                <div className="data-scroll">
-                  <div style={{minWidth:480}}>
-                    <div style={{display:'grid',gridTemplateColumns:'minmax(110px,1.3fr) 1fr 1fr 84px',
-                      gap:'var(--space-3)',padding:'0 0 var(--space-2)',borderBottom:'1px solid var(--border-default)'}}>
-                      {['','Agora','Antes','Variação'].map((h,i)=><THead key={i} align={i?'right':'left'}>{h}</THead>)}
-                    </div>
-                    {(()=>{
-                      const c=dados.comparativo;
-                      const linha=(rotulo,agora,antes,inverso,moeda)=>{
-                        const ok=Number.isFinite(agora)&&Number.isFinite(antes)&&antes!==0;
-                        const v=ok?((agora-antes)/Math.abs(antes))*100:null;
-                        return {rotulo,agora,antes,v,bom:v==null?null:(inverso?v<0:v>0),moeda};
-                      };
-                      const linhas=[
-                        linha('Faturamento',m.fat,c.fat,false,true),
-                        linha('Pedidos',m.pedidosDia,c.pedidos,false,false),
-                        linha('Unidades',m.qtd,c.qtd,false,false),
-                        linha('Ticket médio',m.ticketMedio,c.ticketMedio,false,true),
-                        linha('Custo dos produtos',m.custos,c.custos,true,true),
-                        linha('Tarifas ML',m.tarifas,c.tarifas,true,true),
-                        linha('Frete',m.frete,c.frete,true,true),
-                        linha('Impostos',m.impostos,c.impostos,true,true),
-                      ];
-                      return (
-                        <>
-                          {linhas.map(l=>(
-                            <div key={l.rotulo} style={{display:'grid',gridTemplateColumns:'minmax(110px,1.3fr) 1fr 1fr 84px',
-                              gap:'var(--space-3)',padding:'9px 0',borderBottom:'1px solid var(--border-subtle)',alignItems:'center'}}>
-                              <span style={{fontSize:'var(--text-xs)',color:'var(--text-body)'}}>{l.rotulo}</span>
-                              <span className="tab" style={{textAlign:'right',fontSize:'var(--text-xs)',
-                                fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
-                                {l.moeda?BRL(l.agora):NUM(l.agora)}
-                              </span>
-                              <span className="tab" style={{textAlign:'right',fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
-                                {l.moeda?BRL(l.antes):NUM(l.antes)}
-                              </span>
-                              <span className="tab" style={{textAlign:'right',fontSize:'var(--text-2xs)',
-                                fontWeight:'var(--weight-bold)',
-                                color:l.v==null?'var(--text-subtle)':l.bom?'var(--status-success-fg)':'var(--status-danger-fg)'}}>
-                                {l.v==null?'—':`${l.v>0?'+':''}${l.v.toFixed(1)}%`}
-                              </span>
-                            </div>
-                          ))}
-                          <div style={{display:'grid',gridTemplateColumns:'minmax(110px,1.3fr) 1fr 1fr 84px',
-                            gap:'var(--space-3)',padding:'11px 0 0',alignItems:'center'}}>
-                            <span style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Lucro</span>
-                            <span className="tab" style={{textAlign:'right',fontSize:'var(--text-sm)',
-                              fontWeight:'var(--weight-extrabold)',
-                              color:(m.lucro||0)>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>{BRL(m.lucro)}</span>
-                            <span className="tab" style={{textAlign:'right',fontSize:'var(--text-xs)',
-                              color:c.lucroConfiavel===false?'var(--text-disabled)':'var(--text-muted)'}}>
-                              {c.lucroConfiavel===false?'—':BRL(c.lucro)}
-                            </span>
-                            <span className="tab" style={{textAlign:'right',fontSize:'var(--text-2xs)',
-                              fontWeight:'var(--weight-bold)',
-                              color:c.varLucro==null?'var(--text-subtle)':c.varLucro>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>
-                              {c.varLucro==null?'—':`${c.varLucro>0?'+':''}${c.varLucro.toFixed(1)}%`}
-                            </span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-                {dados.comparativo.lucroConfiavel===false&&(
-                  <div style={{marginTop:'var(--space-3)'}}>
-                    <Note tone="warning" icon="triangle-alert">
-                      {dados.comparativo.motivoLucro||'O lucro não é comparável entre os dois períodos.'}
-                    </Note>
-                  </div>
-                )}
-              </div>
-            </details>
-          )}
         </Card>
       )}
 
@@ -1348,9 +1265,11 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
             ? <GradeSkus dados={dados} loading={loading} limite={12}
                 rotuloPeriodo={rotuloPeriodo} onVerTodos={onIrParaSkus}/>
             : <>
-                <TabelaSkus dados={dados} loading={loading} onRefresh={onRefresh} compacta limite={10} somenteLeitura={somenteLeitura}/>
+                <TabelaSkus dados={dados} loading={loading} onRefresh={onRefresh} compacta limite={10} somenteLeitura/>
                 <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',lineHeight:1.6}}>
-                  Custo e imposto são editáveis aqui mesmo — inclusive para produtos que já não têm estoque.
+                  A letra na última coluna é a curva ABC: <strong>A</strong> são os produtos que somam os primeiros 80% do
+                  faturamento, <strong>B</strong> os 15% seguintes, <strong>C</strong> o restante.
+                  Para editar custo e imposto, abra <strong>Por produto</strong>.
                 </p>
               </>}
         </div>
@@ -1366,6 +1285,84 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
         </div>
         <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={onRefresh} onIrParaAnuncios={onIrParaAnuncios} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
       </div>
+
+      {/* COMPARATIVO — no fim, para quem quiser conferir os números */}
+      {!loading&&dados?.comparativo&&(
+        <Card icon="git-compare-arrows" title="Comparado com o período anterior"
+          subtitle={`${fmtData(dados.comparativo.from)} – ${fmtData(dados.comparativo.to)} · mesma duração`}>
+          <div className="data-scroll">
+            <div style={{minWidth:480}}>
+              <div style={{display:'grid',gridTemplateColumns:'minmax(110px,1.3fr) 1fr 1fr 84px',
+                gap:'var(--space-3)',padding:'0 0 var(--space-2)',borderBottom:'1px solid var(--border-default)'}}>
+                {['','Agora','Antes','Variação'].map((h,i)=><THead key={i} align={i?'right':'left'}>{h}</THead>)}
+              </div>
+              {(()=>{
+                const c=dados.comparativo;
+                const linha=(rotulo,agora,antes,inverso,moeda)=>{
+                  const ok=Number.isFinite(agora)&&Number.isFinite(antes)&&antes!==0;
+                  const v=ok?((agora-antes)/Math.abs(antes))*100:null;
+                  return {rotulo,agora,antes,v,bom:v==null?null:(inverso?v<0:v>0),moeda};
+                };
+                const linhas=[
+                  linha('Faturamento',m.fat,c.fat,false,true),
+                  linha('Pedidos',m.pedidosDia,c.pedidos,false,false),
+                  linha('Unidades',m.qtd,c.qtd,false,false),
+                  linha('Ticket médio',m.ticketMedio,c.ticketMedio,false,true),
+                  linha('Custo dos produtos',m.custos,c.custos,true,true),
+                  linha('Tarifas ML',m.tarifas,c.tarifas,true,true),
+                  linha('Frete',m.frete,c.frete,true,true),
+                  linha('Impostos',m.impostos,c.impostos,true,true),
+                ];
+                return (
+                  <>
+                    {linhas.map(l=>(
+                      <div key={l.rotulo} style={{display:'grid',gridTemplateColumns:'minmax(110px,1.3fr) 1fr 1fr 84px',
+                        gap:'var(--space-3)',padding:'9px 0',borderBottom:'1px solid var(--border-subtle)',alignItems:'center'}}>
+                        <span style={{fontSize:'var(--text-xs)',color:'var(--text-body)'}}>{l.rotulo}</span>
+                        <span className="tab" style={{textAlign:'right',fontSize:'var(--text-xs)',
+                          fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
+                          {l.moeda?BRL(l.agora):NUM(l.agora)}
+                        </span>
+                        <span className="tab" style={{textAlign:'right',fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
+                          {l.moeda?BRL(l.antes):NUM(l.antes)}
+                        </span>
+                        <span className="tab" style={{textAlign:'right',fontSize:'var(--text-2xs)',
+                          fontWeight:'var(--weight-bold)',
+                          color:l.v==null?'var(--text-subtle)':l.bom?'var(--status-success-fg)':'var(--status-danger-fg)'}}>
+                          {l.v==null?'—':`${l.v>0?'+':''}${l.v.toFixed(1)}%`}
+                        </span>
+                      </div>
+                    ))}
+                    <div style={{display:'grid',gridTemplateColumns:'minmax(110px,1.3fr) 1fr 1fr 84px',
+                      gap:'var(--space-3)',padding:'11px 0 0',alignItems:'center'}}>
+                      <span style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Lucro</span>
+                      <span className="tab" style={{textAlign:'right',fontSize:'var(--text-sm)',
+                        fontWeight:'var(--weight-extrabold)',
+                        color:(m.lucro||0)>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>{BRL(m.lucro)}</span>
+                      <span className="tab" style={{textAlign:'right',fontSize:'var(--text-xs)',
+                        color:c.lucroConfiavel===false?'var(--text-disabled)':'var(--text-muted)'}}>
+                        {c.lucroConfiavel===false?'—':BRL(c.lucro)}
+                      </span>
+                      <span className="tab" style={{textAlign:'right',fontSize:'var(--text-2xs)',
+                        fontWeight:'var(--weight-bold)',
+                        color:c.varLucro==null?'var(--text-subtle)':c.varLucro>=0?'var(--status-success-fg)':'var(--status-danger-fg)'}}>
+                        {c.varLucro==null?'—':`${c.varLucro>0?'+':''}${c.varLucro.toFixed(1)}%`}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+          {dados.comparativo.lucroConfiavel===false&&(
+            <div style={{marginTop:'var(--space-3)'}}>
+              <Note tone="warning" icon="triangle-alert">
+                {dados.comparativo.motivoLucro||'O lucro não é comparável entre os dois períodos.'}
+              </Note>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
@@ -1623,7 +1620,7 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
         Use "Buscar novos" depois de criar anúncios para trazê-los ao sistema.
       </p>
       {/* Barra fixa de salvar */}
-      {alterados.length>0&&(
+      {alterados.length>0&&!somenteLeitura&&(
         <div className="save-bar" role="region" aria-label="Alterações pendentes" style={{position:'fixed',bottom:0,left:0,right:0,background:'rgba(16,13,20,.96)',borderTop:'1px solid var(--border-inverse)',
           padding:'var(--space-3) var(--layout-gutter)',display:'flex',alignItems:'center',justifyContent:'space-between',
           gap:'var(--space-3)',flexWrap:'wrap',zIndex:50,boxShadow:'var(--shadow-lg)',backdropFilter:'blur(16px)',
@@ -1916,12 +1913,21 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
     finally{setSalvando(false);}
   }
 
-  const GRID=multiConta
-    ? '34px 48px minmax(0,1fr) 84px 104px 96px 68px 66px 70px 92px 68px 48px'
-    : '34px 48px minmax(0,1fr) 104px 96px 68px 66px 70px 92px 68px 48px';
-  const HEADS=multiConta
-    ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC']
-    : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC'];
+  // Em modo leitura as colunas de custo e imposto saem da tabela
+  const GRID=somenteLeitura
+    ? (multiConta
+        ? '34px 48px minmax(0,1fr) 84px 116px 100px 72px 70px 74px 48px'
+        : '34px 48px minmax(0,1fr) 116px 100px 72px 70px 74px 48px')
+    : (multiConta
+        ? '34px 48px minmax(0,1fr) 84px 104px 96px 68px 66px 70px 92px 68px 48px'
+        : '34px 48px minmax(0,1fr) 104px 96px 68px 66px 70px 92px 68px 48px');
+  const HEADS=somenteLeitura
+    ? (multiConta
+        ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Cancel.','ABC']
+        : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Cancel.','ABC'])
+    : (multiConta
+        ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC']
+        : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC']);
 
   if(loading)return (
     <Card pad={false}>
@@ -1937,7 +1943,7 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
   );
 
   return (
-    <div style={{paddingBottom:alterados.length>0?96:0}}>
+    <div style={{paddingBottom:(alterados.length>0&&!somenteLeitura)?96:0}}>
       {!compacta&&(
         <div className="toolbar">
           <div style={{position:'relative',flex:'1 1 240px',maxWidth:340}}>
@@ -2034,7 +2040,8 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
                     ):<span className="tab" style={{fontSize:'var(--text-sm)',color:'var(--text-subtle)'}}>0</span>}
                   </div>
 
-                  {/* Custo editável — o SKU vem das vendas, então aparece mesmo sem estoque */}
+                  {/* Custo e imposto: só no modo de edição */}
+                  {!somenteLeitura&&<>
                   <div data-label="Custo unitário (R$)" className="cost-cell" style={{position:'relative'}}>
                     <span className="cost-prefix" style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',
                       fontSize:'var(--text-2xs)',color:'var(--text-muted)',pointerEvents:'none'}}>R$</span>
@@ -2050,8 +2057,9 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
                       onChange={e=>setCampo(x.sku,'imposto',e.target.value)}
                       style={{height:'var(--control-h-sm)',padding:'0 6px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                   </div>
+                  </>}
 
-                  <div data-label="Curva ABC" style={{textAlign:'right'}}>
+                  <div data-label="Curva ABC" className="so-desktop" style={{textAlign:'right'}}>
                     <Badge tone={CLASSE_TOM[x.classe]}>{x.classe}</Badge>
                   </div>
                 </div>
