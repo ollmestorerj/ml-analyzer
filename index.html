@@ -955,7 +955,7 @@ function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
   );
 }
 /* ══ VIEW: DASHBOARD ════════════════════════════════════════ */
-function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios,onIrParaPrejuizos,onIrParaSkus,somenteLeitura}){
+function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios,onIrParaPrejuizos,onIrParaSkus,onIrParaContas,somenteLeitura}){
   const m=dados?.metricas||{},ads=dados?.ads||{};
   const multiConta=(dados?.contasUsadas?.length||0)>1;
   const negativos=(dados?.pedidos||[]).filter(p=>p.temCusto&&p.lucro<0).length;
@@ -1064,6 +1064,20 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
             </Note>
           </div>
         </Card>
+      )}
+
+      {/* Convite para indexar, quando as consultas ainda são ao vivo */}
+      {!loading&&dados?.origem==='aovivo'&&dados?.metricas?.pedidosDia>8&&(
+        <div className="attention">
+          <div className="attention-copy">
+            <Icon name="zap" color="var(--status-warning-fg)"/>
+            <span>
+              <strong>As consultas estão indo ao Mercado Livre a cada clique</strong><br/>
+              É isso que deixa o carregamento lento. Monte o índice uma vez e os períodos passam a abrir na hora.
+            </span>
+          </div>
+          {onIrParaContas&&<Btn variant="neutral" size="sm" icon="zap" onClick={onIrParaContas}>Montar índice</Btn>}
+        </div>
       )}
 
       {/* RITMO — acumulado até agora contra o mesmo horário do dia anterior */}
@@ -2801,15 +2815,16 @@ function ViewConcorrentes(){
   );
 }
 
-/* ══ SINCRONIZAÇÃO DO HISTÓRICO ═════════════════════════════
-   Baixa os pedidos antigos mês a mês. Depois disso, consultar
-   qualquer período vira leitura do banco, sem ir ao Mercado Livre. */
-function PainelSincronizacao(){
+/* ══ ÍNDICE DE PEDIDOS ══════════════════════════════════════
+   Sem índice, cada consulta vai ao Mercado Livre e abre pedido por
+   pedido. Com índice, vira leitura de banco e responde na hora. */
+function PainelIndice(){
   const [status,setStatus]=useState(null);
   const [meses,setMeses]=useState(12);
   const [rodando,setRodando]=useState(false);
   const [erro,setErro]=useState('');
   const [ultimo,setUltimo]=useState(null);
+  const [msg,setMsg]=useState('');
   const parar=useRef(false);
 
   useEffect(()=>{
@@ -2818,62 +2833,105 @@ function PainelSincronizacao(){
   },[]);
 
   async function verStatus(){
-    try{const r=await call('mlSincronizarStatus');setStatus(r.existe?r:null);}
-    catch{setStatus(null);}
+    try{const r=await call('mlIndiceStatus');setStatus(r);}
+    catch(e){setErro(e.message||'');}
   }
 
-  // Processa a fila um bloco por vez, até acabar
   async function processarFila(){
-    parar.current=false;
-    setRodando(true);setErro('');
+    parar.current=false;setRodando(true);setErro('');setMsg('');
     try{
-      for(let i=0;i<400;i++){
+      for(let i=0;i<500;i++){
         if(parar.current)break;
-        const r=await call('mlSincronizarLote');
+        const r=await call('mlIndexarLote');
         setUltimo(r.atual||null);
-        setStatus(st=>({...(st||{}),
-          rodando:!r.concluido,total:r.total,concluidos:r.concluidos,
-          restantes:r.restantes,pedidosBaixados:r.pedidosBaixados}));
-        if(r.concluido)break;
+        setStatus(st=>({...(st||{}),fila:{
+          ...(st?.fila||{}),rodando:!r.concluido,total:r.total,
+          concluidos:r.concluidos,restantes:r.restantes,
+          pedidosIndexados:r.pedidosIndexados,
+        }}));
+        if(r.concluido){setMsg('Índice montado. As consultas agora vêm do banco.');break;}
       }
-    }catch(e){setErro(e.message||'A sincronização falhou');}
+    }catch(e){setErro(e.message||'A indexação falhou');}
     finally{setRodando(false);verStatus();}
   }
 
   async function iniciar(){
-    setErro('');setUltimo(null);
+    setErro('');setUltimo(null);setMsg('');
     try{
-      await call('mlSincronizarIniciar',{meses});
+      await call('mlIndexarIniciar',{meses});
       await processarFila();
     }catch(e){setErro(e.message||'Não consegui iniciar');setRodando(false);}
   }
 
-  async function limpar(){
-    if(!confirm('Apagar todo o histórico baixado? Você precisará sincronizar de novo.'))return;
-    setRodando(true);
-    try{await call('mlLimparCache');setStatus(null);setUltimo(null);}
-    catch(e){setErro(e.message);}
-    finally{setRodando(false);}
+  async function puxarVisitas(){
+    setRodando(true);setErro('');setMsg('');
+    try{
+      const r=await call('mlIndexarVisitas',{dias:30});
+      setMsg(`Visitas dos últimos 30 dias guardadas (${r.diasProcessados} leituras).`);
+    }catch(e){setErro(e.message||'Falhou');}
+    finally{setRodando(false);verStatus();}
   }
 
-  const pct=status?.total>0?Math.round((status.concluidos/status.total)*100):0;
-  const emAndamento=rodando||status?.rodando;
+  async function limpar(){
+    if(!confirm('Apagar o índice? As consultas voltam a buscar tudo no Mercado Livre, ficando lentas até você indexar de novo.'))return;
+    setRodando(true);setErro('');
+    try{
+      const r=await call('mlLimparIndice');
+      setMsg(`Índice apagado (${NUM(r.pedidos)} pedidos).`);
+      setStatus(null);setUltimo(null);
+    }catch(e){setErro(e.message);}
+    finally{setRodando(false);verStatus();}
+  }
+
+  const fila=status?.fila;
+  const pct=fila?.total>0?Math.round((fila.concluidos/fila.total)*100):0;
+  const emAndamento=rodando||fila?.rodando;
+  const temIndice=(status?.pedidosIndexados||0)>0;
 
   return (
-    <Card icon="database-backup" title="Histórico de vendas"
-      subtitle="Baixe os pedidos antigos uma vez — depois qualquer período carrega na hora">
+    <Card icon="zap" title="Velocidade das consultas"
+      subtitle={temIndice
+        ? 'Os pedidos estão guardados no banco — por isso carrega rápido'
+        : 'Hoje cada consulta busca tudo no Mercado Livre'}>
 
-      {!status&&!rodando&&(
+      {/* Situação atual */}
+      {temIndice&&!emAndamento&&(
+        <>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',
+            gap:'var(--space-4)',marginBottom:'var(--space-4)'}}>
+            {[
+              ['Pedidos no índice',NUM(status.pedidosIndexados)],
+              ['Anúncios',NUM(status.anunciosIndexados)],
+              ['Cobertura',status.cobertura?.de
+                ?`${fmtData(status.cobertura.de)} – ${fmtData(status.cobertura.ate)}`
+                :'—'],
+            ].map(([lbl,val])=>(
+              <div key={lbl}>
+                <Overline>{lbl}</Overline>
+                <div className="tab" style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',
+                  color:'var(--text-strong)',marginTop:2}}>{val}</div>
+              </div>
+            ))}
+          </div>
+          <Note tone="success" icon="check-circle-2">
+            As vendas novas entram sozinhas a cada 15 minutos, e o dia de hoje é conferido toda vez que você abre o painel.
+          </Note>
+        </>
+      )}
+
+      {/* Primeira carga */}
+      {!temIndice&&!emAndamento&&(
         <>
           <p style={{fontSize:'var(--text-sm)',color:'var(--text-body)',lineHeight:1.7,marginBottom:'var(--space-4)'}}>
-            Hoje cada consulta busca tudo no Mercado Livre, e é por isso que demora.
-            Sincronizando, os pedidos ficam guardados e só as vendas novas do dia vão à API.
+            Cada consulta hoje precisa listar os pedidos, abrir um por um para saber a tarifa e
+            abrir cada envio para saber o frete. Em 30 dias isso passa de mil chamadas — daí a demora.
+            Indexando uma vez, tudo isso fica guardado e a consulta vira instantânea.
           </p>
           <div style={{display:'flex',gap:'var(--space-3)',alignItems:'flex-end',flexWrap:'wrap'}}>
             <div>
-              <label htmlFor="sync-meses" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',
-                display:'block',marginBottom:6,color:'var(--text-muted)'}}>Quanto tempo para trás</label>
-              <select id="sync-meses" className="fld" style={{width:'auto'}}
+              <label htmlFor="idx-meses" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',
+                display:'block',marginBottom:6,color:'var(--text-muted)'}}>Histórico</label>
+              <select id="idx-meses" className="fld" style={{width:'auto'}}
                 value={meses} onChange={e=>setMeses(Number(e.target.value))}>
                 <option value={3}>3 meses</option>
                 <option value={6}>6 meses</option>
@@ -2881,25 +2939,26 @@ function PainelSincronizacao(){
                 <option value={24}>2 anos</option>
               </select>
             </div>
-            <Btn icon="download" onClick={iniciar}>Sincronizar histórico</Btn>
+            <Btn icon="zap" onClick={iniciar}>Montar índice</Btn>
           </div>
           <div style={{marginTop:'var(--space-4)'}}>
             <Note icon="info">
-              Roda mês a mês, em segundo plano. Pode levar bastante tempo na primeira vez —
-              deixe a aba aberta. Se fechar, é só voltar aqui e continuar de onde parou.
+              Roda mês a mês. Pode demorar na primeira vez — deixe a aba aberta.
+              Se fechar, volte aqui e continue de onde parou.
             </Note>
           </div>
         </>
       )}
 
-      {status&&(
+      {/* Progresso */}
+      {fila&&(emAndamento||fila.restantes>0)&&(
         <>
-          {/* Barra de progresso */}
           <div style={{marginBottom:'var(--space-4)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',
               marginBottom:'var(--space-2)',gap:'var(--space-3)',flexWrap:'wrap'}}>
-              <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
-                {NUM(status.concluidos)} de {NUM(status.total)} blocos
+              <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',
+                color:'var(--text-strong)'}}>
+                {NUM(fila.concluidos)} de {NUM(fila.total)} blocos
               </span>
               <span className="tab" style={{fontSize:'var(--text-2xl)',fontWeight:'var(--weight-extrabold)',
                 color:pct===100?'var(--status-success-fg)':'var(--purple-500)'}}>{pct}%</span>
@@ -2913,9 +2972,8 @@ function PainelSincronizacao(){
 
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:'var(--space-4)'}}>
             {[
-              ['Pedidos baixados',NUM(status.pedidosBaixados||0)],
-              ['Faltam',NUM(status.restantes||0)],
-              ['Período',status.periodo?`${fmtData(status.periodo.from)} – ${fmtData(status.periodo.to)}`:'—'],
+              ['Pedidos indexados',NUM(fila.pedidosIndexados||0)],
+              ['Faltam',NUM(fila.restantes||0)],
             ].map(([lbl,val])=>(
               <div key={lbl}>
                 <Overline>{lbl}</Overline>
@@ -2927,274 +2985,46 @@ function PainelSincronizacao(){
 
           {ultimo&&emAndamento&&(
             <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)'}}>
-              Baixando {ultimo.conta} · {ultimo.mes}
+              Processando {ultimo.conta} · {ultimo.mes}
               {ultimo.pedidos>0&&` — ${NUM(ultimo.pedidos)} pedidos`}
             </p>
           )}
 
           <div style={{display:'flex',gap:'var(--space-2)',marginTop:'var(--space-4)',flexWrap:'wrap'}}>
-            {emAndamento?(
-              <Btn variant="neutral" icon="pause" onClick={()=>{parar.current=true;}}>Pausar</Btn>
-            ):status.restantes>0?(
-              <Btn icon="play" onClick={processarFila}>Continuar</Btn>
-            ):(
-              <Btn variant="neutral" icon="refresh-cw" onClick={iniciar}>Sincronizar de novo</Btn>
-            )}
-            {!emAndamento&&<Btn variant="ghost" icon="trash-2" onClick={limpar}>Limpar histórico</Btn>}
+            {emAndamento
+              ? <Btn variant="neutral" icon="pause" onClick={()=>{parar.current=true;}}>Pausar</Btn>
+              : <Btn icon="play" onClick={processarFila}>Continuar</Btn>}
           </div>
 
-          {status.erros?.length>0&&(
+          {fila.erros?.length>0&&(
             <div style={{marginTop:'var(--space-4)'}}>
               <Note tone="warning" icon="triangle-alert">
-                Alguns blocos falharam: {status.erros.slice(0,3).join(' · ')}
-                {status.erros.length>3&&` e mais ${status.erros.length-3}`}
-              </Note>
-            </div>
-          )}
-
-          {!emAndamento&&status.restantes===0&&(
-            <div style={{marginTop:'var(--space-4)'}}>
-              <Note tone="success" icon="check-circle-2">
-                Histórico completo. Agora os períodos já baixados carregam do banco, sem ir ao Mercado Livre.
+                Alguns blocos falharam: {fila.erros.slice(0,3).join(' · ')}
+                {fila.erros.length>3&&` e mais ${fila.erros.length-3}`}
               </Note>
             </div>
           )}
         </>
       )}
 
+      {/* Ações */}
+      {temIndice&&!emAndamento&&(
+        <div style={{display:'flex',gap:'var(--space-2)',marginTop:'var(--space-4)',flexWrap:'wrap'}}>
+          <Btn variant="neutral" size="sm" icon="eye" onClick={puxarVisitas} disabled={rodando}>
+            Puxar visitas de 30 dias
+          </Btn>
+          <Btn variant="neutral" size="sm" icon="refresh-cw" onClick={iniciar} disabled={rodando}>
+            Reindexar
+          </Btn>
+          <Btn variant="ghost" size="sm" icon="trash-2" onClick={limpar} disabled={rodando}>
+            Apagar índice
+          </Btn>
+        </div>
+      )}
+
+      {msg&&<div style={{marginTop:'var(--space-4)'}}><Note tone="success" icon="check-circle-2">{msg}</Note></div>}
       {erro&&<div style={{marginTop:'var(--space-4)'}}><Note tone="danger" icon="alert-octagon">{erro}</Note></div>}
     </Card>
-  );
-}
-
-/* ══ VIEW: HUB DO MENTOR ════════════════════════════════════
-   Só aparece para administradores. Lista quem conectou conta do
-   Mercado Livre e permite abrir o painel de cada um. */
-function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
-  const [lista,setLista]=useState(null);
-  const [carregando,setCarregando]=useState(true);
-  const [erro,setErro]=useState('');
-  const [busca,setBusca]=useState('');
-  const [periodo,setPeriodo]=useState('7d');
-  const [resumos,setResumos]=useState({});
-  const [carregandoResumo,setCarregandoResumo]=useState(null);
-
-  useEffect(()=>{carregar();},[]);
-
-  async function carregar(){
-    setCarregando(true);setErro('');
-    try{
-      const r=await call('mlListarMentorados');
-      setLista(r.mentorados||[]);
-    }catch(e){setErro(e.message||'Não consegui carregar a lista');}
-    finally{setCarregando(false);}
-  }
-
-  async function verResumo(uid){
-    if(resumos[uid]){setResumos(rs=>({...rs,[uid]:null}));return;}
-    setCarregandoResumo(uid);
-    try{
-      const r=await call('mlResumoMentorado',{uid,periodo});
-      setResumos(rs=>({...rs,[uid]:r}));
-    }catch(e){
-      setResumos(rs=>({...rs,[uid]:{erro:e.message||'Falhou'}}));
-    }finally{setCarregandoResumo(null);}
-  }
-
-  const filtrados=(lista||[]).filter(m=>{
-    if(!busca)return true;
-    const q=busca.toLowerCase();
-    return String(m.email||'').toLowerCase().includes(q)
-      ||String(m.nome||'').toLowerCase().includes(q)
-      ||m.contas.some(c=>String(c.nickname).toLowerCase().includes(q));
-  });
-
-  const totalContas=(lista||[]).reduce((a,m)=>a+m.totalContas,0);
-  const comTokenVencido=(lista||[]).filter(m=>m.contas.some(c=>!c.tokenValido)).length;
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
-
-      {/* Quem está sendo visto agora */}
-      {mentoradoAtivo&&(
-        <Card pad={false} style={{borderColor:'var(--action-primary)'}}>
-          <div style={{padding:'var(--space-4) var(--layout-card-pad)',display:'flex',
-            alignItems:'center',justifyContent:'space-between',gap:'var(--space-4)',flexWrap:'wrap'}}>
-            <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)'}}>
-              <span style={{width:38,height:38,borderRadius:'50%',background:'var(--status-brand-bg)',
-                display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
-                <Icon name="eye" size={18} color="var(--status-brand-solid)"/>
-              </span>
-              <div>
-                <Overline>Visualizando agora</Overline>
-                <div style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
-                  {mentoradoAtivo.nome||mentoradoAtivo.email||mentoradoAtivo.uid}
-                </div>
-              </div>
-            </div>
-            <Btn variant="neutral" icon="rotate-ccw" onClick={onVoltarParaMim}>Voltar para minha conta</Btn>
-          </div>
-        </Card>
-      )}
-
-      {/* Resumo geral */}
-      <section className="dashboard-overview" aria-label="Resumo da carteira">
-        {[
-          ['Mentorados',NUM(lista?.length||0),'com conta do ML conectada'],
-          ['Contas ML',NUM(totalContas),'somando todos'],
-          ['Precisam reconectar',NUM(comTokenVencido),comTokenVencido>0?'token expirado':'nenhum'],
-        ].map(([label,value,caption],i)=>(
-          <div key={label}>
-            <Overline>{label}</Overline>
-            {carregando?<div style={{margin:'12px 0'}}><Skel h={34}/></div>
-              :<div className="metric-value" style={{color:i===2&&comTokenVencido>0?'var(--status-warning-fg)':'var(--text-strong)'}}>{value}</div>}
-            <div className="metric-caption">{caption}</div>
-          </div>
-        ))}
-      </section>
-
-      {erro&&<Note tone="danger" icon="alert-octagon">{erro}</Note>}
-
-      {/* Busca e período do resumo */}
-      <div className="toolbar">
-        <div style={{position:'relative',flex:'1 1 240px',maxWidth:340}}>
-          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',display:'flex'}}>
-            <Icon name="search" size={16} color="var(--text-subtle)"/>
-          </span>
-          <input aria-label="Buscar mentorado" className="fld" value={busca} onChange={e=>setBusca(e.target.value)}
-            placeholder="Buscar por e-mail, nome ou loja" style={{height:'var(--control-h-md)',padding:'0 12px 0 38px'}}/>
-        </div>
-        <select aria-label="Período do resumo" className="fld" style={{width:'auto'}}
-          value={periodo} onChange={e=>{setPeriodo(e.target.value);setResumos({});}}>
-          <option value="hoje">Resumo: hoje</option>
-          <option value="ontem">Resumo: ontem</option>
-          <option value="7d">Resumo: 7 dias</option>
-          <option value="30d">Resumo: 30 dias</option>
-          <option value="mes">Resumo: mês atual</option>
-        </select>
-        <Btn variant="neutral" size="md" icon="refresh-cw" onClick={carregar} disabled={carregando}>
-          {carregando?'Carregando…':'Atualizar'}
-        </Btn>
-      </div>
-
-      {/* Lista */}
-      {carregando?(
-        <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
-          {[...Array(4)].map((_,i)=>(
-            <Card key={i}>
-              <div style={{display:'flex',gap:'var(--space-3)',alignItems:'center'}}>
-                <Skel w={40} h={40} r="50%"/>
-                <div style={{flex:1,display:'flex',flexDirection:'column',gap:7}}><Skel h={14}/><Skel w="40%" h={11}/></div>
-                <Skel w={100} h={32}/>
-              </div>
-            </Card>
-          ))}
-        </div>
-      ):filtrados.length===0?(
-        <Card>
-          <Empty icon="users" title={busca?'Ninguém encontrado':'Nenhum mentorado ainda'}
-            description={busca?'Ajuste a busca.':'Assim que alguém conectar uma conta do Mercado Livre, aparece aqui.'}/>
-        </Card>
-      ):(
-        <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
-          {filtrados.map(m=>{
-            const resumo=resumos[m.uid];
-            const ativo=mentoradoAtivo?.uid===m.uid;
-            const precisaReconectar=m.contas.some(c=>!c.tokenValido);
-            return (
-              <Card key={m.uid} pad={false} style={ativo?{borderColor:'var(--action-primary)'}:undefined}>
-                <div style={{padding:'var(--space-4) var(--layout-card-pad)',display:'flex',
-                  alignItems:'center',gap:'var(--space-4)',flexWrap:'wrap'}}>
-
-                  <span style={{width:40,height:40,borderRadius:'50%',flexShrink:0,
-                    background:m.souEu?'var(--status-brand-bg)':'var(--surface-sunken)',
-                    display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
-                    <Icon name={m.souEu?'user-star':'user'} size={18}
-                      color={m.souEu?'var(--status-brand-solid)':'var(--text-muted)'}/>
-                  </span>
-
-                  <div style={{flex:'1 1 200px',minWidth:0}}>
-                    <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-                      <span style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>
-                        {m.nome||m.email||m.uid.slice(0,10)}
-                      </span>
-                      {m.souEu&&<Badge tone="brand">Você</Badge>}
-                      {precisaReconectar&&<Badge tone="warning" dot>Reconectar</Badge>}
-                    </div>
-                    <div style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:2}}>
-                      {m.nome&&m.email?`${m.email} · `:''}
-                      {m.contas.map(c=>c.nickname).join(', ')}
-                    </div>
-                    <div style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',marginTop:3}}>
-                      {NUM(m.custosCadastrados)} {m.custosCadastrados===1?'produto com custo':'produtos com custo'}
-                    </div>
-                  </div>
-
-                  <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap'}}>
-                    <Btn variant="neutral" size="sm"
-                      icon={carregandoResumo===m.uid?'loader':(resumo?'chevron-up':'bar-chart-3')}
-                      onClick={()=>verResumo(m.uid)} disabled={carregandoResumo===m.uid}>
-                      {resumo?'Fechar':'Resumo'}
-                    </Btn>
-                    <Btn size="sm" icon="external-link" onClick={()=>onAbrir(m)}>
-                      Abrir painel
-                    </Btn>
-                  </div>
-                </div>
-
-                {/* Resumo expandido */}
-                {resumo&&(
-                  <div style={{borderTop:'1px solid var(--border-subtle)',
-                    padding:'var(--space-4) var(--layout-card-pad)',background:'var(--surface-sunken)'}}>
-                    {resumo.erro?(
-                      <Note tone="danger" icon="alert-octagon">{resumo.erro}</Note>
-                    ):resumo.semContas?(
-                      <Note tone="warning" icon="triangle-alert">Nenhuma conta ativa.</Note>
-                    ):(
-                      <>
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(112px,1fr))',
-                          gap:'var(--space-4)'}}>
-                          {[
-                            ['Faturamento',BRL(resumo.faturamento)],
-                            ['Pedidos',NUM(resumo.pedidos)],
-                            ['Ticket médio',BRL(resumo.ticketMedio)],
-                            ['Lucro',resumo.lucroConfiavel?BRL(resumo.lucro):'—'],
-                            ['Margem',resumo.lucroConfiavel&&resumo.margem!=null?PCT(resumo.margem):'—'],
-                            ['Visitas',NUM(resumo.visitas)],
-                            ['Anúncios',NUM(resumo.anunciosAtivos)],
-                          ].map(([lbl,val])=>(
-                            <div key={lbl}>
-                              <Overline>{lbl}</Overline>
-                              <div className="tab" style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',
-                                color:'var(--text-strong)',marginTop:2}}>{val}</div>
-                            </div>
-                          ))}
-                        </div>
-                        {!resumo.lucroConfiavel&&(
-                          <p style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:'var(--space-3)'}}>
-                            {NUM(resumo.vendasSemCusto)} vendas sem custo cadastrado — por isso o lucro não aparece.
-                          </p>
-                        )}
-                        {resumo.falhas?.length>0&&(
-                          <div style={{marginTop:'var(--space-3)'}}>
-                            <Note tone="warning" icon="triangle-alert">{resumo.falhas.join(' · ')}</Note>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      <Note icon="info">
-        Você enxerga os dados de venda de quem conectou a conta. Deixe isso claro no termo da mentoria —
-        além de ser o correto, é o que a LGPD exige.
-      </Note>
-    </div>
   );
 }
 
@@ -3233,7 +3063,7 @@ function ViewContas({dados,onRefresh}){
   const conectar=()=>{window.location.href=`https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${ML_CLIENT_ID}&redirect_uri=${encodeURIComponent(ML_REDIRECT)}`};
   return (
     <div style={{maxWidth:660,display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
-      <PainelSincronizacao/>
+      <PainelIndice/>
       <Card title="Contas conectadas" pad={false}>
         <div style={{borderTop:'1px solid var(--border-subtle)'}}>
           {contas.map((c,i)=>(
@@ -4001,6 +3831,13 @@ function AppLogado({user,erroConexao}){
           <div className="workspace-status" role="status" aria-live="polite">
             <span className={loading?'spin':undefined}><Icon name={loading?'loader-circle':err?'circle-alert':'circle-check'} size={14} color={err?'var(--status-danger-fg)':'var(--text-accent)'}/></span>
             <span>{loading?'Atualizando dados…':err?'Atualização não concluída':dados?.hora?<>Dados recebidos às <time>{dados.hora}</time></>:'Aguardando dados'}</span>
+            {dados?.origem&&(
+              <span style={{display:'inline-flex',alignItems:'center',gap:4,
+                color:dados.origem==='indice'?'var(--status-success-fg)':'var(--text-subtle)'}}>
+                <Icon name={dados.origem==='indice'?'zap':'cloud-download'} size={11}/>
+                {dados.origem==='indice'?'do índice':'do Mercado Livre'}
+              </span>
+            )}
             <span style={{marginLeft:'auto'}}>{rotuloPeriodo}</span>
           </div>
           {(err||erroConexao)&&<div role="alert" style={{marginBottom:'var(--layout-grid-gap)'}}>
@@ -4008,7 +3845,7 @@ function AppLogado({user,erroConexao}){
             {err&&<div style={{marginTop:8}}><Btn variant="neutral" icon="refresh-cw" disabled={loading} onClick={carregar}>Tentar novamente</Btn></div>}
           </div>}
           {!dados&&!loading&&err?null:<>
-          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos} onIrParaSkus={()=>navegar('skus')} somenteLeitura={Boolean(mentorado)}/>}
+          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos} onIrParaSkus={()=>navegar('skus')} onIrParaContas={()=>navegar('contas')} somenteLeitura={Boolean(mentorado)}/>}
           {view==='pedidos'&&(
             <div>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
