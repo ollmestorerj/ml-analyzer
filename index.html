@@ -1066,19 +1066,35 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
         </Card>
       )}
 
-      {/* Convite para indexar, quando as consultas ainda são ao vivo */}
-      {!loading&&dados?.origem==='aovivo'&&dados?.metricas?.pedidosDia>8&&(
-        <div className="attention">
-          <div className="attention-copy">
-            <Icon name="zap" color="var(--status-warning-fg)"/>
-            <span>
-              <strong>As consultas estão indo ao Mercado Livre a cada clique</strong><br/>
-              É isso que deixa o carregamento lento. Monte o índice uma vez e os períodos passam a abrir na hora.
-            </span>
+      {/* Índice ainda não cobre este período */}
+      {!loading&&dados?.origem==='aovivo'&&(()=>{
+        const cob=dados.indice?.cobertura?.filter(c=>c.de)||[];
+        const temAlgo=cob.length>0;
+        return (
+          <div className="attention">
+            <div className="attention-copy">
+              <Icon name="zap" color="var(--status-warning-fg)"/>
+              <span>
+                {temAlgo?(
+                  <>
+                    <strong>O índice ainda não cobre este período</strong><br/>
+                    Indexado até agora: {cob.map(c=>`${c.conta} (${fmtData(c.de)} – ${fmtData(c.ate)})`).join(', ')}.
+                    Esta consulta foi buscar no Mercado Livre, por isso demorou.
+                  </>
+                ):(
+                  <>
+                    <strong>As consultas estão indo ao Mercado Livre a cada clique</strong><br/>
+                    É isso que deixa o carregamento lento. Monte o índice uma vez e os períodos passam a abrir na hora.
+                  </>
+                )}
+              </span>
+            </div>
+            {onIrParaContas&&<Btn variant="neutral" size="sm" icon="zap" onClick={onIrParaContas}>
+              {temAlgo?'Ampliar índice':'Montar índice'}
+            </Btn>}
           </div>
-          {onIrParaContas&&<Btn variant="neutral" size="sm" icon="zap" onClick={onIrParaContas}>Montar índice</Btn>}
-        </div>
-      )}
+        );
+      })()}
 
       {/* RITMO — acumulado até agora contra o mesmo horário do dia anterior */}
       {!loading&&dados?.ritmo&&(
@@ -1102,7 +1118,11 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
 
               <div>
                 <Overline>
-                  {dados.ritmo.emAndamento?'Ontem nesta hora':'Período anterior'}
+                  {dados.ritmo.emAndamento
+                    ? (dados.comparativo?.dias>1
+                        ? `Anterior até ${String(dados.ritmo.horaCorte).padStart(2,'0')}h`
+                        : 'Ontem nesta hora')
+                    : 'Período anterior'}
                 </Overline>
                 <div style={{display:'flex',alignItems:'baseline',gap:'var(--space-2)',marginTop:2}}>
                   <span className="tab" style={{fontSize:'var(--text-xl)',fontWeight:'var(--weight-bold)',
@@ -1122,7 +1142,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
               {dados.ritmo.emAndamento&&(
                 <>
                   <div>
-                    <Overline>Ontem no dia todo</Overline>
+                    <Overline>{dados.comparativo?.dias>1?'Anterior completo':'Ontem no dia todo'}</Overline>
                     <div className="tab" style={{fontSize:'var(--text-xl)',fontWeight:'var(--weight-bold)',
                       color:'var(--text-muted)',marginTop:2}}>{BRL(dados.ritmo.anteriorDiaTodo?.faturamento)}</div>
                   </div>
@@ -1141,7 +1161,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
                         )}
                       </div>
                       <div style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',marginTop:3}}>
-                        se seguir o padrão de ontem
+                        {dados.comparativo?.dias>1?'se seguir o mesmo ritmo':'se seguir o padrão de ontem'}
                       </div>
                     </div>
                   )}
@@ -2902,9 +2922,9 @@ function PainelIndice(){
             {[
               ['Pedidos no índice',NUM(status.pedidosIndexados)],
               ['Anúncios',NUM(status.anunciosIndexados)],
-              ['Cobertura',status.cobertura?.de
+              ['Cobertura completa',status.cobertura?.de
                 ?`${fmtData(status.cobertura.de)} – ${fmtData(status.cobertura.ate)}`
-                :'—'],
+                :'ainda não'],
             ].map(([lbl,val])=>(
               <div key={lbl}>
                 <Overline>{lbl}</Overline>
@@ -2913,9 +2933,35 @@ function PainelIndice(){
               </div>
             ))}
           </div>
-          <Note tone="success" icon="check-circle-2">
-            As vendas novas entram sozinhas a cada 15 minutos, e o dia de hoje é conferido toda vez que você abre o painel.
-          </Note>
+          {/* Cobertura conta a conta */}
+          {status.coberturaPorConta?.length>1&&(
+            <div style={{marginBottom:'var(--space-4)'}}>
+              <Overline>Por conta</Overline>
+              <div style={{marginTop:'var(--space-2)',display:'flex',flexDirection:'column',gap:6}}>
+                {status.coberturaPorConta.map(c=>(
+                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:'var(--space-2)',
+                    fontSize:'var(--text-xs)',flexWrap:'wrap'}}>
+                    <Badge tone={c.de?'success':'warning'} dot>{c.conta}</Badge>
+                    <span className="tab" style={{color:'var(--text-muted)'}}>
+                      {c.de?`${fmtData(c.de)} – ${fmtData(c.ate)}`:'sem índice'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {status.contasSemIndice>0?(
+            <Note tone="warning" icon="triangle-alert">
+              {NUM(status.contasSemIndice)} {status.contasSemIndice===1?'conta ainda não foi indexada':'contas ainda não foram indexadas'}.
+              Enquanto isso, as consultas continuam buscando no Mercado Livre.
+            </Note>
+          ):(
+            <Note tone="success" icon="check-circle-2">
+              Períodos dentro da cobertura abrem na hora. As vendas novas entram sozinhas a cada 15 minutos,
+              e o dia de hoje é conferido sempre que você abre o painel.
+            </Note>
+          )}
         </>
       )}
 
