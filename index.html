@@ -205,6 +205,12 @@ const BRL=v=>v==null||!Number.isFinite(Number(v))?'—':new Intl.NumberFormat('p
 const NUM=v=>v==null||!Number.isFinite(Number(v))?'—':new Intl.NumberFormat('pt-BR').format(v);
 const PCT=v=>v==null||!Number.isFinite(Number(v))?'—':`${Number(v).toFixed(1)}%`;
 const call=(fn,args={})=>functions.httpsCallable(fn)(args).then(r=>r.data);
+
+// O Firebase corta a chamada do navegador em 70s por padrao. Indexacao e
+// sincronizacao passam disso: sem este limite maior, o laco quebra no meio
+// e a barra de progresso fica parada.
+const callLongo=(fn,args={},segundos=360)=>
+  functions.httpsCallable(fn,{timeout:segundos*1000})(args).then(r=>r.data);
 // Captura o code do OAuth UMA UNICA VEZ, antes do React montar.
 // A URL e limpa na hora para nao haver risco de reuso (o ML invalida o code no 1o uso).
 const OAUTH_CODE=(()=>{
@@ -2859,26 +2865,57 @@ function PainelIndice(){
 
   async function processarFila(){
     parar.current=false;setRodando(true);setErro('');setMsg('');
+    let falhasSeguidas=0;
+    let ultimoProgresso=-1;
+
     try{
-      for(let i=0;i<500;i++){
+      for(let i=0;i<300;i++){
         if(parar.current)break;
-        const r=await call('mlIndexarLote');
-        setUltimo(r.atual||null);
-        setStatus(st=>({...(st||{}),fila:{
-          ...(st?.fila||{}),rodando:!r.concluido,total:r.total,
-          concluidos:r.concluidos,restantes:r.restantes,
-          pedidosIndexados:r.pedidosIndexados,
-        }}));
-        if(r.concluido){setMsg('Índice montado. As consultas agora vêm do banco.');break;}
+        try{
+          const r=await callLongo('mlIndexarLote',{},360);
+          falhasSeguidas=0;
+          setUltimo(r.atual||null);
+          setStatus(st=>({...(st||{}),fila:{
+            ...(st?.fila||{}),rodando:!r.concluido,total:r.total,
+            concluidos:r.concluidos,restantes:r.restantes,
+            pedidosIndexados:r.pedidosIndexados,
+          }}));
+
+          if(r.concluido){setMsg('Índice montado. As consultas agora vêm do banco.');break;}
+
+          // Se o número de blocos concluídos não mudou, algo travou
+          if(r.concluidos===ultimoProgresso){
+            falhasSeguidas++;
+            if(falhasSeguidas>=3){
+              setErro('A indexação parou de avançar. Clique em Continuar para tentar de novo.');
+              break;
+            }
+          }
+          ultimoProgresso=r.concluidos;
+        }catch(e){
+          falhasSeguidas++;
+          const m=String(e.message||'');
+          // Tempo esgotado no navegador: o servidor continua trabalhando,
+          // então vale conferir o progresso e seguir
+          if(/deadline|timeout|tempo/i.test(m)&&falhasSeguidas<6){
+            await new Promise(r=>setTimeout(r,2500));
+            await verStatus();
+            continue;
+          }
+          if(falhasSeguidas>=3){
+            setErro(m||'A indexação falhou');
+            break;
+          }
+          await new Promise(r=>setTimeout(r,2000));
+        }
       }
-    }catch(e){setErro(e.message||'A indexação falhou');}
-    finally{setRodando(false);verStatus();}
+    }finally{setRodando(false);verStatus();}
   }
 
   async function iniciar(){
     setErro('');setUltimo(null);setMsg('');
     try{
-      await call('mlIndexarIniciar',{meses});
+      await callLongo('mlIndexarIniciar',{meses});
       await processarFila();
     }catch(e){setErro(e.message||'Não consegui iniciar');setRodando(false);}
   }
@@ -2886,7 +2923,7 @@ function PainelIndice(){
   async function puxarVisitas(){
     setRodando(true);setErro('');setMsg('');
     try{
-      const r=await call('mlIndexarVisitas',{dias:30});
+      const r=await callLongo('mlIndexarVisitas',{dias:30});
       setMsg(`Visitas dos últimos 30 dias guardadas (${r.diasProcessados} leituras).`);
     }catch(e){setErro(e.message||'Falhou');}
     finally{setRodando(false);verStatus();}
@@ -2896,7 +2933,7 @@ function PainelIndice(){
     if(!confirm('Apagar o índice? As consultas voltam a buscar tudo no Mercado Livre, ficando lentas até você indexar de novo.'))return;
     setRodando(true);setErro('');
     try{
-      const r=await call('mlLimparIndice');
+      const r=await callLongo('mlLimparIndice');
       setMsg(`Índice apagado (${NUM(r.pedidos)} pedidos).`);
       setStatus(null);setUltimo(null);
     }catch(e){setErro(e.message);}
@@ -2906,7 +2943,9 @@ function PainelIndice(){
   const fila=status?.fila;
   const pct=fila?.total>0?Math.round((fila.concluidos/fila.total)*100):0;
   const emAndamento=rodando||fila?.rodando;
-  const temIndice=(status?.pedidosIndexados||0)>0;
+  // Só considera pronto quando TODAS as contas têm cobertura.
+  // Antes, um único pedido do dia já escondia o botão de montar.
+  const temIndice=(status?.pedidosIndexados||0)>0&&(status?.contasSemIndice||0)===0;
 
   return (
     <Card icon="zap" title="Velocidade das consultas"
@@ -2968,6 +3007,22 @@ function PainelIndice(){
       {/* Primeira carga */}
       {!temIndice&&!emAndamento&&(
         <>
+          {status?.coberturaPorConta?.length>0&&(
+            <div style={{marginBottom:'var(--space-4)'}}>
+              <Overline>Situação por conta</Overline>
+              <div style={{marginTop:'var(--space-2)',display:'flex',flexDirection:'column',gap:6}}>
+                {status.coberturaPorConta.map(c=>(
+                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:'var(--space-2)',
+                    fontSize:'var(--text-xs)',flexWrap:'wrap'}}>
+                    <Badge tone={c.de?'success':'warning'} dot>{c.conta}</Badge>
+                    <span className="tab" style={{color:'var(--text-muted)'}}>
+                      {c.de?`${fmtData(c.de)} – ${fmtData(c.ate)}`:'sem índice'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <p style={{fontSize:'var(--text-sm)',color:'var(--text-body)',lineHeight:1.7,marginBottom:'var(--space-4)'}}>
             Cada consulta hoje precisa listar os pedidos, abrir um por um para saber a tarifa e
             abrir cada envio para saber o frete. Em 30 dias isso passa de mil chamadas — daí a demora.
@@ -2989,8 +3044,9 @@ function PainelIndice(){
           </div>
           <div style={{marginTop:'var(--space-4)'}}>
             <Note icon="info">
-              Roda mês a mês. Pode demorar na primeira vez — deixe a aba aberta.
-              Se fechar, volte aqui e continue de onde parou.
+              Roda em blocos de 10 dias. Um ano leva alguns minutos na primeira vez —
+              deixe a aba aberta. Se fechar ou cair, é só voltar aqui e clicar em Continuar:
+              nada do que já foi baixado se perde.
             </Note>
           </div>
         </>
