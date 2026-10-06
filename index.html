@@ -3878,10 +3878,14 @@ function AppLogado({user,erroConexao}){
             <span className={loading?'spin':undefined}><Icon name={loading?'loader-circle':err?'circle-alert':'circle-check'} size={14} color={err?'var(--status-danger-fg)':'var(--text-accent)'}/></span>
             <span>{loading?'Atualizando dados…':err?'Atualização não concluída':dados?.hora?<>Dados recebidos às <time>{dados.hora}</time></>:'Aguardando dados'}</span>
             {dados?.origem&&(
-              <span style={{display:'inline-flex',alignItems:'center',gap:4,
+              <span title={dados.tempos
+                ? Object.entries(dados.tempos).map(([k,v])=>`${k}: ${(v/1000).toFixed(1)}s`).join('  ·  ')
+                : undefined}
+                style={{display:'inline-flex',alignItems:'center',gap:4,cursor:dados.tempos?'help':'default',
                 color:dados.origem==='indice'?'var(--status-success-fg)':'var(--text-subtle)'}}>
                 <Icon name={dados.origem==='indice'?'zap':'cloud-download'} size={11}/>
                 {dados.origem==='indice'?'do índice':'do Mercado Livre'}
+                {dados.tempos?.total!=null&&` · ${(dados.tempos.total/1000).toFixed(1)}s`}
               </span>
             )}
             <span style={{marginLeft:'auto'}}>{rotuloPeriodo}</span>
