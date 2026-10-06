@@ -2931,14 +2931,29 @@ function PainelIndice(){
   // O que já foi indexado continua valendo.
   async function recomecar(){
     if(!confirm('Descartar a fila atual e começar outra? Os pedidos já indexados continuam salvos.'))return;
+
+    // Interrompe qualquer laço em andamento e devolve a tela ao estado parado
     parar.current=true;
+    setRodando(false);
     setErro('');setUltimo(null);setMsg('');
+
     try{
-      await call('mlIndexarCancelar');
+      // Apaga a fila travada no servidor
+      try{
+        await call('mlIndexarCancelar');
+      }catch(e){
+        // Versão antiga do servidor, sem essa função: montar outra fila
+        // por cima já substitui a anterior.
+        console.warn('Cancelar indisponível, seguindo:', e.message);
+      }
       setStatus(st=>({...(st||{}),fila:null}));
-      await new Promise(r=>setTimeout(r,400));
+      await new Promise(r=>setTimeout(r,600));
       await iniciar();
-    }catch(e){setErro(e.message||'Não consegui recomeçar');setRodando(false);}
+    }catch(e){
+      setErro(e.message||'Não consegui recomeçar');
+      setRodando(false);
+      verStatus();
+    }
   }
 
   async function puxarVisitas(){
@@ -2964,6 +2979,8 @@ function PainelIndice(){
   const fila=status?.fila;
   const pct=fila?.total>0?Math.round((fila.concluidos/fila.total)*100):0;
   const emAndamento=rodando||fila?.rodando;
+  // Fila criada antes da correção: blocos grandes que travavam antes de salvar
+  const filaAntiga=Boolean(fila)&&(fila.versao||1)<2;
   // Só considera pronto quando TODAS as contas têm cobertura.
   // Antes, um único pedido do dia já escondia o botão de montar.
   const temIndice=(status?.pedidosIndexados||0)>0&&(status?.contasSemIndice||0)===0;
@@ -3119,19 +3136,27 @@ function PainelIndice(){
           )}
 
           <div style={{display:'flex',gap:'var(--space-2)',marginTop:'var(--space-4)',flexWrap:'wrap'}}>
-            {emAndamento
-              ? <Btn variant="neutral" icon="pause" onClick={()=>{parar.current=true;}}>Pausar</Btn>
-              : <Btn icon="play" onClick={processarFila}>Continuar</Btn>}
-            <Btn variant="ghost" size="md" icon="rotate-ccw" onClick={recomecar} disabled={rodando}>
-              Recomeçar do zero
-            </Btn>
+            {filaAntiga?(
+              // Fila de formato antigo: continuar não resolve, só recomeçar
+              <Btn icon="rotate-ccw" onClick={recomecar}>Recomeçar do zero</Btn>
+            ):(
+              <>
+                {emAndamento
+                  ? <Btn variant="neutral" icon="pause" onClick={()=>{parar.current=true;setRodando(false);}}>Pausar</Btn>
+                  : <Btn icon="play" onClick={processarFila}>Continuar</Btn>}
+                <Btn variant="secondary" size="md" icon="rotate-ccw" onClick={recomecar}>
+                  Recomeçar do zero
+                </Btn>
+              </>
+            )}
           </div>
-          {(fila.versao||1)<2&&(
+          {filaAntiga&&(
             <div style={{marginTop:'var(--space-3)'}}>
               <Note tone="warning" icon="triangle-alert">
-                Esta fila foi criada por uma versão anterior, com blocos grandes demais que travavam
-                antes de salvar. Clique em <strong>Recomeçar do zero</strong> — os pedidos já
-                indexados continuam valendo.
+                Esta fila travou: os blocos eram grandes demais e a gravação não chegava a acontecer,
+                então ela reprocessava o mesmo trecho sem parar. Clique em
+                <strong> Recomeçar do zero</strong> para montar a fila corrigida — os
+                {' '}{NUM(fila.pedidosIndexados||0)} pedidos já baixados continuam valendo.
               </Note>
             </div>
           )}
