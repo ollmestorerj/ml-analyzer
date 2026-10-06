@@ -2859,54 +2859,61 @@ function PainelIndice(){
   },[]);
 
   async function verStatus(){
-    try{const r=await call('mlIndiceStatus');setStatus(r);}
-    catch(e){setErro(e.message||'');}
+    try{const r=await call('mlIndiceStatus');setStatus(r);return r;}
+    catch(e){setErro(e.message||'');return null;}
   }
 
   async function processarFila(){
     parar.current=false;setRodando(true);setErro('');setMsg('');
-    let falhasSeguidas=0;
-    let ultimoProgresso=-1;
+
+    // O servidor grava o avanço a cada bloco, então aqui basta insistir.
+    // Travar de vez só acontece se nada avançar em várias tentativas.
+    let semAvanco=0;
+    let marcaAnterior=-1;
 
     try{
-      for(let i=0;i<300;i++){
+      for(let volta=0;volta<400;volta++){
         if(parar.current)break;
+
+        let r=null;
         try{
-          const r=await callLongo('mlIndexarLote',{},360);
-          falhasSeguidas=0;
-          setUltimo(r.atual||null);
-          setStatus(st=>({...(st||{}),fila:{
-            ...(st?.fila||{}),rodando:!r.concluido,total:r.total,
-            concluidos:r.concluidos,restantes:r.restantes,
-            pedidosIndexados:r.pedidosIndexados,
-          }}));
-
-          if(r.concluido){setMsg('Índice montado. As consultas agora vêm do banco.');break;}
-
-          // Se o número de blocos concluídos não mudou, algo travou
-          if(r.concluidos===ultimoProgresso){
-            falhasSeguidas++;
-            if(falhasSeguidas>=3){
-              setErro('A indexação parou de avançar. Clique em Continuar para tentar de novo.');
-              break;
-            }
-          }
-          ultimoProgresso=r.concluidos;
+          r=await callLongo('mlIndexarLote',{},540);
         }catch(e){
-          falhasSeguidas++;
-          const m=String(e.message||'');
-          // Tempo esgotado no navegador: o servidor continua trabalhando,
-          // então vale conferir o progresso e seguir
-          if(/deadline|timeout|tempo/i.test(m)&&falhasSeguidas<6){
-            await new Promise(r=>setTimeout(r,2500));
-            await verStatus();
-            continue;
-          }
-          if(falhasSeguidas>=3){
-            setErro(m||'A indexação falhou');
+          // Tempo do navegador esgotado: o servidor continua e já gravou.
+          // Confere o estado real e segue.
+          await new Promise(x=>setTimeout(x,2000));
+          const st=await verStatus();
+          const agora=st?.fila?.concluidos??-1;
+          if(agora>marcaAnterior){marcaAnterior=agora;semAvanco=0;continue;}
+          semAvanco++;
+          if(semAvanco>=4){
+            setErro('A indexação parou de avançar: '+(e.message||'tempo esgotado'));
             break;
           }
-          await new Promise(r=>setTimeout(r,2000));
+          continue;
+        }
+
+        setUltimo(r.atual||null);
+        setStatus(st=>({...(st||{}),fila:{
+          ...(st?.fila||{}),rodando:!r.concluido,total:r.total,
+          concluidos:r.concluidos,restantes:r.restantes,
+          pedidosIndexados:r.pedidosIndexados,
+        }}));
+
+        if(r.concluido){
+          setMsg('Índice montado. As consultas agora vêm do banco.');
+          break;
+        }
+
+        if(r.concluidos>marcaAnterior){marcaAnterior=r.concluidos;semAvanco=0;}
+        else{
+          semAvanco++;
+          // Um bloco grande pode precisar de várias rodadas: isso é normal.
+          // Só desiste se o número de pedidos também parar de crescer.
+          if(semAvanco>=8){
+            setErro('A indexação não está avançando. Tente Recomeçar do zero.');
+            break;
+          }
         }
       }
     }finally{setRodando(false);verStatus();}
@@ -2918,6 +2925,20 @@ function PainelIndice(){
       await callLongo('mlIndexarIniciar',{meses});
       await processarFila();
     }catch(e){setErro(e.message||'Não consegui iniciar');setRodando(false);}
+  }
+
+  // Descarta a fila atual e monta outra do zero.
+  // O que já foi indexado continua valendo.
+  async function recomecar(){
+    if(!confirm('Descartar a fila atual e começar outra? Os pedidos já indexados continuam salvos.'))return;
+    parar.current=true;
+    setErro('');setUltimo(null);setMsg('');
+    try{
+      await call('mlIndexarCancelar');
+      setStatus(st=>({...(st||{}),fila:null}));
+      await new Promise(r=>setTimeout(r,400));
+      await iniciar();
+    }catch(e){setErro(e.message||'Não consegui recomeçar');setRodando(false);}
   }
 
   async function puxarVisitas(){
@@ -3086,9 +3107,14 @@ function PainelIndice(){
           </div>
 
           {ultimo&&emAndamento&&(
-            <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)'}}>
-              Processando {ultimo.conta} · {ultimo.mes}
-              {ultimo.pedidos>0&&` — ${NUM(ultimo.pedidos)} pedidos`}
+            <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:'var(--space-3)',
+              display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+              <Icon name="loader" size={12} color="var(--purple-500)"/>
+              <span>
+                {ultimo.conta} · {String(ultimo.mes||'').replace('_',' a ')}
+                {ultimo.pedidos>0&&` — ${NUM(ultimo.pedidos)} pedidos nesta rodada`}
+              </span>
+              {ultimo.erro&&<Badge tone="warning">bloco com erro</Badge>}
             </p>
           )}
 
@@ -3096,7 +3122,19 @@ function PainelIndice(){
             {emAndamento
               ? <Btn variant="neutral" icon="pause" onClick={()=>{parar.current=true;}}>Pausar</Btn>
               : <Btn icon="play" onClick={processarFila}>Continuar</Btn>}
+            <Btn variant="ghost" size="md" icon="rotate-ccw" onClick={recomecar} disabled={rodando}>
+              Recomeçar do zero
+            </Btn>
           </div>
+          {(fila.versao||1)<2&&(
+            <div style={{marginTop:'var(--space-3)'}}>
+              <Note tone="warning" icon="triangle-alert">
+                Esta fila foi criada por uma versão anterior, com blocos grandes demais que travavam
+                antes de salvar. Clique em <strong>Recomeçar do zero</strong> — os pedidos já
+                indexados continuam valendo.
+              </Note>
+            </div>
+          )}
 
           {fila.erros?.length>0&&(
             <div style={{marginTop:'var(--space-4)'}}>
