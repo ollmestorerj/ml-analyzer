@@ -204,6 +204,23 @@ const ML_CLIENT_ID='3936370948601703',ML_REDIRECT='https://ollmestorerj.github.i
 const BRL=v=>v==null||!Number.isFinite(Number(v))?'—':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
 const NUM=v=>v==null||!Number.isFinite(Number(v))?'—':new Intl.NumberFormat('pt-BR').format(v);
 const PCT=v=>v==null||!Number.isFinite(Number(v))?'—':`${Number(v).toFixed(1)}%`;
+// Custo digitado por gente que escreve 12,50 — nao 12.50. Um campo
+// type=number descarta a virgula em silencio e 12,50 vira 1250: erro de
+// 100x que contamina lucro, margem e as duas curvas ABC sem avisar.
+// Entao os campos de custo e imposto sao texto, e tudo passa por aqui.
+const PARSE=v=>{
+  if(v===null||v===undefined||v==='')return NaN;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.').replace(/[^0-9.\-]/g,''));
+};
+// Aceita apenas o que compoe um numero, e uma virgula so
+const LIMPAR=v=>{
+  let t=String(v??'').replace(/[^0-9.,]/g,'').replace(/\./g,',');
+  const i=t.indexOf(',');
+  if(i>=0)t=t.slice(0,i+1)+t.slice(i+1).replace(/,/g,'');
+  return t;
+};
+// Mostra um numero salvo no formato que o campo aceita de volta
+const PARACAMPO=v=>(v===null||v===undefined||v===''||!Number.isFinite(Number(v)))?'':String(v).replace('.',',');
 const call=(fn,args={})=>functions.httpsCallable(fn)(args).then(r=>r.data);
 
 // O Firebase corta a chamada do navegador em 70s por padrao. Indexacao e
@@ -1407,7 +1424,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
   );
 }
 /* ══ VIEW: ANÚNCIOS (edição em lote) ════════════════════════ */
-function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
+function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,somenteLeitura=false}){
   const [sync,setSync]=useState({loading:false,resumo:null,erro:''});
   async function sincronizar(){
     setSync({loading:true,resumo:null,erro:''});
@@ -1451,10 +1468,10 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
   const val=(a,campo)=>{
     const r=rascunho[a.sku];
     if(r&&r[campo]!==undefined)return r[campo];
-    return a[campo]||'';
+    return PARACAMPO(a[campo]);
   };
   const setCampo=(sku,campo,v)=>{
-    setRascunho(d=>({...d,[sku]:{...(d[sku]||{}),[campo]:v}}));
+    setRascunho(d=>({...d,[sku]:{...(d[sku]||{}),[campo]:LIMPAR(v)}}));
     setMsg('');
   };
   // Quantas linhas foram alteradas
@@ -1462,11 +1479,11 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     const a=todos.find(x=>String(x.sku)===String(sku));
     if(!a)return false;
     const r=rascunho[sku];
-    const c=r.custo!==undefined?parseFloat(r.custo)||0:a.custo;
-    const i=r.imposto!==undefined?parseFloat(r.imposto)||0:a.imposto;
+    const c=r.custo!==undefined?PARSE(r.custo)||0:a.custo;
+    const i=r.imposto!==undefined?PARSE(r.imposto)||0:a.imposto;
     return c!==(a.custo||0)||i!==(a.imposto||0);
   });
-  useEffect(()=>{onDirty?.(alterados.length>0);},[alterados.length,onDirty]);
+  useEffect(()=>{onDirty?.(alterados.length>0&&!somenteLeitura);},[alterados.length,onDirty,somenteLeitura]);
   useEffect(()=>()=>onDirty?.(false),[onDirty]);
   useEffect(()=>{
     if(!alterados.length)return;
@@ -1475,7 +1492,7 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     return()=>window.removeEventListener('beforeunload',warn);
   },[alterados.length]);
   function aplicarImpostoTodos(){
-    const v=parseFloat(impostoGlobal);
+    const v=PARSE(impostoGlobal);
     if(isNaN(v)||v<0||v>100){setMsg('Erro: informe um imposto entre 0 e 100%.');return;}
     const novo={...rascunho};
     anuncios.forEach(a=>{novo[a.sku]={...(novo[a.sku]||{}),imposto:v};});
@@ -1485,8 +1502,8 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     if(alterados.length===0)return;
     if(alterados.some(sku=>{
       const r=rascunho[sku];
-      return (r.custo!==undefined&&r.custo!==''&&(!Number.isFinite(Number(r.custo))||Number(r.custo)<0))||
-        (r.imposto!==undefined&&r.imposto!==''&&(!Number.isFinite(Number(r.imposto))||Number(r.imposto)<0||Number(r.imposto)>100));
+      return (r.custo!==undefined&&r.custo!==''&&(!Number.isFinite(PARSE(r.custo))||PARSE(r.custo)<0))||
+        (r.imposto!==undefined&&r.imposto!==''&&(!Number.isFinite(PARSE(r.imposto))||PARSE(r.imposto)<0||PARSE(r.imposto)>100));
     })){setMsg('Erro: revise os custos e impostos. Custo não pode ser negativo e imposto deve estar entre 0 e 100%.');return;}
     setSalvando(true);setMsg('');
     try{
@@ -1495,8 +1512,8 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
         const r=rascunho[sku];
         return {
           sku,
-          custo:   r.custo!==undefined?parseFloat(r.custo)||0:a.custo,
-          imposto: r.imposto!==undefined?parseFloat(r.imposto)||0:a.imposto,
+          custo:   r.custo!==undefined?PARSE(r.custo)||0:a.custo,
+          imposto: r.imposto!==undefined?PARSE(r.imposto)||0:a.imposto,
         };
       });
       await call('mlSalvarCustosLote',{itens});
@@ -1506,12 +1523,20 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
     }catch(e){setMsg('Erro: '+e.message);}
     finally{setSalvando(false);}
   }
-  const GRID=multiConta
-    ? '56px minmax(0,1fr) 84px 96px 88px 60px 84px 104px 84px'
-    : '56px minmax(0,1fr) 96px 88px 60px 84px 104px 84px';
-  const HEADS=multiConta
-    ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %']
-    : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %'];
+  const GRID=somenteLeitura
+    ? (multiConta
+        ? '56px minmax(0,1fr) 84px 96px 88px 60px 84px'
+        : '56px minmax(0,1fr) 96px 88px 60px 84px')
+    : (multiConta
+        ? '56px minmax(0,1fr) 84px 96px 88px 60px 84px 104px 84px'
+        : '56px minmax(0,1fr) 96px 88px 60px 84px 104px 84px');
+  const HEADS=somenteLeitura
+    ? (multiConta
+        ? ['','Título','Conta','SKU','Preço','Est.','Visitas']
+        : ['','Título','SKU','Preço','Est.','Visitas'])
+    : (multiConta
+        ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %']
+        : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %']);
   if(loading)return (
     <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
       {[...Array(6)].map((_,i)=>(
@@ -1546,7 +1571,7 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
         </label>
         <div className="toolbar-actions" style={{display:'flex',alignItems:'center',gap:'var(--space-2)',marginLeft:'auto'}}>
           <div style={{position:'relative',width:118}}>
-            <input disabled={salvando} className="fld mono" type="number" min="0" max="100" step="0.1" value={impostoGlobal} onChange={e=>setImpostoGlobal(e.target.value)}
+            <input disabled={salvando} className="fld mono" type="text" inputMode="decimal" value={impostoGlobal} onChange={e=>setImpostoGlobal(LIMPAR(e.target.value))}
               placeholder="0,0" aria-label="Imposto em porcentagem" style={{height:'var(--control-h-md)',padding:'0 30px 0 12px'}}/>
             <span style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',fontSize:'var(--text-sm)',color:'var(--text-muted)',pointerEvents:'none'}}>%</span>
           </div>
@@ -1590,14 +1615,14 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
       {/* Tabela */}
       <Card pad={false}>
         <div className="data-scroll">
-        <div className="data-grid" style={{minWidth:multiConta?1080:1000}}>
+        <div className="data-grid" style={{minWidth:(multiConta?1080:1000)-(somenteLeitura?188:0)}}>
           <div className="data-head" style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
             background:'linear-gradient(180deg,var(--surface-sunken),#fff)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
-            {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
+            {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-(somenteLeitura?4:6)&&h?'right':'left'}>{h}</THead>)}
           </div>
           {pg.fatia.map((a,i)=>{
             const custoV=val(a,'custo'),impV=val(a,'imposto');
-            const c=parseFloat(custoV)||0,imp=parseFloat(impV)||0;
+            const c=PARSE(custoV)||0,imp=PARSE(impV)||0;
             const editado=alterados.includes(String(a.sku));
             return (
               <div className="data-row" data-dirty={editado} key={a.id} style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
@@ -1623,19 +1648,21 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false}){
                   color:a.estoque<=3?'var(--status-danger-fg)':'var(--text-body)'}}>{NUM(a.estoque)}</div>
                 <div data-label="Visitas" className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-medium)',textAlign:'right',
                   color:a.visitas>0?'var(--text-body)':'var(--text-subtle)'}}>{NUM(a.visitas)}</div>
+                {!somenteLeitura&&<>
                 <div data-label="Custo unitário (R$)" className="cost-cell" style={{position:'relative'}}>
                   <span className="cost-prefix" style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:'var(--text-2xs)',color:'var(--text-muted)',pointerEvents:'none'}}>R$</span>
-                  <input disabled={salvando} className="fld mono" type="number" min="0" step="0.01" value={custoV} placeholder="0,00"
+                  <input disabled={salvando} className="fld mono" type="text" inputMode="decimal" value={custoV} placeholder="0,00"
                     aria-label={`Custo unitário de ${a.titulo}`}
                     onChange={e=>setCampo(a.sku,'custo',e.target.value)}
                     style={{height:'var(--control-h-sm)',padding:'0 8px 0 28px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                 </div>
                 <div data-label="Imposto (%)" className="tax-cell">
-                  <input disabled={salvando} className="fld mono" type="number" min="0" max="100" step="0.1" value={impV} placeholder="0"
+                  <input disabled={salvando} className="fld mono" type="text" inputMode="decimal" value={impV} placeholder="0"
                     aria-label={`Imposto de ${a.titulo}`}
                     onChange={e=>setCampo(a.sku,'imposto',e.target.value)}
                     style={{height:'var(--control-h-sm)',padding:'0 8px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                 </div>
+                </>}
               </div>
             );
           })}
@@ -1875,7 +1902,7 @@ function GradeSkus({dados,loading,limite=12,onVerTodos,rotuloPeriodo}){
 }
 
 /* ══ TABELA POR SKU (usada na Visão geral e na aba Produtos) ══ */
-const CLASSE_TOM={A:'success',B:'info',C:'neutral'};
+const CLASSE_TOM={A:'success',B:'info',C:'neutral',D:'danger'};
 
 function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteLeitura=false}){
   const [busca,setBusca]=useState('');
@@ -1915,16 +1942,16 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
   const val=(x,campo)=>{
     const r=rascunho[x.sku];
     if(r&&r[campo]!==undefined)return r[campo];
-    return (campo==='custo'?x.custoUnit:x.impostoPct)||'';
+    return PARACAMPO(campo==='custo'?x.custoUnit:x.impostoPct);
   };
-  const setCampo=(sku,campo,v)=>{setRascunho(d=>({...d,[sku]:{...(d[sku]||{}),[campo]:v}}));setMsg('');};
+  const setCampo=(sku,campo,v)=>{setRascunho(d=>({...d,[sku]:{...(d[sku]||{}),[campo]:LIMPAR(v)}}));setMsg('');};
 
   const alterados=Object.keys(rascunho).filter(sku=>{
     const x=todos.find(t=>String(t.sku)===String(sku));
     if(!x)return false;
     const r=rascunho[sku];
-    const c=r.custo!==undefined?parseFloat(r.custo)||0:(x.custoUnit||0);
-    const i=r.imposto!==undefined?parseFloat(r.imposto)||0:(x.impostoPct||0);
+    const c=r.custo!==undefined?PARSE(r.custo)||0:(x.custoUnit||0);
+    const i=r.imposto!==undefined?PARSE(r.imposto)||0:(x.impostoPct||0);
     return c!==(x.custoUnit||0)||i!==(x.impostoPct||0);
   });
 
@@ -1932,8 +1959,8 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
     if(!alterados.length||somenteLeitura)return;
     const invalido=alterados.some(sku=>{
       const r=rascunho[sku];
-      return (r.custo!==undefined&&r.custo!==''&&(!Number.isFinite(Number(r.custo))||Number(r.custo)<0))||
-             (r.imposto!==undefined&&r.imposto!==''&&(!Number.isFinite(Number(r.imposto))||Number(r.imposto)<0||Number(r.imposto)>100));
+      return (r.custo!==undefined&&r.custo!==''&&(!Number.isFinite(PARSE(r.custo))||PARSE(r.custo)<0))||
+             (r.imposto!==undefined&&r.imposto!==''&&(!Number.isFinite(PARSE(r.imposto))||PARSE(r.imposto)<0||PARSE(r.imposto)>100));
     });
     if(invalido){setMsg('Erro: custo não pode ser negativo e imposto deve ficar entre 0 e 100%.');return;}
     setSalvando(true);setMsg('');
@@ -1942,8 +1969,8 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
         const x=todos.find(t=>String(t.sku)===String(sku));
         const r=rascunho[sku];
         return{sku,
-          custo:r.custo!==undefined?parseFloat(r.custo)||0:(x.custoUnit||0),
-          imposto:r.imposto!==undefined?parseFloat(r.imposto)||0:(x.impostoPct||0)};
+          custo:r.custo!==undefined?PARSE(r.custo)||0:(x.custoUnit||0),
+          imposto:r.imposto!==undefined?PARSE(r.imposto)||0:(x.impostoPct||0)};
       });
       await call('mlSalvarCustosLote',{itens});
       setMsg(`${itens.length} ${itens.length===1?'produto salvo':'produtos salvos'}`);
@@ -2085,14 +2112,14 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
                   <div data-label="Custo unitário (R$)" className="cost-cell" style={{position:'relative'}}>
                     <span className="cost-prefix" style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',
                       fontSize:'var(--text-2xs)',color:'var(--text-muted)',pointerEvents:'none'}}>R$</span>
-                    <input disabled={salvando} className="fld mono" type="number" min="0" step="0.01"
+                    <input disabled={salvando} className="fld mono" type="text" inputMode="decimal"
                       value={val(x,'custo')} placeholder="0,00" aria-label={`Custo de ${x.titulo}`}
                       onChange={e=>setCampo(x.sku,'custo',e.target.value)}
                       style={{height:'var(--control-h-sm)',padding:'0 6px 0 26px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                   </div>
 
                   <div data-label="Imposto (%)" className="tax-cell">
-                    <input disabled={salvando} className="fld mono" type="number" min="0" max="100" step="0.1"
+                    <input disabled={salvando} className="fld mono" type="text" inputMode="decimal"
                       value={val(x,'imposto')} placeholder="0" aria-label={`Imposto de ${x.titulo}`}
                       onChange={e=>setCampo(x.sku,'imposto',e.target.value)}
                       style={{height:'var(--control-h-sm)',padding:'0 6px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
@@ -2149,7 +2176,7 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
 
 /* ══ VIEW: POR SKU (tela cheia, com filtros) ════════════════ */
 function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,
-                   contasAtivas,toggleConta,onRefresh}){
+                   contasAtivas,toggleConta,onRefresh,somenteLeitura=false}){
   const todos=dados?.skus||[];
   const tot=todos.reduce((a,x)=>({
     faturamento:a.faturamento+x.faturamento,
@@ -2213,7 +2240,7 @@ function ViewSkus({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotulo
       <div>
         <h3 style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',
           marginBottom:'var(--space-3)'}}>Tabela detalhada</h3>
-        <TabelaSkus dados={dados} loading={loading} onRefresh={onRefresh}/>
+        <TabelaSkus dados={dados} loading={loading} onRefresh={onRefresh} somenteLeitura={somenteLeitura}/>
       </div>
 
       <p style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',lineHeight:1.6}}>
@@ -3361,6 +3388,1029 @@ function ViewContas({dados,onRefresh}){
    A chamada roda na Cloud Function 'mlAnalisar' — a chave da Anthropic
    fica no servidor, nunca neste arquivo (que é público).
    Os resultados ficam guardados no Firestore e voltam ao abrir a tela. */
+/* ══ TEXTO DA IA ════════════════════════════════════════════
+   Markdown mínimo: título, negrito e lista. Nada de biblioteca. */
+function Analise({texto}){
+  if(!texto)return null;
+  const linhas=String(texto).split('\n');
+  const neg=(s)=>s.split(/(\*\*[^*]+\*\*)/g).map((p,i)=>
+    p.startsWith('**')&&p.endsWith('**')
+      ? <strong key={i} style={{color:'var(--text-strong)',fontWeight:'var(--weight-bold)'}}>{p.slice(2,-2)}</strong>
+      : <React.Fragment key={i}>{p}</React.Fragment>);
+  const saida=[];let lista=null;
+  const fecharLista=()=>{
+    if(lista){saida.push(<ul key={'u'+saida.length} style={{margin:'6px 0 14px',paddingLeft:20,display:'flex',flexDirection:'column',gap:6}}>{lista}</ul>);lista=null;}
+  };
+  linhas.forEach((l,i)=>{
+    const t=l.trim();
+    if(!t){fecharLista();return;}
+    const cab=t.match(/^(#{1,4})\s+(.*)$/);
+    if(cab){
+      fecharLista();
+      const nivel=cab[1].length;
+      saida.push(<h4 key={i} style={{fontSize:nivel<=2?'var(--text-lg)':'var(--text-md)',fontWeight:'var(--weight-extrabold)',
+        color:'var(--text-strong)',letterSpacing:'var(--tracking-tight)',margin:saida.length?'22px 0 8px':'0 0 8px'}}>{neg(cab[2])}</h4>);
+      return;
+    }
+    const item=t.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if(item){
+      if(!lista)lista=[];
+      lista.push(<li key={i} style={{lineHeight:1.7}}>{neg(item[1])}</li>);
+      return;
+    }
+    fecharLista();
+    saida.push(<p key={i} style={{lineHeight:1.8,margin:'0 0 12px'}}>{neg(t)}</p>);
+  });
+  fecharLista();
+  return <div style={{fontSize:'var(--text-md)',color:'var(--text-body)'}}>{saida}</div>;
+}
+
+/* ══ CURVA ABC ══════════════════════════════════════════════
+   Duas leituras do mesmo catálogo. A de faturamento diz quem gira,
+   a de lucro diz quem paga a conta. O valor está onde elas discordam. */
+
+// Cor por classe — a mesma em toda a tela, para a leitura ser automática
+const CLASSE_COR={A:'var(--green-500)',B:'var(--amber-500)',C:'var(--text-subtle)',D:'var(--red-500)'};
+
+const DIVERGENCIAS={
+  prejuizo:            {rotulo:'Dá prejuízo',           tom:'danger',  icone:'trending-down'},
+  gira_sem_lucrar:     {rotulo:'Gira sem lucrar',       tom:'danger',  icone:'alert-triangle'},
+  gira_mais_que_lucra: {rotulo:'Gira mais do que lucra',tom:'warning', icone:'arrow-down-right'},
+  lucra_sem_girar:     {rotulo:'Lucra sem girar',       tom:'info',    icone:'rocket'},
+  lucra_mais_que_gira: {rotulo:'Lucra mais do que gira',tom:'info',    icone:'arrow-up-right'},
+  alinhado:            {rotulo:'Alinhado',              tom:'neutral', icone:'check'},
+  sem_movimento:       {rotulo:'Sem movimento',         tom:'neutral', icone:'minus'},
+};
+
+// Barra de uma faixa: largura proporcional, rótulo dentro quando couber
+function BarraFaixa({classe,pct,valor,skus,criterio}){
+  const largura=Math.max(0,Math.min(100,Number(pct)||0));
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:4}}>
+      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:8}}>
+        <span style={{display:'inline-flex',alignItems:'center',gap:7,minWidth:0}}>
+          <span style={{width:20,height:20,borderRadius:6,background:CLASSE_COR[classe],color:'#fff',
+            fontSize:'var(--text-2xs)',fontWeight:'var(--weight-extrabold)',display:'inline-flex',
+            alignItems:'center',justifyContent:'center',flexShrink:0}}>{classe}</span>
+          <span style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',fontWeight:'var(--weight-medium)'}}>
+            {NUM(skus)} {skus===1?'produto':'produtos'}
+          </span>
+        </span>
+        <span className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',whiteSpace:'nowrap'}}>
+          {BRL(valor)} <span style={{color:'var(--text-muted)',fontWeight:'var(--weight-medium)'}}>· {PCT(pct)}</span>
+        </span>
+      </div>
+      <div style={{height:9,borderRadius:'var(--radius-pill)',background:'var(--surface-sunken)',overflow:'hidden'}}>
+        <div style={{width:largura+'%',height:'100%',background:CLASSE_COR[classe],borderRadius:'var(--radius-pill)',
+          transition:'width .4s cubic-bezier(.4,0,.2,1)'}}/>
+      </div>
+    </div>
+  );
+}
+
+// Uma das duas curvas, com as três (ou quatro) faixas
+function PainelCurva({titulo,subtitulo,icone,faixas,criterio,destaque}){
+  const ordem=criterio==='lucro'?['A','B','C','D']:['A','B','C'];
+  return (
+    <Card title={titulo} subtitle={subtitulo} icon={icone}>
+      <div style={{display:'flex',flexDirection:'column',gap:'var(--space-4)'}}>
+        {ordem.map(c=>{
+          const f=faixas?.[c];
+          if(!f||(c==='D'&&!f.skus))return null;
+          return <BarraFaixa key={c} classe={c} skus={f.skus}
+            valor={criterio==='lucro'?f.lucro:f.faturamento}
+            pct={criterio==='lucro'?f.pctDoLucro??f.pctLucro:f.pctDoFaturamento??f.pctFaturamento}
+            criterio={criterio}/>;
+        })}
+        {destaque&&<Note tone="info" icon="info">{destaque}</Note>}
+      </div>
+    </Card>
+  );
+}
+
+// Lista de produtos de um grupo de divergência
+function ListaDivergencia({titulo,explicacao,icone,tom,itens,metrica,vazio}){
+  const [aberto,setAberto]=useState(true);
+  if(!itens?.length)return (
+    <Card title={titulo} icon={icone}>
+      <Empty compact icon="check" title={vazio||'Nada aqui'} description="Nenhum produto nesta situação no período."/>
+    </Card>
+  );
+  const mostrar=aberto?itens:itens.slice(0,5);
+  return (
+    <Card title={titulo} subtitle={explicacao} icon={icone}
+      action={<Badge tone={tom}>{NUM(itens.length)}</Badge>}>
+      <div style={{display:'flex',flexDirection:'column',gap:2}}>
+        {mostrar.map(x=>(
+          <div key={x.sku+x.itemId} style={{display:'flex',alignItems:'center',gap:'var(--space-3)',
+            padding:'10px 2px',borderBottom:'1px solid var(--border-subtle)'}}>
+            <Thumb src={x.foto} alt={x.titulo} size={40}/>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)',
+                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{x.titulo||x.sku}</div>
+              <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2,
+                display:'flex',gap:8,flexWrap:'wrap'}}>
+                <span>{x.sku}</span>
+                <span>fat #{x.posicao} → lucro #{x.posicaoLucro}</span>
+                {!x.temCusto&&<span style={{color:'var(--status-warning-fg)'}}>sem custo</span>}
+              </div>
+            </div>
+            <div style={{textAlign:'right',flexShrink:0}}>
+              <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',
+                color:metrica==='lucro'?(x.lucro<0?'var(--status-danger-fg)':'var(--purple-500)'):'var(--text-strong)'}}>
+                {BRL(metrica==='lucro'?x.lucro:x.faturamento)}
+              </div>
+              <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2}}>
+                {metrica==='lucro'?`fat ${BRL(x.faturamento)}`:`lucro ${BRL(x.lucro)}`} · {PCT(x.margemPct??x.margem)}
+              </div>
+            </div>
+            <span style={{width:34,textAlign:'center',flexShrink:0}}>
+              <span className="mono" style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',
+                color:'var(--text-muted)'}}>{x.classeDupla||`${x.classe}${x.classeLucro}`}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      {itens.length>5&&(
+        <div style={{marginTop:'var(--space-3)',display:'flex',justifyContent:'center'}}>
+          <Btn variant="neutral" size="sm" icon={aberto?'chevron-up':'chevron-down'}
+            onClick={()=>setAberto(!aberto)}>
+            {aberto?'Mostrar menos':`Ver os outros ${itens.length-5}`}
+          </Btn>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// Tabela completa: um SKU por linha, com a posição nas duas curvas
+function TabelaABC({skus}){
+  const [criterio,setCriterio]=useState('faturamento');
+  const [filtro,setFiltro]=useState('todos');
+  const [busca,setBusca]=useState('');
+
+  const filtrados=(skus||[]).filter(x=>{
+    if(busca&&!`${x.sku} ${x.titulo||''}`.toLowerCase().includes(busca.toLowerCase()))return false;
+    if(filtro==='todos')return true;
+    if(filtro==='divergentes')return !['alinhado','sem_movimento'].includes(x.divergencia);
+    return x.divergencia===filtro;
+  }).sort((a,b)=>criterio==='lucro'?(b.lucro-a.lucro):(b.faturamento-a.faturamento));
+
+  const pg=usePaginacao(filtrados,[criterio,filtro,busca]);
+
+  return (
+    <Card title="Catálogo nas duas curvas" subtitle={`${NUM(filtrados.length)} de ${NUM((skus||[]).length)} produtos`} icon="table-2"
+      action={
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+          <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar SKU ou título"
+            style={{height:34,padding:'0 11px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+              fontSize:'var(--text-xs)',width:180,background:'var(--surface-card)',color:'var(--text-body)'}}/>
+          <select value={filtro} onChange={e=>setFiltro(e.target.value)}
+            style={{height:34,padding:'0 9px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+              fontSize:'var(--text-xs)',background:'var(--surface-card)',color:'var(--text-body)'}}>
+            <option value="todos">Todos</option>
+            <option value="divergentes">Só divergentes</option>
+            <option value="gira_sem_lucrar">Gira sem lucrar</option>
+            <option value="prejuizo">Dá prejuízo</option>
+            <option value="lucra_sem_girar">Lucra sem girar</option>
+            <option value="alinhado">Alinhados</option>
+          </select>
+          <div style={{display:'flex',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',overflow:'hidden'}}>
+            {[['faturamento','Faturamento'],['lucro','Lucro']].map(([k,l])=>(
+              <button key={k} onClick={()=>setCriterio(k)}
+                style={{height:34,padding:'0 11px',border:'none',cursor:'pointer',fontSize:'var(--text-xs)',
+                  fontWeight:'var(--weight-semibold)',
+                  background:criterio===k?'var(--action-primary)':'var(--surface-card)',
+                  color:criterio===k?'#fff':'var(--text-muted)'}}>{l}</button>
+            ))}
+          </div>
+        </div>
+      }>
+      {!filtrados.length
+        ? <Empty compact icon="search-x" title="Nenhum produto" description="Mude o filtro ou a busca."/>
+        : <>
+          <div className="tabela-lista">
+            {pg.fatia.map(x=>{
+              const d=DIVERGENCIAS[x.divergencia]||DIVERGENCIAS.alinhado;
+              return (
+                <div key={x.sku} className="linha" style={{display:'grid',
+                  gridTemplateColumns:'auto minmax(0,1fr) 92px 92px 70px 148px',gap:'var(--space-3)',
+                  alignItems:'center',padding:'11px 2px',borderBottom:'1px solid var(--border-subtle)'}}>
+                  <Thumb src={x.foto} alt={x.titulo} size={40}/>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)',
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{x.titulo||x.sku}</div>
+                    <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2}}>
+                      {x.sku}{x.conta?` · ${x.conta}`:''}
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>{BRL(x.faturamento)}</div>
+                    <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>#{x.posicao} · {PCT(x.pctFaturamento)}</div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',
+                      color:x.lucro<0?'var(--status-danger-fg)':'var(--purple-500)'}}>{BRL(x.lucro)}</div>
+                    <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>#{x.posicaoLucro} · {PCT(x.margem)}</div>
+                  </div>
+                  <div style={{display:'flex',gap:3,justifyContent:'center'}}>
+                    {[x.classe,x.classeLucro].map((c,i)=>(
+                      <span key={i} style={{width:22,height:22,borderRadius:6,background:CLASSE_COR[c]||CLASSE_COR.C,
+                        color:'#fff',fontSize:'var(--text-2xs)',fontWeight:'var(--weight-extrabold)',
+                        display:'inline-flex',alignItems:'center',justifyContent:'center'}}>{c}</span>
+                    ))}
+                  </div>
+                  <div style={{display:'flex',justifyContent:'flex-end'}}>
+                    <Badge tone={d.tom}>{d.rotulo}</Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <Paginacao {...pg} rotulo="produtos"/>
+        </>}
+    </Card>
+  );
+}
+
+function ViewCurvaABC({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,
+                       contasAtivas,toggleConta,admin}){
+  const r=dados?.resumoABC;
+  const skus=dados?.skus||[];
+  const [analise,setAnalise]=useState(null);
+  const [rodando,setRodando]=useState(false);
+  const [erro,setErro]=useState('');
+
+  async function analisar(){
+    setRodando(true);setErro('');
+    try{
+      const res=await callLongo('mlAnalisar',{dados,tipo:'abc',periodoRotulo:rotuloPeriodo},280);
+      setAnalise(res);
+    }catch(e){setErro(e.message||'Não consegui gerar a análise.');}
+    finally{setRodando(false);}
+  }
+
+  if(loading)return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <Card><Skel h={120}/></Card><Card><Skel h={260}/></Card>
+    </div>
+  );
+
+  if(!r||!skus.length)return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
+        <PeriodFilter value={periodo} onChange={setPeriodo} intervalo={intervalo} onIntervalo={onIntervalo}/>
+        <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
+      </div>
+      <Card><Empty icon="chart-no-axes-column" title="Sem vendas no período"
+        description="A curva ABC precisa de vendas para ser calculada. Escolha um período com movimento."/></Card>
+    </div>
+  );
+
+  const c=r.concentracao, dv=r.divergencias, t=r.totais;
+  const margemGeral=t.margem;
+  const margemA=c.margemClasseA;
+  const aMenosRentavel=margemA!=null&&margemGeral!=null&&margemA<margemGeral;
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
+        <PeriodFilter value={periodo} onChange={setPeriodo} intervalo={intervalo} onIntervalo={onIntervalo}/>
+        <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
+      </div>
+
+      {/* ── A leitura em uma linha ── */}
+      <section className="dashboard-overview" aria-label="Concentração do catálogo">
+        <div>
+          <Overline>Fazem 80% do faturamento</Overline>
+          <div className="metric-value">{NUM(c.skusClasseA)}</div>
+          <div className="metric-caption">
+            {PCT(c.pctCatalogoClasseA)} do catálogo · margem de {PCT(margemA)}
+          </div>
+        </div>
+        <div>
+          <Overline>Fazem 80% do lucro</Overline>
+          <div className="metric-value" style={{color:'var(--purple-500)'}}>{NUM(c.skusLucroA)}</div>
+          <div className="metric-caption">
+            {PCT(c.pctCatalogoLucroA)} do catálogo · {BRL(c.lucroConcentrado)}
+          </div>
+        </div>
+        <div>
+          <Overline>Faturam sem lucrar</Overline>
+          <div className="metric-value" style={{color:dv.giramSemLucrar.length?'var(--status-danger-fg)':'var(--text-strong)'}}>
+            {NUM(dv.giramSemLucrar.length)}
+          </div>
+          <div className="metric-caption">
+            {dv.giramSemLucrar.length
+              ? `${BRL(dv.faturamentoEmProdutoQueNaoLucra??dv.faturamentoEmRisco)} de faturamento ${dv.giramSemLucrar.length===1?'preso':'presos'} aí`
+              : 'Nenhuma divergência forte'}
+          </div>
+        </div>
+        <div>
+          <Overline>Dão prejuízo</Overline>
+          <div className="metric-value" style={{color:dv.noPrejuizo.length?'var(--status-danger-fg)':'var(--text-strong)'}}>
+            {NUM(dv.noPrejuizo.length)}
+          </div>
+          <div className="metric-caption">
+            {dv.noPrejuizo.length?`−${BRL(dv.lucroPerdidoComPrejuizo??dv.lucroPerdido)} no período`:'Nenhum produto no vermelho'}
+          </div>
+        </div>
+      </section>
+
+      {aMenosRentavel&&(
+        <div className="attention">
+          <div className="attention-copy">
+            <Icon name="triangle-alert" color="var(--status-warning-fg)"/>
+            <span><strong>Os produtos que sustentam o faturamento rendem menos que a média</strong><br/>
+            A classe A de faturamento fecha com {PCT(margemA)} de margem, contra {PCT(margemGeral)} do catálogo inteiro.
+            O volume está vindo de onde a margem é mais fina.</span>
+          </div>
+        </div>
+      )}
+      {(t.semCusto??t.semCustoCadastrado??0)>0&&(
+        <Note tone="warning" icon="triangle-alert">
+          <strong>{NUM(t.semCusto??t.semCustoCadastrado)} {(t.semCusto??t.semCustoCadastrado)===1?'produto está':'produtos estão'} sem custo cadastrado.</strong>{' '}
+          A curva de lucro deles sai errada — o faturamento aparece quase todo como lucro. Preencha o custo na aba Anúncios para a comparação fechar.
+        </Note>
+      )}
+
+      {/* ── As duas curvas, lado a lado ── */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,340px),1fr))',gap:'var(--layout-grid-gap)'}}>
+        <PainelCurva titulo="Curva ABC de faturamento" icone="chart-column-big"
+          subtitulo={`${BRL(t.faturamento)} no período · quem gira`}
+          faixas={r.faturamento} criterio="faturamento"
+          destaque={`A = primeiros 80% do faturamento acumulado, B = até 95%, C = o resto.`}/>
+        <PainelCurva titulo="Curva ABC de lucro" icone="piggy-bank"
+          subtitulo={`${BRL(t.lucro)} no período · quem paga a conta`}
+          faixas={r.lucro} criterio="lucro"
+          destaque={`Mesma regra de faixas, só que sobre o lucro. D é a faixa dos que dão prejuízo e não entram no acumulado.`}/>
+      </div>
+
+      {/* ── Onde as curvas discordam ── */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,420px),1fr))',gap:'var(--layout-grid-gap)'}}>
+        <ListaDivergencia titulo="Giram sem lucrar" icone="alert-triangle" tom="danger"
+          explicacao="Classe A ou B em faturamento, C em lucro. Ocupam a operação e não pagam por ela."
+          itens={dv.giramSemLucrar} metrica="faturamento" vazio="Nenhum produto gira sem lucrar"/>
+        <ListaDivergencia titulo="Dão prejuízo" icone="trending-down" tom="danger"
+          explicacao="Cada venda tira dinheiro do caixa. Decisão imediata: preço, custo ou corte."
+          itens={dv.noPrejuizo} metrica="lucro" vazio="Nenhum produto no vermelho"/>
+        <ListaDivergencia titulo="Lucram sem girar" icone="rocket" tom="info"
+          explicacao="Margem boa e pouco volume. É onde vale empurrar tráfego ou Ads."
+          itens={dv.lucramSemGirar} metrica="lucro" vazio="Nenhum produto subaproveitado"/>
+        {Boolean(dv.giramMaisQueLucram?.length)&&(
+          <ListaDivergencia titulo="Giram mais do que lucram" icone="arrow-down-right" tom="warning"
+            explicacao="Divergência de um degrau. Sinal mais fraco, mas vale olhar o preço."
+            itens={dv.giramMaisQueLucram} metrica="faturamento" vazio="—"/>
+        )}
+      </div>
+
+      {/* ── Análise da IA (só admin) ── */}
+      {admin&&(
+        <Card title="Leitura da IA" subtitle="Cruza as duas curvas e diz o que fazer, em ordem de impacto" icon="sparkles"
+          action={<Btn variant={analise?'neutral':'primary'} size="sm" icon={rodando?'loader':'sparkles'}
+            onClick={analisar} disabled={rodando}>
+            {rodando?'Analisando…':analise?'Refazer':'Analisar as duas curvas'}</Btn>}>
+          {erro&&<Note tone="danger" icon="circle-alert">{erro}</Note>}
+          {!analise&&!rodando&&!erro&&(
+            <Empty compact icon="sparkles" title="Nada analisado ainda"
+              description="A IA recebe as duas curvas, as divergências e o custo de cada produto — e aponta onde está o dinheiro."/>
+          )}
+          {rodando&&<div style={{display:'flex',flexDirection:'column',gap:10}}><Skel h={18}/><Skel h={18} w="92%"/><Skel h={18} w="78%"/></div>}
+          {analise&&<>
+            <Analise texto={analise.texto}/>
+            <details style={{marginTop:'var(--space-4)',borderTop:'1px solid var(--border-subtle)',paddingTop:'var(--space-3)'}}>
+              <summary style={{cursor:'pointer',fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',color:'var(--text-muted)'}}>
+                O que foi enviado ao modelo
+              </summary>
+              <pre className="mono" style={{marginTop:10,fontSize:'var(--text-2xs)',color:'var(--text-muted)',
+                whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{JSON.stringify(analise.enviado,null,1)}</pre>
+            </details>
+          </>}
+        </Card>
+      )}
+
+      <TabelaABC skus={skus}/>
+    </div>
+  );
+}
+
+/* ══ ESTOQUE NO FULL ════════════════════════════════════════
+   Capital dormindo no galpão. A varredura é separada do dashboard
+   porque bate em um endpoint de inventário por produto. */
+
+const SITUACOES_FULL={
+  parado:        {rotulo:'Parado',            tom:'danger',  icone:'octagon-x',    ajuda:'Sem nenhuma saída em 60 dias'},
+  sem_saida:     {rotulo:'Sem saída',         tom:'danger',  icone:'pause',        ajuda:'Zero vendas nos últimos 60 dias'},
+  quase_parado:  {rotulo:'Quase parado',      tom:'warning', icone:'snail',        ajuda:'Zero vendas nos últimos 30 dias'},
+  excesso:       {rotulo:'Excesso',           tom:'warning', icone:'layers',       ajuda:'Mais de 120 dias de cobertura'},
+  apertado:      {rotulo:'Apertado',          tom:'info',    icone:'timer',        ajuda:'25 dias de cobertura ou menos'},
+  risco_ruptura: {rotulo:'Risco de ruptura',  tom:'danger',  icone:'alert-circle', ajuda:'10 dias de cobertura ou menos'},
+  saudavel:      {rotulo:'Saudável',          tom:'success', icone:'check',        ajuda:'Giro e cobertura equilibrados'},
+  sem_estoque:   {rotulo:'Zerado',            tom:'neutral', icone:'package-x',    ajuda:'Nada no galpão'},
+};
+
+function ViewEstoqueFull({admin,rotuloPeriodo,dadosGerais,comoUid}){
+  const [dados,setDados]=useState(null);
+  const [carregando,setCarregando]=useState(false);
+  const [erro,setErro]=useState('');
+  const [janela,setJanela]=useState(90);
+  const [filtro,setFiltro]=useState('todos');
+  const [busca,setBusca]=useState('');
+  const [analise,setAnalise]=useState(null);
+  const [analisando,setAnalisando]=useState(false);
+
+  async function varrer(dias=janela){
+    setCarregando(true);setErro('');setAnalise(null);
+    try{
+      const r=await callLongo('mlEstoqueFull',{dias,comoUid:comoUid||null},420);
+      setDados(r);
+    }catch(e){setErro(e.message||'Não consegui ler o estoque do Full.');}
+    finally{setCarregando(false);}
+  }
+
+  async function analisar(){
+    if(!dados)return;
+    setAnalisando(true);
+    try{
+      const r=await callLongo('mlAnalisar',
+        {dados:dadosGerais,dadosFull:dados,tipo:'full',periodoRotulo:rotuloPeriodo},280);
+      setAnalise(r);
+    }catch(e){setErro(e.message||'Não consegui gerar a análise.');}
+    finally{setAnalisando(false);}
+  }
+
+  // Trocou de painel: descarta o que estava na tela antes de qualquer coisa
+  useEffect(()=>{setDados(null);setAnalise(null);setErro('');},[comoUid]);
+
+  const produtos=dados?.produtos||[];
+  const filtrados=produtos.filter(p=>{
+    if(busca&&!`${p.sku} ${p.titulo||''}`.toLowerCase().includes(busca.toLowerCase()))return false;
+    if(filtro==='todos')return true;
+    if(filtro==='parados')return ['parado','sem_saida','quase_parado'].includes(p.situacao);
+    if(filtro==='travado')return p.indisponivel>0;
+    return p.situacao===filtro;
+  });
+  const pg=usePaginacao(filtrados,[filtro,busca,dados]);
+  const res=dados?.resumo;
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <Overline>Janela de vendas</Overline>
+          <div style={{display:'flex',border:'1px solid var(--border-default)',borderRadius:'var(--radius-pill)',
+            overflow:'hidden',background:'var(--surface-card)'}}>
+            {[30,60,90,180].map(d=>(
+              <button key={d} onClick={()=>{setJanela(d);if(dados)varrer(d);}}
+                style={{height:32,padding:'0 13px',border:'none',cursor:'pointer',fontSize:'var(--text-xs)',
+                  fontWeight:'var(--weight-semibold)',
+                  background:janela===d?'var(--action-primary)':'transparent',
+                  color:janela===d?'#fff':'var(--text-muted)'}}>{d}d</button>
+            ))}
+          </div>
+        </div>
+        <Btn variant={dados?'neutral':'primary'} size="sm" icon={carregando?'loader':'warehouse'}
+          onClick={()=>varrer()} disabled={carregando}>
+          {carregando?'Lendo o galpão…':dados?'Atualizar':'Ler o estoque do Full'}</Btn>
+      </div>
+
+      {erro&&<Note tone="danger" icon="circle-alert">{erro}</Note>}
+
+      {!dados&&!carregando&&(
+        <Card>
+          <Empty icon="warehouse" title="Estoque do Full ainda não lido"
+            description="A leitura consulta o inventário de cada produto no galpão e cruza com as vendas da janela escolhida. Leva de alguns segundos a poucos minutos, dependendo de quantos produtos você tem em Full."
+            action={<Btn variant="primary" icon="warehouse" onClick={()=>varrer()}>Ler o estoque do Full</Btn>}/>
+        </Card>
+      )}
+
+      {carregando&&!dados&&(
+        <Card title="Lendo o galpão" subtitle="Consultando o inventário produto por produto" icon="loader">
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {[0,1,2,3].map(i=><Skel key={i} h={46}/>)}
+          </div>
+        </Card>
+      )}
+
+      {dados&&res&&(<>
+        {dados.janelaCortada&&(
+          <Note tone="warning" icon="scissors">
+            O histórico de pedidos devolveu o teto de {NUM(dados.pedidosLidos)} registros, então
+            só deu para olhar <strong>{dados.janelaDias} dias</strong> em vez dos {dados.janelaPedida} pedidos.
+            Produtos marcados como parados dentro desse recorte podem ter vendido antes —
+            para a janela inteira, termine a carga do índice na aba Contas.
+          </Note>
+        )}
+        {dados.truncado&&(
+          <Note tone="warning" icon="clock">
+            A varredura atingiu o tempo máximo e parou antes do fim. O que está abaixo é parcial —
+            rode de novo filtrando menos contas de uma vez.
+          </Note>
+        )}
+        {Boolean(dados.falhas?.length)&&(
+          <Note tone="warning" icon="triangle-alert">
+            {dados.falhas.map(f=>`${f.conta}: ${f.erro}`).join(' · ')}
+          </Note>
+        )}
+
+        <section className="dashboard-overview" aria-label="Resumo do Full">
+          <div>
+            <Overline>Capital no Full</Overline>
+            <div className="metric-value">{BRL(res.capitalTotal)}</div>
+            <div className="metric-caption">
+              {NUM(res.unidadesFull)} unidades em {NUM(res.produtosFull??res.produtosNoFull)} {(res.produtosFull??res.produtosNoFull)===1?'produto':'produtos'}
+            </div>
+          </div>
+          <div>
+            <Overline>Parado</Overline>
+            <div className="metric-value" style={{color:res.parados.produtos?'var(--status-danger-fg)':'var(--text-strong)'}}>
+              {BRL(res.parados.capital)}
+            </div>
+            <div className="metric-caption">
+              {NUM(res.parados.produtos)} {res.parados.produtos===1?'produto':'produtos'} · {NUM(res.parados.unidades)} unidades · {PCT(res.pctCapitalParado)} do capital
+            </div>
+          </div>
+          <div>
+            <Overline>Excesso</Overline>
+            <div className="metric-value" style={{color:'var(--status-warning-fg)'}}>{BRL(res.excesso.capital)}</div>
+            <div className="metric-caption">
+              {NUM(res.excesso.produtos)} {res.excesso.produtos===1?'produto':'produtos'} com mais de 120 dias de cobertura
+            </div>
+          </div>
+          <div>
+            <Overline>Risco de ruptura</Overline>
+            <div className="metric-value" style={{color:res.risco.produtos?'var(--status-danger-fg)':'var(--text-strong)'}}>
+              {NUM(res.risco.produtos)}
+            </div>
+            <div className="metric-caption">
+              {res.risco.produtos?(res.risco.produtos===1?'Precisa de reposição antes de qualquer outra coisa':'Precisam de reposição antes de qualquer outra coisa'):'Nenhum produto em risco'}
+            </div>
+          </div>
+        </section>
+
+        {(res.semCusto??res.produtosSemCustoCadastrado??0)>0&&(
+          <Note tone="warning" icon="triangle-alert">
+            <strong>{NUM(res.produtosSemCustoCadastrado??res.semCusto)} {(res.produtosSemCustoCadastrado??res.semCusto)===1?'produto está':'produtos estão'} sem custo cadastrado.</strong>{' '}
+            O capital parado real é maior que o mostrado aqui — esses produtos entram valendo zero.
+          </Note>
+        )}
+        {res.indisponivel>0&&(
+          <Note tone="danger" icon="lock">
+            <strong>{NUM(res.indisponivel)} unidades estão travadas no galpão</strong> (avariadas, em transferência ou em revisão).
+            Isso é problema operacional, não falta de giro — veja a coluna “travado” na lista.
+          </Note>
+        )}
+
+        {admin&&(
+          <Card title="Leitura da IA" subtitle="O que fazer com cada produto parado, com a conta do que volta para o caixa" icon="sparkles"
+            action={<Btn variant={analise?'neutral':'secondary'} size="sm" icon={analisando?'loader':'sparkles'}
+              onClick={analisar} disabled={analisando}>
+              {analisando?'Analisando…':analise?'Refazer':'Analisar o estoque'}</Btn>}>
+            {!analise&&!analisando&&(
+              <Empty compact icon="sparkles" title="Nada analisado ainda"
+                description="A IA recebe o estoque, o giro de cada produto e o custo — e devolve o que liquidar, o que retirar e o que repor."/>
+            )}
+            {analisando&&<div style={{display:'flex',flexDirection:'column',gap:10}}><Skel h={18}/><Skel h={18} w="90%"/><Skel h={18} w="75%"/></div>}
+            {analise&&<Analise texto={analise.texto}/>}
+          </Card>
+        )}
+
+        <Card title="Produto por produto" subtitle={`${NUM(filtrados.length)} de ${NUM(produtos.length)} · vendas dos últimos ${dados.janelaDias} dias`} icon="boxes"
+          action={
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar SKU ou título"
+                style={{height:34,padding:'0 11px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+                  fontSize:'var(--text-xs)',width:180,background:'var(--surface-card)',color:'var(--text-body)'}}/>
+              <select value={filtro} onChange={e=>setFiltro(e.target.value)}
+                style={{height:34,padding:'0 9px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+                  fontSize:'var(--text-xs)',background:'var(--surface-card)',color:'var(--text-body)'}}>
+                <option value="todos">Todos</option>
+                <option value="parados">Parados e quase parados</option>
+                <option value="parado">Só parados</option>
+                <option value="excesso">Excesso</option>
+                <option value="risco_ruptura">Risco de ruptura</option>
+                <option value="travado">Com estoque travado</option>
+                <option value="saudavel">Saudáveis</option>
+              </select>
+            </div>
+          }>
+          {!filtrados.length
+            ? <Empty compact icon="search-x" title="Nenhum produto" description="Mude o filtro ou a busca."/>
+            : <>
+              <div className="tabela-lista">
+                {pg.fatia.map(p=>{
+                  const s=SITUACOES_FULL[p.situacao]||SITUACOES_FULL.saudavel;
+                  return (
+                    <div key={p.id} style={{display:'grid',
+                      gridTemplateColumns:'auto minmax(0,1fr) 84px 96px 92px 132px',gap:'var(--space-3)',
+                      alignItems:'center',padding:'11px 2px',borderBottom:'1px solid var(--border-subtle)'}}>
+                      <Thumb src={p.foto} alt={p.titulo} size={42}/>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)',
+                          overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          {p.permalink
+                            ? <a href={p.permalink} target="_blank" rel="noreferrer" style={{color:'inherit',textDecoration:'none'}}>{p.titulo||p.sku}</a>
+                            : (p.titulo||p.sku)}
+                        </div>
+                        <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2,
+                          display:'flex',gap:8,flexWrap:'wrap'}}>
+                          <span>{p.sku}</span>
+                          {p.conta&&<span>{p.conta}</span>}
+                          {p.indisponivel>0&&<span style={{color:'var(--status-danger-fg)'}}>{p.indisponivel} travado</span>}
+                          {!p.temCusto&&<span style={{color:'var(--status-warning-fg)'}}>sem custo</span>}
+                        </div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div className="tab" style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-bold)'}}>{NUM(p.estoqueFull)}</div>
+                        <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>no Full</div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>
+                          {p.diasSemVenda>=dados.janelaDias?`${dados.janelaDias}+`:NUM(p.diasSemVenda)} d
+                        </div>
+                        <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+                          sem vender · {NUM(p.vendas30)} em 30d
+                        </div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',
+                          color:p.capitalParado>0?'var(--text-strong)':'var(--text-subtle)'}}>{BRL(p.capitalParado)}</div>
+                        <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+                          {p.diasCobertura!=null?`${NUM(p.diasCobertura)} d de giro`:'sem giro'}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',justifyContent:'flex-end'}}>
+                        <Badge tone={s.tom} dot>{s.rotulo}</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <Paginacao {...pg} rotulo="produtos"/>
+            </>}
+        </Card>
+
+        <Note tone="neutral" icon="info">
+          Lido em {dados.geradoEm?new Date(dados.geradoEm).toLocaleString('pt-BR'):'—'} ·
+          {' '}{NUM(dados.inventariosConsultados)} inventários consultados ·
+          {' '}janela de vendas de {dados.janelaDias} dias ({fmtData(dados.periodo?.de)} a {fmtData(dados.periodo?.ate)}).
+          Capital parado usa o custo cadastrado por SKU.
+        </Note>
+      </>)}
+    </div>
+  );
+}
+
+/* ══ CONSOLE DE CONSULTA LIVRE ══════════════════════════════
+   Pergunta em português, a IA escolhe os endpoints, o servidor faz
+   só GET e devolve análise + o dado cru + a lista de chamadas. */
+
+const EXEMPLOS_CONSULTA=[
+  'Quais anúncios meus perderam posição de preço no catálogo?',
+  'Quantas perguntas eu recebi e não respondi?',
+  'Quais produtos estão com estoque no Full mas pausados?',
+  'Me mostra a reputação da conta e o que está puxando ela para baixo',
+  'Quais anúncios tiveram queda de visitas na última semana?',
+  'Quanto eu paguei de tarifa por anúncio no último mês?',
+];
+
+function ViewConsulta({contasAtivas,periodo,intervalo,rotuloPeriodo,contas,comoUid}){
+  const [pergunta,setPergunta]=useState('');
+  const [rodando,setRodando]=useState(false);
+  const [res,setRes]=useState(null);
+  const [erro,setErro]=useState('');
+  const [salvas,setSalvas]=useState([]);
+  const [historico,setHistorico]=useState([]);
+  const [aba,setAba]=useState('analise');
+  const [modoDireto,setModoDireto]=useState(false);
+  const [path,setPath]=useState('');
+  const [nomeSalvar,setNomeSalvar]=useState('');
+
+  useEffect(()=>{recarregarListas();},[]);
+  async function recarregarListas(){
+    try{
+      const [s,h]=await Promise.all([
+        call('mlConsultasSalvas').catch(()=>({consultas:[]})),
+        call('mlHistoricoConsultas').catch(()=>({consultas:[]})),
+      ]);
+      setSalvas(s.consultas||[]);setHistorico(h.consultas||[]);
+    }catch{}
+  }
+
+  async function perguntar(texto=pergunta,chamadas=null){
+    const q=String(texto||'').trim();
+    if(!q)return;
+    setRodando(true);setErro('');setRes(null);setAba('analise');
+    try{
+      const r=await callLongo('mlConsulta',{
+        pergunta:q,periodo,intervalo,contas:contasAtivas,chamadas,comoUid:comoUid||null,
+      },480);
+      setRes(r);
+      if(r.aviso)setErro(r.aviso);
+      recarregarListas();
+    }catch(e){setErro(e.message||'A consulta falhou.');}
+    finally{setRodando(false);}
+  }
+
+  async function consultarDireto(){
+    const p=String(path||'').trim();
+    if(!p)return;
+    setRodando(true);setErro('');setRes(null);
+    try{
+      const r=await callLongo('mlConsultaDireta',{path:p,periodo,intervalo,contas:contasAtivas,comoUid:comoUid||null},280);
+      setRes({dados:Object.fromEntries((r.resultados||[]).map(x=>[x.conta,x])),
+              chamadasFeitas:(r.resultados||[]).map(x=>({nome:x.conta,path:x.path,metodo:'GET',ms:x.ms,erro:x.erro})),
+              periodo:r.periodo,analise:null,direto:true});
+      setAba('cru');
+    }catch(e){setErro(e.message||'A consulta falhou.');}
+    finally{setRodando(false);}
+  }
+
+  async function salvar(){
+    if(!res?.plano?.chamadas?.length)return;
+    const nome=String(nomeSalvar||res.pergunta||'').trim().slice(0,60);
+    if(!nome)return;
+    try{
+      await call('mlConsultaSalvar',{nome,pergunta:res.pergunta,chamadas:res.plano.chamadas,periodo});
+      setNomeSalvar('');recarregarListas();
+    }catch(e){setErro(e.message);}
+  }
+
+  function baixarJSON(){
+    const blob=new Blob([JSON.stringify(res.dados,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`consulta-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+    a.click();URL.revokeObjectURL(a.href);
+  }
+
+  // Achata o retorno em CSV quando houver uma lista reconhecível
+  function baixarCSV(){
+    const linhas=[];
+    Object.entries(res.dados||{}).forEach(([nome,v])=>{
+      const r=v?.resultado??v;
+      const lista=Array.isArray(r)?r:(Array.isArray(r?.results)?r.results:null);
+      if(!lista)return;
+      lista.forEach(item=>{
+        const plano={consulta:nome};
+        const andar=(o,prefixo='')=>{
+          if(o===null||o===undefined)return;
+          if(typeof o!=='object'){plano[prefixo||'valor']=o;return;}
+          if(Array.isArray(o)){plano[prefixo]=JSON.stringify(o).slice(0,300);return;}
+          Object.entries(o).forEach(([k,val])=>andar(val,prefixo?`${prefixo}.${k}`:k));
+        };
+        andar(item);
+        linhas.push(plano);
+      });
+    });
+    if(!linhas.length){setErro('Esse retorno não tem lista para virar planilha. Baixe o JSON.');return;}
+    const colunas=[...new Set(linhas.flatMap(Object.keys))];
+    const esc=v=>{const s=v==null?'':String(v);return /[";\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+    const csv=[colunas.join(';'),...linhas.map(l=>colunas.map(c=>esc(l[c])).join(';'))].join('\n');
+    const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`consulta-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+    a.click();URL.revokeObjectURL(a.href);
+  }
+
+  const totalRegistros=(res?.chamadasFeitas||[]).reduce((a,c)=>a+(c.registros||0),0);
+  const comErro=(res?.chamadasFeitas||[]).filter(c=>c.erro);
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <Card title="Consulta livre" icon="terminal"
+        subtitle="Pergunte em português. A IA escolhe os endpoints, o servidor faz só leitura e devolve a resposta com o dado cru ao lado."
+        action={
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <span style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{rotuloPeriodo}</span>
+            <Btn variant="neutral" size="sm" icon={modoDireto?'sparkles':'code'}
+              onClick={()=>setModoDireto(!modoDireto)}>
+              {modoDireto?'Voltar para pergunta':'Endpoint na mão'}</Btn>
+          </div>
+        }>
+
+        {modoDireto?(
+          <div style={{display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+            <input value={path} onChange={e=>setPath(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter')consultarDireto();}}
+              placeholder="/users/{SELLER}/items/search?status=paused&limit=50"
+              className="mono"
+              style={{height:44,padding:'0 13px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+                fontSize:'var(--text-sm)',background:'var(--surface-card)',color:'var(--text-body)',width:'100%'}}/>
+            <Note tone="neutral" icon="info">
+              Só GET. Use <span className="mono">{'{SELLER}'}</span> para o id da conta e{' '}
+              <span className="mono">{'{FROM}'}</span> / <span className="mono">{'{TO}'}</span> /{' '}
+              <span className="mono">{'{FROM_ISO}'}</span> / <span className="mono">{'{TO_ISO}'}</span> para as datas do período.
+              Não gasta IA — devolve o JSON direto.
+            </Note>
+            <Btn variant="primary" icon={rodando?'loader':'play'} onClick={consultarDireto} disabled={rodando||!path.trim()}>
+              {rodando?'Consultando…':'Executar GET'}</Btn>
+          </div>
+        ):(
+          <div style={{display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+            <textarea value={pergunta} onChange={e=>setPergunta(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))perguntar();}}
+              placeholder="O que você quer saber? Ex.: quais anúncios meus caíram de visitas na última semana e o que mudou neles"
+              rows={3}
+              style={{padding:'12px 13px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+                fontSize:'var(--text-md)',background:'var(--surface-card)',color:'var(--text-body)',width:'100%',
+                resize:'vertical',lineHeight:1.6,fontFamily:'inherit'}}/>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+              <Btn variant="primary" icon={rodando?'loader':'sparkles'} onClick={()=>perguntar()} disabled={rodando||!pergunta.trim()}>
+                {rodando?'Consultando…':'Consultar'}</Btn>
+              <span style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>Ctrl+Enter também envia</span>
+            </div>
+
+            {!res&&!rodando&&(
+              <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:'var(--space-2)'}}>
+                <Overline>Para começar</Overline>
+                <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
+                  {EXEMPLOS_CONSULTA.map(ex=>(
+                    <button key={ex} onClick={()=>{setPergunta(ex);perguntar(ex);}}
+                      style={{padding:'7px 12px',borderRadius:'var(--radius-pill)',border:'1px solid var(--border-default)',
+                        background:'var(--surface-card)',cursor:'pointer',fontSize:'var(--text-xs)',color:'var(--text-muted)',
+                        textAlign:'left',maxWidth:'100%'}}>{ex}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {erro&&<Note tone={res?'warning':'danger'} icon="circle-alert">{erro}</Note>}
+
+      {rodando&&(
+        <Card title="Trabalhando" subtitle="Planejando as chamadas, lendo a API e interpretando o retorno" icon="loader">
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <Skel h={18}/><Skel h={18} w="94%"/><Skel h={18} w="80%"/><Skel h={18} w="88%"/>
+          </div>
+        </Card>
+      )}
+
+      {Boolean(salvas.length)&&!rodando&&(
+        <Card title="Consultas salvas" subtitle="Rodam de novo sem replanejar — mais rápido e mais barato" icon="bookmark">
+          <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
+            {salvas.map(s=>(
+              <span key={s.id} style={{display:'inline-flex',alignItems:'center',gap:4,
+                border:'1px solid var(--border-default)',borderRadius:'var(--radius-pill)',overflow:'hidden'}}>
+                <button onClick={()=>{setPergunta(s.pergunta||s.nome);perguntar(s.pergunta||s.nome,s.chamadas);}}
+                  style={{padding:'7px 11px',border:'none',background:'transparent',cursor:'pointer',
+                    fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',color:'var(--text-body)'}}>{s.nome}</button>
+                <button onClick={async()=>{await call('mlConsultaRemover',{id:s.id});recarregarListas();}}
+                  title="Remover"
+                  style={{padding:'7px 9px 7px 0',border:'none',background:'transparent',cursor:'pointer',color:'var(--text-subtle)'}}>
+                  <Icon name="x" size={13}/></button>
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {res&&(
+        <Card pad={false}>
+          {/* Abas: analisado primeiro, cru depois */}
+          <div style={{display:'flex',borderBottom:'1px solid var(--border-subtle)',padding:'0 var(--layout-card-pad)',
+            gap:4,alignItems:'center',justifyContent:'space-between',flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:4}}>
+              {[['analise','Análise','sparkles'],['cru','Dado cru','braces'],['chamadas','Chamadas','list-checks']].map(([k,l,ic])=>(
+                <button key={k} onClick={()=>setAba(k)} disabled={k==='analise'&&!res.analise}
+                  style={{padding:'13px 13px',border:'none',background:'transparent',
+                    cursor:(k==='analise'&&!res.analise)?'default':'pointer',
+                    fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',
+                    color:aba===k?'var(--action-primary)':(k==='analise'&&!res.analise)?'var(--text-subtle)':'var(--text-muted)',
+                    borderBottom:aba===k?'2px solid var(--action-primary)':'2px solid transparent',
+                    display:'flex',alignItems:'center',gap:6}}>
+                  <Icon name={ic} size={14}/>{l}
+                  {k==='chamadas'&&<Badge tone={comErro.length?'warning':'neutral'}>{(res.chamadasFeitas||[]).length}</Badge>}
+                </button>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:6,padding:'8px 0',flexWrap:'wrap'}}>
+              <Btn variant="neutral" size="sm" icon="braces" onClick={baixarJSON}>JSON</Btn>
+              <Btn variant="neutral" size="sm" icon="table" onClick={baixarCSV}>CSV</Btn>
+              {Boolean(res.plano?.chamadas?.length)&&(
+                <>
+                  <input value={nomeSalvar} onChange={e=>setNomeSalvar(e.target.value)} placeholder="Nome para salvar"
+                    style={{height:32,padding:'0 10px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+                      fontSize:'var(--text-xs)',width:140,background:'var(--surface-card)',color:'var(--text-body)'}}/>
+                  <Btn variant="neutral" size="sm" icon="bookmark" onClick={salvar} disabled={!nomeSalvar.trim()}>Salvar</Btn>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{padding:'var(--layout-card-pad)'}}>
+            {aba==='analise'&&(res.analise
+              ? <>
+                <div style={{marginBottom:'var(--space-4)',paddingBottom:'var(--space-3)',
+                  borderBottom:'1px solid var(--border-subtle)'}}>
+                  <Overline>Pergunta</Overline>
+                  <div style={{fontSize:'var(--text-md)',color:'var(--text-strong)',fontWeight:'var(--weight-semibold)',marginTop:4}}>
+                    {res.pergunta}
+                  </div>
+                  <div style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:6}}>
+                    {fmtData(res.periodo?.from)} a {fmtData(res.periodo?.to)} ·
+                    {' '}{(res.chamadasFeitas||[]).length} chamadas ·
+                    {' '}{NUM(totalRegistros)} registros lidos
+                    {res.tempos?.total?` · ${(res.tempos.total/1000).toFixed(1)}s`:''}
+                  </div>
+                </div>
+                <Analise texto={res.analise}/>
+                {res.plano?.raciocinio&&(
+                  <details style={{marginTop:'var(--space-5)',borderTop:'1px solid var(--border-subtle)',paddingTop:'var(--space-3)'}}>
+                    <summary style={{cursor:'pointer',fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',color:'var(--text-muted)'}}>
+                      Por que a IA escolheu essas chamadas
+                    </summary>
+                    <p style={{marginTop:9,fontSize:'var(--text-sm)',color:'var(--text-muted)',lineHeight:1.7}}>{res.plano.raciocinio}</p>
+                  </details>
+                )}
+              </>
+              : <Empty compact icon="sparkles" title="Sem análise"
+                  description="Essa consulta devolveu só o dado cru. Veja as outras abas."/>)}
+
+            {aba==='cru'&&(
+              <div style={{display:'flex',flexDirection:'column',gap:'var(--space-4)'}}>
+                {Object.entries(res.dados||{}).map(([nome,v])=>{
+                  const r=v?.resultado??v;
+                  const lista=Array.isArray(r)?r:(Array.isArray(r?.results)?r.results:null);
+                  return (
+                    <details key={nome} open={Object.keys(res.dados).length<=2}
+                      style={{border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',overflow:'hidden'}}>
+                      <summary style={{cursor:'pointer',padding:'11px 13px',background:'var(--surface-sunken)',
+                        fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)',
+                        display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
+                        <span>{nome}</span>
+                        <span className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',fontWeight:'var(--weight-regular)'}}>
+                          {lista?`${lista.length} registros · `:''}{v?.path||''}
+                        </span>
+                      </summary>
+                      <pre className="mono" style={{margin:0,padding:'13px',fontSize:'var(--text-2xs)',lineHeight:1.6,
+                        color:'var(--text-body)',overflowX:'auto',maxHeight:460,overflowY:'auto',
+                        background:'var(--surface-card)'}}>{JSON.stringify(r,null,2)}</pre>
+                    </details>
+                  );
+                })}
+                {!Object.keys(res.dados||{}).length&&(
+                  <Empty compact icon="database" title="Nada voltou" description="Nenhuma chamada devolveu dado."/>
+                )}
+              </div>
+            )}
+
+            {aba==='chamadas'&&(
+              <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                <Note tone="neutral" icon="shield-check">
+                  Toda chamada é <strong>GET</strong>, cravado no servidor. Nenhuma consulta pode alterar, criar ou apagar
+                  nada na sua conta. A lista abaixo é exatamente o que foi lido.
+                </Note>
+                {(res.chamadasFeitas||[]).map((c,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'var(--space-3)',
+                    padding:'11px 2px',borderBottom:'1px solid var(--border-subtle)'}}>
+                    <Badge tone={c.erro?'danger':'success'}>{c.erro?'erro':'GET'}</Badge>
+                    <div style={{minWidth:0,flex:1}}>
+                      <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{c.nome}</div>
+                      <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:3,
+                        wordBreak:'break-all'}}>{c.path}</div>
+                      {c.descricao&&<div style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',marginTop:3}}>{c.descricao}</div>}
+                      {c.erro&&<div style={{fontSize:'var(--text-xs)',color:'var(--status-danger-fg)',marginTop:3}}>{c.erro}</div>}
+                    </div>
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      {c.registros!=null&&<div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>{NUM(c.registros)}</div>}
+                      {c.total!=null&&c.total!==c.registros&&<div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>de {NUM(c.total)}</div>}
+                      {c.ms!=null&&<div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{(c.ms/1000).toFixed(1)}s</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {Boolean(historico.length)&&!rodando&&(
+        <Card title="Últimas consultas" subtitle="Clique para rodar de novo" icon="history">
+          <div style={{display:'flex',flexDirection:'column',gap:2}}>
+            {historico.slice(0,12).map(h=>(
+              <button key={h.id} onClick={()=>{setPergunta(h.pergunta);perguntar(h.pergunta,h.chamadas);}}
+                style={{display:'flex',alignItems:'center',gap:'var(--space-3)',padding:'10px 2px',border:'none',
+                  borderBottom:'1px solid var(--border-subtle)',background:'transparent',cursor:'pointer',textAlign:'left'}}>
+                <Icon name="corner-down-right" size={14} color="var(--text-subtle)"/>
+                <span style={{flex:1,minWidth:0,fontSize:'var(--text-sm)',color:'var(--text-body)',
+                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.pergunta}</span>
+                <span className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',flexShrink:0}}>
+                  {(h.chamadas||[]).length} chamadas
+                  {h.criadoEm?` · ${new Date(h.criadoEm).toLocaleDateString('pt-BR')}`:''}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 function ViewIA({dados,periodo,rotuloPeriodo}){
   const [analises,setAnalises]=useState(null);
   const [carregandoLista,setCarregandoLista]=useState(true);
@@ -3773,8 +4823,11 @@ const NAV=[
   {id:'pedidos',icon:'shopping-cart',label:'Pedidos',curto:'Pedidos'},
   {id:'skus',icon:'boxes',label:'Por produto',curto:'Produtos'},
   {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
+  {id:'curva',icon:'git-compare',label:'Curva ABC',curto:'ABC'},
+  {id:'full',icon:'warehouse',label:'Estoque Full',curto:'Full'},
   {id:'trafego',icon:'mouse-pointer-click',label:'Tráfego',curto:'Tráfego'},
   {id:'concorrentes',icon:'crosshair',label:'Concorrentes',curto:'Rivais'},
+  {id:'consulta',icon:'terminal',label:'Consulta livre',curto:'Consulta',soAdmin:true},
   {id:'ia',icon:'sparkles',label:'Análise IA',curto:'IA',soAdmin:true},
   {id:'hub',icon:'users',label:'Mentorados',curto:'Hub',soAdmin:true},
   {id:'contas',icon:'store',label:'Contas',curto:'Contas'},
@@ -4032,8 +5085,11 @@ function AppLogado({user,erroConexao}){
               <TabelaPedidos pedidos={dados?.pedidos} loading={loading} multiConta={multiConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} initialFilter={filtroPedidos} resetKey={`${periodo}-${contasAtivas.join(',')}`}/>
             </div>
           )}
-          {view==='skus'&&<ViewSkus dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar}/>}
-          {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos}/>}
+          {view==='skus'&&<ViewSkus dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} somenteLeitura={Boolean(mentorado)}/>}
+          {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos} somenteLeitura={Boolean(mentorado)}/>}
+          {view==='curva'&&<ViewCurvaABC dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} admin={Boolean(perfil?.admin)&&!mentorado}/>}
+          {view==='full'&&<ViewEstoqueFull admin={Boolean(perfil?.admin)&&!mentorado} rotuloPeriodo={rotuloPeriodo} dadosGerais={dados} comoUid={mentorado?.uid||null}/>}
+          {view==='consulta'&&perfil?.admin&&<ViewConsulta contasAtivas={contasAtivas} periodo={periodo} intervalo={intervalo} rotuloPeriodo={rotuloPeriodo} contas={dados?.contas} comoUid={mentorado?.uid||null}/>}
           {view==='trafego'&&<ViewTrafego dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta}/>}
           {view==='concorrentes'&&<ViewConcorrentes/>}
           {view==='ia'&&perfil?.admin&&<ViewIA dados={dados} periodo={periodo} rotuloPeriodo={rotuloPeriodo}/>}
