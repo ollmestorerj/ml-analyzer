@@ -765,6 +765,38 @@ const THead=({children,align})=>(
   <div style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',color:'var(--text-muted)',
     letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',textAlign:align||'left'}}>{children}</div>
 );
+/* Número da venda — o identificador que o Filipe leva para o painel do ML,
+   para o suporte ou para uma conversa com o comprador. Clicar copia, porque
+   digitar 13 dígitos a partir da tela é onde o erro acontece. */
+function NumVenda({id}){
+  const [copiado,setCopiado]=useState(false);
+  if(!id)return <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>—</span>;
+  const copiar=()=>{
+    navigator.clipboard?.writeText(String(id))
+      .then(()=>{setCopiado(true);setTimeout(()=>setCopiado(false),1600);})
+      .catch(()=>{
+        // Sem permissão de área de transferência: seleciona para copiar à mão
+        try{
+          const r=document.createRange();r.selectNodeContents(document.getElementById('venda-'+id));
+          const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);
+        }catch{}
+      });
+  };
+  return (
+    <button onClick={copiar} title={`Copiar o número da venda ${id}`}
+      style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 6px',marginLeft:-6,
+        border:'1px solid transparent',borderRadius:'var(--radius-sm)',background:'transparent',
+        cursor:'pointer',font:'inherit',maxWidth:'100%',
+        transition:'background-color var(--duration-fast) var(--ease-standard)'}}
+      onMouseEnter={e=>{e.currentTarget.style.background='var(--surface-active)';}}
+      onMouseLeave={e=>{e.currentTarget.style.background='transparent';}}>
+      <span id={'venda-'+id} className="mono ell" style={{fontSize:'var(--text-2xs)',
+        color:copiado?'var(--status-success-fg)':'var(--text-body)',fontWeight:'var(--weight-semibold)'}}>{id}</span>
+      <Icon name={copiado?'check':'copy'} size={11}
+        color={copiado?'var(--status-success-solid)':'var(--text-subtle)'}/>
+    </button>
+  );
+}
 function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,paginar=true,resetKey,initialFilter='todos'}){
   const [filtro,setFiltro]=useState(initialFilter);
   const [ordem,setOrdem]=useState('recente');
@@ -787,11 +819,11 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
   const pg = usePaginacao(filtrados, [resetKey, pedidos?.length,filtro,ordem]);
   const linhas = paginar ? pg.fatia : filtrados;
   const GRID=multiConta
-    ? '52px minmax(0,1fr) 84px 96px 92px 48px 96px 84px 84px 84px 108px'
-    : '52px minmax(0,1fr) 96px 92px 48px 96px 84px 84px 84px 108px';
+    ? '52px minmax(0,1fr) 84px 140px 96px 92px 48px 96px 84px 84px 84px 108px'
+    : '52px minmax(0,1fr) 140px 96px 92px 48px 96px 84px 84px 84px 108px';
   const HEADS=multiConta
-    ? ['','Título','Conta','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro']
-    : ['','Título','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro'];
+    ? ['','Título','Conta','Venda','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro']
+    : ['','Título','Venda','SKU','Data','Qtd','Valor','Tarifa','Frete','Custo','Lucro'];
   if(loading)return (
     <Card pad={false}>
       {[...Array(5)].map((_,i)=>(
@@ -812,7 +844,7 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
       </div>
     <Card pad={false}>
       <div className="data-scroll">
-      <div className="data-grid" style={{minWidth:multiConta?1100:1000}}>
+      <div className="data-grid" style={{minWidth:multiConta?1240:1140}}>
         <div className="data-head" style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
           background:'linear-gradient(180deg,var(--surface-sunken),#fff)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
           {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-6&&h?'right':'left'}>{h}</THead>)}
@@ -825,6 +857,7 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
             <Thumb src={p.foto} alt={p.titulo}/>
             <div className="ell" title={p.titulo} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{p.titulo}</div>
             {multiConta&&<div data-label="Conta" className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{p.conta}</div>}
+            <div data-label="Venda" style={{minWidth:0}}><NumVenda id={p.id}/></div>
             <div data-label="SKU" className="ell mono so-desktop" title={p.sku} style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.sku}</div>
             <div data-label="Data" className="mono so-desktop" title={p.dataISO?new Date(p.dataISO).toLocaleString('pt-BR'):undefined}
               style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.data}</div>
@@ -4411,6 +4444,312 @@ function ViewConsulta({contasAtivas,periodo,intervalo,rotuloPeriodo,contas,comoU
   );
 }
 
+/* ══ COLETAS DO FULL ════════════════════════════════════════
+   Data marcada, último dia para cancelar e quantos dias faltam.
+   Perder esse prazo custa multa, então a tela ordena pelo que
+   exige decisão mais cedo, não pela data da coleta. */
+
+const SITUACOES_AGENDA={
+  prazo_vencido:   {rotulo:'Prazo vencido',    tom:'danger',  icone:'lock',          ajuda:'Não dá mais para cancelar sem risco de cobrança'},
+  decidir_hoje:    {rotulo:'Decidir hoje',     tom:'danger',  icone:'alarm-clock',   ajuda:'Último dia para cancelar'},
+  decidir_em_breve:{rotulo:'Decidir em breve', tom:'warning', icone:'clock',         ajuda:'O prazo fecha em até 3 dias'},
+  tranquilo:       {rotulo:'No prazo',         tom:'success', icone:'check',         ajuda:'Ainda dá tempo de decidir'},
+  sem_prazo:       {rotulo:'Sem prazo',        tom:'neutral', icone:'help-circle',   ajuda:'Não deu para determinar a data limite'},
+  sem_data:        {rotulo:'Sem data',         tom:'neutral', icone:'calendar-off',  ajuda:'O retorno não trouxe data de agendamento'},
+  passou:          {rotulo:'Já passou',        tom:'neutral', icone:'history',       ajuda:'A data marcada ficou para trás'},
+  concluido:       {rotulo:'Recebido',         tom:'success', icone:'package-check', ajuda:'O Full já recebeu'},
+  cancelado:       {rotulo:'Cancelado',        tom:'neutral', icone:'x',             ajuda:'Agendamento cancelado'},
+};
+
+const dataHora=iso=>iso?new Date(iso).toLocaleString('pt-BR',
+  {timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+const soData=iso=>iso?new Date(iso).toLocaleDateString('pt-BR',
+  {timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'2-digit'}):'—';
+const contagem=n=>n==null?'—':n<0?`há ${Math.abs(n)} ${Math.abs(n)===1?'dia':'dias'}`
+  :n===0?'hoje':`em ${n} ${n===1?'dia':'dias'}`;
+
+function ViewColetas({admin,comoUid,contasAtivas}){
+  const [dados,setDados]=useState(null);
+  const [carregando,setCarregando]=useState(false);
+  const [erro,setErro]=useState('');
+  const [link,setLink]=useState(null);
+  const [copiado,setCopiado]=useState(false);
+  const [horas,setHoras]=useState('48');
+  const [salvando,setSalvando]=useState(false);
+  const [verTudo,setVerTudo]=useState(false);
+
+  useEffect(()=>{setDados(null);setErro('');},[comoUid]);
+
+  async function carregar(){
+    setCarregando(true);setErro('');
+    try{
+      const r=await callLongo('mlAgendamentosFull',{contas:contasAtivas,comoUid:comoUid||null},280);
+      setDados(r);
+      if(r.regra?.horasAntes)setHoras(String(r.regra.horasAntes));
+      if(r.nenhumEndpoint)setErro('Nenhum dos endpoints de agendamento respondeu nesta conta. Veja o diagnóstico abaixo.');
+    }catch(e){setErro(e.message||'Não consegui ler os agendamentos.');}
+    finally{setCarregando(false);}
+  }
+
+  async function salvarRegra(){
+    const h=PARSE(horas);
+    if(!Number.isFinite(h)||h<=0||h>720){setErro('Informe entre 1 e 720 horas.');return;}
+    setSalvando(true);setErro('');
+    try{await call('mlSalvarRegraFull',{horasAntes:h,avisarDias:dados?.regra?.avisarDias||[5,3,1,0]});await carregar();}
+    catch(e){setErro(e.message);}
+    finally{setSalvando(false);}
+  }
+
+  async function pegarLink(renovar=false){
+    try{const r=await call('mlLinkAgenda',{renovar});setLink(r.url);setCopiado(false);}
+    catch(e){setErro(e.message);}
+  }
+  function copiar(){
+    if(!link)return;
+    navigator.clipboard?.writeText(link).then(()=>{setCopiado(true);setTimeout(()=>setCopiado(false),2500);})
+      .catch(()=>setErro('Não consegui copiar. Selecione o link e copie à mão.'));
+  }
+
+  const todos=dados?.agendamentos||[];
+  const lista=verTudo?todos:todos.filter(a=>!['cancelado','concluido','passou'].includes(a.situacao));
+  const r=dados?.resumo;
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <Overline>Coletas agendadas para o Full</Overline>
+          {dados&&<Badge tone="neutral">{NUM(todos.length)} no total</Badge>}
+        </div>
+        <Btn variant={dados?'neutral':'primary'} size="sm" icon={carregando?'loader':'calendar-clock'}
+          onClick={carregar} disabled={carregando}>
+          {carregando?'Lendo…':dados?'Atualizar':'Ler os agendamentos'}</Btn>
+      </div>
+
+      {erro&&<Note tone={dados?'warning':'danger'} icon="circle-alert">{erro}</Note>}
+
+      {!dados&&!carregando&&(
+        <Card>
+          <Empty icon="calendar-clock" title="Agendamentos ainda não lidos"
+            description="Lê as coletas agendadas em cada conta conectada e calcula, para cada uma, o último dia para cancelar sem risco de cobrança."
+            action={<Btn variant="primary" icon="calendar-clock" onClick={carregar}>Ler os agendamentos</Btn>}/>
+        </Card>
+      )}
+
+      {carregando&&!dados&&(
+        <Card title="Procurando os agendamentos" subtitle="Testando os endpoints de envio ao Full" icon="loader">
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>{[0,1,2].map(i=><Skel key={i} h={46}/>)}</div>
+        </Card>
+      )}
+
+      {dados&&r&&(<>
+        <section className="dashboard-overview" aria-label="Resumo dos prazos">
+          <div>
+            <Overline>Prazo vencido</Overline>
+            <div className="metric-value" style={{color:r.prazoVencido?'var(--status-danger-fg)':'var(--text-strong)'}}>
+              {NUM(r.prazoVencido)}</div>
+            <div className="metric-caption">
+              {dados.nenhumEndpoint?'Não foi possível consultar'
+                :r.prazoVencido?'Cancelar agora pode gerar cobrança':'Nenhuma fora do prazo'}</div>
+          </div>
+          <div>
+            <Overline>Decidir hoje</Overline>
+            <div className="metric-value" style={{color:r.decidirHoje?'var(--status-danger-fg)':'var(--text-strong)'}}>
+              {NUM(r.decidirHoje)}</div>
+            <div className="metric-caption">
+              {dados.nenhumEndpoint?'Não foi possível consultar'
+                :r.decidirHoje?'Último dia para cancelar sem custo':'Nada vence hoje'}</div>
+          </div>
+          <div>
+            <Overline>Decidir em até 3 dias</Overline>
+            <div className="metric-value" style={{color:r.decidirEmBreve?'var(--status-warning-fg)':'var(--text-strong)'}}>
+              {NUM(r.decidirEmBreve)}</div>
+            <div className="metric-caption">{NUM(r.abertos)} {r.abertos===1?'coleta aberta':'coletas abertas'} no total</div>
+          </div>
+        </section>
+
+        {r.prazoPelaRegra>0&&(
+          <Note tone="warning" icon="triangle-alert">
+            <strong>{NUM(r.prazoPelaRegra)} {r.prazoPelaRegra===1?'coleta teve':'coletas tiveram'} o prazo calculado pela sua regra, não lido do Mercado Livre.</strong>{' '}
+            O retorno dessas não trouxe campo de data limite, então o sistema usou {dados.regra.horasAntes}h antes da data marcada.
+            Confirme a regra de cobrança da sua conta e ajuste abaixo — esse número é o que decide o aviso.
+          </Note>
+        )}
+        {r.semData>0&&(
+          <Note tone="danger" icon="calendar-off">
+            <strong>{NUM(r.semData)} {r.semData===1?'agendamento veio':'agendamentos vieram'} sem data reconhecível.</strong>{' '}
+            Abra o diagnóstico no fim da página e me mande o que aparece lá — com o formato real eu acerto a leitura.
+          </Note>
+        )}
+
+        <Card title="Cada coleta e seu prazo" icon="calendar-clock"
+          subtitle={`${NUM(lista.length)} ${lista.length===1?'coleta':'coletas'} · ordenadas pelo que exige decisão mais cedo`}
+          action={<Btn variant="neutral" size="sm" icon={verTudo?'eye-off':'eye'} onClick={()=>setVerTudo(!verTudo)}>
+            {verTudo?'Só as abertas':'Mostrar encerradas'}</Btn>}>
+          {!lista.length
+            ? (dados.nenhumEndpoint
+                ? <Empty compact icon="plug-zap" title="A API não respondeu"
+                    description="Nenhum dos caminhos de agendamento devolveu dado nesta conta — isso é diferente de não haver coleta marcada. Abra o diagnóstico abaixo e me mande o que aparece lá."/>
+                : <Empty compact icon="calendar-check" title="Nenhuma coleta aberta"
+                    description="Não há agendamento pendente de decisão nas contas selecionadas."/>)
+            : <div className="tabela-lista">
+              {lista.map(a=>{
+                const s=SITUACOES_AGENDA[a.situacao]||SITUACOES_AGENDA.sem_prazo;
+                const urgente=['prazo_vencido','decidir_hoje'].includes(a.situacao);
+                return (
+                  <div key={a.id} style={{display:'grid',
+                    gridTemplateColumns:'minmax(0,1fr) 128px 148px 128px',gap:'var(--space-3)',
+                    alignItems:'center',padding:'13px 2px',borderBottom:'1px solid var(--border-subtle)',
+                    boxShadow:urgente?'inset 3px 0 var(--status-danger-solid)':undefined,
+                    paddingLeft:urgente?10:2}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',
+                        color:'var(--text-strong)'}}>
+                        Coleta {a.id}{a.unidades?` · ${NUM(a.unidades)} un.`:''}
+                      </div>
+                      <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',
+                        marginTop:3,display:'flex',gap:8,flexWrap:'wrap'}}>
+                        <span>{a.conta}</span>
+                        {a.status&&<span>{a.status}</span>}
+                        {a.prazoOrigem==='regra'&&<span style={{color:'var(--status-warning-fg)'}}>prazo pela regra</span>}
+                      </div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>
+                        {soData(a.marcada)}</div>
+                      <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2}}>
+                        data marcada</div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',
+                        color:urgente?'var(--status-danger-fg)':'var(--text-strong)'}}>
+                        {dataHora(a.prazo)}</div>
+                      <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2}}>
+                        cancelar até · {contagem(a.diasAtePrazo)}</div>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'flex-end'}}>
+                      <Badge tone={s.tom} dot>{s.rotulo}</Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>}
+        </Card>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,340px),1fr))',
+          gap:'var(--layout-grid-gap)'}}>
+
+          <Card title="Prazo de cancelamento" icon="settings"
+            subtitle="Usado quando o Mercado Livre não devolve a data limite">
+            <div style={{display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+              <div style={{display:'flex',gap:8,alignItems:'flex-end',flexWrap:'wrap'}}>
+                <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                  <Overline>Horas antes da coleta</Overline>
+                  <input value={horas} onChange={e=>setHoras(LIMPAR(e.target.value))}
+                    inputMode="decimal" className="fld mono"
+                    style={{height:'var(--control-h-md)',width:110,padding:'0 11px',textAlign:'right',
+                      fontSize:'var(--text-sm)'}}/>
+                </div>
+                <Btn variant="neutral" size="md" icon={salvando?'loader':'check'}
+                  onClick={salvarRegra} disabled={salvando}>{salvando?'Salvando…':'Salvar regra'}</Btn>
+              </div>
+              <Note tone="neutral" icon="info">
+                O Mercado Livre não publica esse prazo na API, e a regra já mudou antes.
+                Por isso ele fica aqui, editável, em vez de embutido no código.
+                {r.prazoPelaApi>0&&<> {r.prazoPelaApi===1?'Na coleta em que':`Nas ${NUM(r.prazoPelaApi)} coletas em que`} o próprio retorno trouxe a data limite, ela vence esta regra.</>}
+              </Note>
+            </div>
+          </Card>
+
+          <Card title="Assinar no calendário" icon="calendar-plus"
+            subtitle="Cada coleta vira dois eventos: a data marcada e o último dia para cancelar">
+            <div style={{display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+              {!link
+                ? <Btn variant="secondary" icon="link" onClick={()=>pegarLink(false)}>Gerar o link de assinatura</Btn>
+                : <>
+                  <div className="mono" style={{padding:'10px 12px',background:'var(--surface-sunken)',
+                    borderRadius:'var(--radius-md)',fontSize:'var(--text-2xs)',wordBreak:'break-all',
+                    color:'var(--text-body)',userSelect:'all'}}>{link}</div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    <Btn variant="neutral" size="sm" icon={copiado?'check':'copy'} onClick={copiar}>
+                      {copiado?'Copiado':'Copiar link'}</Btn>
+                    <Btn variant="neutral" size="sm" icon="refresh-cw" onClick={()=>pegarLink(true)}>Gerar outro</Btn>
+                  </div>
+                  <Note tone="info" icon="info">
+                    No Google Agenda: <strong>Outros calendários → Adicionar → De URL</strong>, e cole o link.
+                    Ele se atualiza sozinho, e o evento de prazo já vem com lembrete um dia antes.
+                    Quem tiver o link vê suas coletas — se vazar, use “Gerar outro”.
+                  </Note>
+                </>}
+            </div>
+          </Card>
+        </div>
+
+        <details style={{border:'1px solid var(--border-default)',borderRadius:'var(--radius-xl)',
+          background:'var(--surface-card)',overflow:'hidden'}}>
+          <summary style={{cursor:'pointer',padding:'14px var(--layout-card-pad)',
+            fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)',
+            display:'flex',alignItems:'center',gap:8}}>
+            <Icon name="stethoscope" size={15}/>Diagnóstico — o que a API respondeu
+          </summary>
+          <div style={{padding:'0 var(--layout-card-pad) var(--layout-card-pad)',
+            display:'flex',flexDirection:'column',gap:'var(--space-4)'}}>
+            <Note tone="neutral" icon="info">
+              O formato do retorno de agendamento não está documentado publicamente, então o sistema
+              testa os caminhos possíveis e varre o retorno atrás de datas. Isto aqui mostra o que
+              ele achou de verdade — se algum campo estiver sendo lido errado, dá para ver aqui.
+            </Note>
+            {(dados.diagnostico||[]).map((d,i)=>(
+              <div key={i} style={{display:'flex',flexDirection:'column',gap:6}}>
+                <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>{d.conta}</div>
+                {d.endpointUsado
+                  ? <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--status-success-fg)',
+                      wordBreak:'break-all'}}>respondeu: {d.endpointUsado}</div>
+                  : <div style={{fontSize:'var(--text-xs)',color:'var(--status-danger-fg)'}}>nenhum caminho respondeu</div>}
+                <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                  {(d.tentativas||[]).map((t,j)=>(
+                    <div key={j} className="mono" style={{fontSize:'var(--text-2xs)',
+                      color:t.ok?'var(--status-success-fg)':'var(--text-subtle)',wordBreak:'break-all'}}>
+                      {t.ok?'200':t.status} · {t.caminho}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {Boolean(todos.length)&&(
+              <div>
+                <Overline>Campos de data encontrados no primeiro agendamento</Overline>
+                <pre className="mono" style={{marginTop:8,fontSize:'var(--text-2xs)',lineHeight:1.6,
+                  background:'var(--surface-sunken)',padding:12,borderRadius:'var(--radius-md)',
+                  overflowX:'auto',color:'var(--text-body)'}}>
+{(todos[0].camposDeData||[]).map(c=>`${c.campo} = ${c.valor}`).join('\n')||'(nenhum)'}
+{'\n\n'}marcada lida de : {todos[0].marcadaCampo||'(não achou)'}
+{'\n'}prazo lido de   : {todos[0].prazoCampo||`(calculado: ${dados.regra.horasAntes}h antes)`}</pre>
+              </div>
+            )}
+            {Boolean(todos.length)&&(
+              <details>
+                <summary style={{cursor:'pointer',fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',
+                  color:'var(--text-muted)'}}>Retorno cru do primeiro agendamento</summary>
+                <pre className="mono" style={{marginTop:8,fontSize:'var(--text-2xs)',lineHeight:1.55,
+                  background:'var(--surface-sunken)',padding:12,borderRadius:'var(--radius-md)',
+                  overflowX:'auto',maxHeight:360,overflowY:'auto',color:'var(--text-body)'}}>
+                  {JSON.stringify(todos[0].bruto,null,2)}</pre>
+              </details>
+            )}
+          </div>
+        </details>
+
+        <Note tone={dados.nenhumEndpoint?'warning':'neutral'} icon="info">
+          Lido em {dataHora(dados.geradoEm)} · prazo pela regra de {dados.regra.horasAntes}h
+          {dados.regra.definidaPeloUsuario?' (definida por você)':' (padrão, ainda não confirmada)'} ·
+          avisos no WhatsApp em {(dados.regra.avisarDias||[]).join(', ')} {(dados.regra.avisarDias||[]).length===1?'dia':'dias'} antes do prazo.
+        </Note>
+      </>)}
+    </div>
+  );
+}
+
 function ViewIA({dados,periodo,rotuloPeriodo}){
   const [analises,setAnalises]=useState(null);
   const [carregandoLista,setCarregandoLista]=useState(true);
@@ -4825,6 +5164,7 @@ const NAV=[
   {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
   {id:'curva',icon:'git-compare',label:'Curva ABC',curto:'ABC'},
   {id:'full',icon:'warehouse',label:'Estoque Full',curto:'Full'},
+  {id:'coletas',icon:'calendar-clock',label:'Coletas Full',curto:'Coletas'},
   {id:'trafego',icon:'mouse-pointer-click',label:'Tráfego',curto:'Tráfego'},
   {id:'concorrentes',icon:'crosshair',label:'Concorrentes',curto:'Rivais'},
   {id:'consulta',icon:'terminal',label:'Consulta livre',curto:'Consulta',soAdmin:true},
@@ -5089,6 +5429,7 @@ function AppLogado({user,erroConexao}){
           {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos} somenteLeitura={Boolean(mentorado)}/>}
           {view==='curva'&&<ViewCurvaABC dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} admin={Boolean(perfil?.admin)&&!mentorado}/>}
           {view==='full'&&<ViewEstoqueFull admin={Boolean(perfil?.admin)&&!mentorado} rotuloPeriodo={rotuloPeriodo} dadosGerais={dados} comoUid={mentorado?.uid||null}/>}
+          {view==='coletas'&&<ViewColetas admin={Boolean(perfil?.admin)&&!mentorado} comoUid={mentorado?.uid||null} contasAtivas={contasAtivas}/>}
           {view==='consulta'&&perfil?.admin&&<ViewConsulta contasAtivas={contasAtivas} periodo={periodo} intervalo={intervalo} rotuloPeriodo={rotuloPeriodo} contas={dados?.contas} comoUid={mentorado?.uid||null}/>}
           {view==='trafego'&&<ViewTrafego dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta}/>}
           {view==='concorrentes'&&<ViewConcorrentes/>}
