@@ -99,6 +99,28 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   .etapa-cab .dica{margin-left:0;text-align:left;width:100%}
 }
 
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--line-soft);padding:4px;border-radius:10px}
+.menu button{min-height:46px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:800;font-size:15px}
+.menu button[aria-current="page"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,17,17,.12)}
+.hist-filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hist-filtros select,.hist-filtros input{height:44px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font:inherit;font-size:15px;background:#fff;min-width:0}
+.hist-filtros input[type=search]{flex:1 1 200px}
+.periodos{display:flex;gap:6px;overflow-x:auto}
+.periodos button{flex:none;min-height:40px;padding:0 14px;border-radius:999px;border:2px solid var(--line);background:#fff;font-weight:800;font-size:14px;color:var(--body)}
+.periodos button[aria-pressed="true"]{background:#2A2733;border-color:#2A2733;color:#fff}
+.resumo{display:flex;flex-wrap:wrap;gap:8px}
+.resumo span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;font-weight:800}
+.resumo i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.hist{display:flex;flex-direction:column;gap:8px}
+.hrow{background:#fff;border:1px solid var(--line);border-left:6px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.hrow .l1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hrow .quando{margin-left:auto;font-size:13px;font-weight:800;color:var(--ink)}
+.hrow .meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.st{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800}
+.st.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.st.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.st.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.st.neu{background:var(--neu-bg);color:var(--neu-fg)}
 .tela-cheia{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff}
 .tela-cheia .g{font-size:clamp(32px,9vw,60px);font-weight:800;line-height:1.05}
 .tela-cheia .m{font-size:clamp(17px,4.5vw,24px);font-weight:700;max-width:640px}
@@ -136,6 +158,23 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path></svg></button>
   </header>
   <main>
+    <nav class="menu" aria-label="Seções">
+      <button type="button" id="m-fila" aria-current="page">Fila do dia</button>
+      <button type="button" id="m-hist">Histórico de envios</button>
+    </nav>
+
+    <section id="v-hist" class="oculto" style="display:flex;flex-direction:column;gap:12px">
+      <div class="periodos" id="periodos" role="group" aria-label="Período"></div>
+      <div class="hist-filtros">
+        <select id="h-cliente" aria-label="Cliente"><option value="">Todos os clientes</option></select>
+        <select id="h-mod" aria-label="Logística"><option value="">Todas as logísticas</option></select>
+        <input type="search" id="h-busca" placeholder="Buscar nº do envio, pedido ou produto" aria-label="Buscar">
+      </div>
+      <div class="resumo" id="h-resumo"></div>
+      <div class="hist" id="h-lista"></div>
+    </section>
+
+    <div id="v-fila" style="display:flex;flex-direction:column;gap:12px">
     <form class="leitura" id="form-leitura" autocomplete="off">
       <input id="bip" inputmode="numeric" aria-label="Bipar etiqueta" placeholder="Bipar etiqueta (leitor ou nº do envio)">
       <button class="btn pri" type="button" id="b-camera">Câmera</button>
@@ -150,6 +189,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
     </section>
 
     <div class="etapas" id="etapas"></div>
+    </div>
   </main>
 </div>
 
@@ -321,6 +361,70 @@ function cartao(p){
     ${acao}
     <div class="rodape"><span class="id mono">envio ${id}</span>${p.momento!=='problema'?`<button class="link" type="button" data-acao="problema" data-id="${id}">Reportar problema</button>`:''}</div>
   </article>`;
+}
+
+/* ── Historico de envios ───────────────────────────────── */
+const PERIODOS=[['hoje','Hoje',0,0],['ontem','Ontem',1,1],['7d','7 dias',6,0],['30d','30 dias',29,0]];
+let hist={periodo:'hoje',envios:[],carregando:false};
+const diaISO=off=>{const d=new Date(Date.now()-off*864e5);return d.toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});};
+
+$('m-fila').onclick=()=>trocarVista('fila');
+$('m-hist').onclick=()=>trocarVista('hist');
+function trocarVista(v){
+  $('v-fila').classList.toggle('oculto',v!=='fila');$('v-hist').classList.toggle('oculto',v!=='hist');
+  $('m-fila').toggleAttribute('aria-current',v==='fila');$('m-hist').toggleAttribute('aria-current',v==='hist');
+  if(v==='fila')$('m-fila').setAttribute('aria-current','page');else $('m-hist').setAttribute('aria-current','page');
+  if(v==='hist')carregarHistorico();
+}
+$('periodos').innerHTML=PERIODOS.map(([id,nome])=>`<button type="button" data-p="${id}">${nome}</button>`).join('');
+$('periodos').querySelectorAll('button').forEach(b=>b.onclick=()=>{hist.periodo=b.dataset.p;carregarHistorico();});
+['h-cliente','h-mod'].forEach(i=>$(i).onchange=desenharHistorico);
+$('h-busca').oninput=desenharHistorico;
+
+async function carregarHistorico(){
+  const [,,de,ate]=PERIODOS.find(x=>x[0]===hist.periodo);
+  $('periodos').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.p===hist.periodo));
+  $('h-lista').innerHTML='<div class="vazio">Carregando…</div>';
+  try{
+    const r=await chamar('prepHistorico',{de:diaISO(de),ate:diaISO(ate)});
+    hist.envios=r.envios||[];
+    // Opcoes de filtro a partir do que veio
+    const clis=[...new Set(hist.envios.map(e=>e.clienteNome||e.contaId))].sort();
+    const selC=$('h-cliente').value;
+    $('h-cliente').innerHTML='<option value="">Todos os clientes</option>'+clis.map(c=>`<option ${c===selC?'selected':''}>${esc(c)}</option>`).join('');
+    const selM=$('h-mod').value;
+    $('h-mod').innerHTML='<option value="">Todas as logísticas</option>'+MODS.map(m=>`<option value="${m.id}" ${m.id===selM?'selected':''}>${m.nome}</option>`).join('');
+    desenharHistorico();
+  }catch(e){$('h-lista').innerHTML=`<div class="alerta bad">Não consegui carregar o histórico: ${esc(e.message)}</div>`;}
+}
+
+function situacao(e){
+  if(e.statusML==='delivered')return ['ok','Entregue'];
+  if(e.statusML==='not_delivered')return ['bad','Não entregue'];
+  if(e.statusML==='cancelled'||e.etapa==='cancelado')return ['bad','Cancelado'];
+  if(e.etapa==='enviado'||e.statusML==='shipped')return ['ok','Em trânsito'];
+  const horas=(Date.now()-new Date(e.despachadoEm))/36e5;
+  return horas>24?['warn','Sem confirmação do ML há '+Math.floor(horas)+'h']:['neu','Despachado · aguardando o ML'];
+}
+
+function desenharHistorico(){
+  const c=$('h-cliente').value,m=$('h-mod').value,q=$('h-busca').value.trim().toLowerCase();
+  const lista=hist.envios.filter(e=>(!c||(e.clienteNome||e.contaId)===c)&&(!m||e.modalidade===m)&&
+    (!q||[e.shipmentId,...(e.pedidos||[]),...(e.itens||[]).map(i=>i.titulo+' '+(i.sku||''))].join(' ').toLowerCase().includes(q)));
+  $('h-resumo').innerHTML=`<span class="tab">${lista.length} envio(s)</span>`+
+    MODS.map(x=>{const n=lista.filter(e=>e.modalidade===x.id).length;return n?`<span class="tab"><i style="background:${x.cor}"></i>${x.nome} ${n}</span>`:'';}).join('');
+  if(!lista.length){$('h-lista').innerHTML='<div class="vazio">Nenhum envio nesse período.</div>';return;}
+  $('h-lista').innerHTML=lista.map(e=>{
+    const md=modDe(e.modalidade),[cls,txt]=situacao(e),d=new Date(e.despachadoEm),id=esc(e.shipmentId);
+    return `<article class="hrow" style="border-left-color:${md.cor}">
+      <div class="l1"><span class="pill" style="background:${md.cor}">${md.nome}</span><b style="font-size:15px;color:var(--ink)">${esc(e.clienteNome||e.contaId)}</b>
+        <span class="quando tab">${diaMes(d)} ${hora(d)}</span></div>
+      ${(e.itens||[]).map(i=>`<div class="item"><span class="q tab" style="font-size:17px;min-width:30px">${esc(i.qtd)}×</span><div class="t"><b style="font-size:14px">${esc(i.titulo)}</b></div></div>`).join('')}
+      <div class="l1"><span class="st ${cls}">${txt}</span>${e.atrasado?'<span class="st bad">Saiu atrasado</span>':''}${e.temFoto?'':'<span class="st warn">Sem foto</span>'}</div>
+      <div class="meta"><span class="mono">envio ${id}</span>${e.despachadoPor?`<span>por ${esc(String(e.despachadoPor).split('@')[0])}</span>`:''}</div>
+      ${e.temFoto?`<button class="btn" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px;align-self:flex-start">Ver foto</button>`:''}
+    </article>`;}).join('');
+  $('h-lista').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
 }
 
 /* ── Acoes ─────────────────────────────────────────────── */
