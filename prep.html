@@ -155,7 +155,13 @@ $('form-login').addEventListener('submit',async e=>{
   finally{$('l-btn').disabled=false;}
 });
 $('b-sair').onclick=()=>auth.signOut();
-$('b-atualizar').onclick=()=>carregar();
+$('b-atualizar').onclick=async()=>{
+  // Pede ao servidor para buscar vendas novas no ML agora, depois redesenha
+  $('b-atualizar').disabled=true;$('b-atualizar').textContent='Buscando…';
+  try{await fns.httpsCallable('prepVarrerAgora',{timeout:300000})();}catch(e){console.warn(e);}
+  finally{$('b-atualizar').textContent='Atualizar';}
+  carregar();
+};
 
 auth.onAuthStateChanged(u=>{
   clearInterval(timer);
