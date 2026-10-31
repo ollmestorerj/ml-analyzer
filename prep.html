@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 :root{
   --page:#F6F7F9;--card:#FFFFFF;--sunken:#F4F5F7;--nav:#100D14;
@@ -131,7 +132,8 @@ button.cel:hover{background:#F8F5FA}
     <form class="bipar" id="form-bipar" autocomplete="off">
       <label for="bip">Despachar</label>
       <input id="bip" placeholder="Bipe a etiqueta do pacote (leitor ou digite o nº do envio)" inputmode="numeric">
-      <button class="btn pri" type="submit">OK</button>
+      <button class="btn" type="submit">OK</button>
+      <button class="btn pri" type="button" id="b-camera">Câmera</button>
     </form>
     <div id="alertas" style="display:flex;flex-direction:column;gap:8px"></div>
     <section class="card grade-wrap" aria-label="Pedidos por cliente e modalidade"><div class="grade" id="grade"></div></section>
@@ -139,6 +141,12 @@ button.cel:hover{background:#F8F5FA}
   </main>
 </div>
 <div id="overlay" class="tela-cheia oculto" role="alertdialog" aria-live="assertive"></div>
+<div id="scanner" class="tela-cheia oculto" style="background:#100D14;justify-content:flex-start;padding-top:32px">
+  <div class="m">Aponte para o código de barras ou o QR da etiqueta</div>
+  <div id="leitor" style="width:100%;max-width:520px;border-radius:8px;overflow:hidden;background:#000"></div>
+  <div class="m" id="scanner-msg" style="font-size:15px;color:rgba(255,255,255,.74)"></div>
+  <button class="btn" type="button" id="b-scanner-fechar">Fechar câmera</button>
+</div>
 <input type="file" id="foto-input" accept="image/*" capture="environment" class="oculto">
 
 <script>
@@ -324,7 +332,7 @@ async function acao(tipo,id,btn){
       if(janela)janela.location=url;else location.href=url;
       btn.disabled=false;return;
     }
-    if(tipo==='despachar'){window.scrollTo({top:0,behavior:'smooth'});$('bip').focus();return;}
+    if(tipo==='despachar'){abrirCamera();return;}
     if(tipo==='foto'){fotoPara=id;$('foto-input').value='';$('foto-input').click();return;}
     if(tipo==='verfoto'){
       btn.disabled=true;
@@ -390,6 +398,35 @@ $('form-bipar').addEventListener('submit',async e=>{
     telaCheia('#D32137',`<div class="g">Não despachou</div><div class="m">${esc(err.message||'Erro')}</div><div class="m mono" style="font-size:14px">envio ${esc(id)}</div><button class="btn" type="button" id="ov-ok">Fechar</button>`);
   }
 });
+
+// Leitura pela camera do celular (codigo de barras ou QR da etiqueta do ML)
+let leitor=null;
+async function abrirCamera(){
+  if(!window.Html5Qrcode){alert('Leitor da câmera não carregou. Atualize a página.');return;}
+  $('scanner').classList.remove('oculto');$('scanner-msg').textContent='Abrindo a câmera…';
+  try{
+    const F=window.Html5QrcodeSupportedFormats;
+    leitor=new Html5Qrcode('leitor',{verbose:false,
+      formatsToSupport:[F.QR_CODE,F.CODE_128,F.CODE_39,F.EAN_13,F.ITF],
+      experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    await leitor.start({facingMode:'environment'},{fps:12,qrbox:(w,h)=>({width:Math.min(w*0.9,420),height:Math.min(h*0.5,220)})},
+      async texto=>{
+        const id=idDaEtiqueta(texto);
+        if(!id){$('scanner-msg').textContent='Li um código, mas não é de etiqueta do ML. Tente o outro código da etiqueta.';return;}
+        await fecharCamera();
+        $('bip').value=id;$('form-bipar').requestSubmit();
+      });
+    $('scanner-msg').textContent='';
+  }catch(e){
+    $('scanner-msg').textContent=/Permission|NotAllowed/i.test(String(e))?'Libere o acesso à câmera no navegador e tente de novo.':'Não consegui abrir a câmera: '+e;
+  }
+}
+async function fecharCamera(){
+  try{if(leitor){await leitor.stop();leitor.clear();}}catch{}
+  leitor=null;$('scanner').classList.add('oculto');
+}
+$('b-camera').onclick=abrirCamera;
+$('b-scanner-fechar').onclick=fecharCamera;
 
 function telaCheia(cor,html,fechaSozinho){
   const o=$('overlay');o.style.background=cor;o.innerHTML=html;o.classList.remove('oculto');
