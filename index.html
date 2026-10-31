@@ -1070,7 +1070,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
         {negativos>0&&<div className="attention"><div className="attention-copy"><Icon name="trending-down" color="var(--status-danger-fg)"/><span><strong>{NUM(negativos)} pedidos com prejuízo</strong><br/>Confira os custos e as tarifas dessas vendas.</span></div><Btn variant="neutral" size="sm" icon="arrow-right" onClick={onIrParaPrejuizos}>Ver pedidos</Btn></div>}
       </section>}
       {/* Diagnóstico — aparece quando nao veio pedido ou alguma conta falhou */}
-      {!loading&&dados&&((dados.falhas?.length>0)||(m.pedidosDia===0&&dados.debug?.length>0))&&(
+      {!loading&&onIrParaContas&&dados&&((dados.falhas?.length>0)||(m.pedidosDia===0&&dados.debug?.length>0))&&(
         <Card icon="stethoscope" title="Por que não veio nada?"
           subtitle="Trilha do que o servidor conseguiu buscar em cada conta">
 
@@ -1123,7 +1123,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
       )}
 
       {/* Índice ainda não cobre este período */}
-      {!loading&&dados?.origem==='aovivo'&&(()=>{
+      {!loading&&onIrParaContas&&dados?.origem==='aovivo'&&(()=>{
         const cob=dados.indice?.cobertura?.filter(c=>c.de)||[];
         const temAlgo=cob.length>0;
         return (
@@ -5162,15 +5162,15 @@ const NAV=[
   {id:'pedidos',icon:'shopping-cart',label:'Pedidos',curto:'Pedidos'},
   {id:'skus',icon:'boxes',label:'Por produto',curto:'Produtos'},
   {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
-  {id:'curva',icon:'git-compare',label:'Curva ABC',curto:'ABC'},
-  {id:'full',icon:'warehouse',label:'Estoque Full',curto:'Full'},
-  {id:'coletas',icon:'calendar-clock',label:'Coletas Full',curto:'Coletas'},
-  {id:'trafego',icon:'mouse-pointer-click',label:'Tráfego',curto:'Tráfego'},
-  {id:'concorrentes',icon:'crosshair',label:'Concorrentes',curto:'Rivais'},
+  {id:'curva',soAdmin:true,icon:'git-compare',label:'Curva ABC',curto:'ABC'},
+  {id:'full',soAdmin:true,icon:'warehouse',label:'Estoque Full',curto:'Full'},
+  {id:'coletas',soAdmin:true,icon:'calendar-clock',label:'Coletas Full',curto:'Coletas'},
+  {id:'trafego',soAdmin:true,icon:'mouse-pointer-click',label:'Tráfego',curto:'Tráfego'},
+  {id:'concorrentes',soAdmin:true,icon:'crosshair',label:'Concorrentes',curto:'Rivais'},
   {id:'consulta',icon:'terminal',label:'Consulta livre',curto:'Consulta',soAdmin:true},
   {id:'ia',icon:'sparkles',label:'Análise IA',curto:'IA',soAdmin:true},
   {id:'hub',icon:'users',label:'Mentorados',curto:'Hub',soAdmin:true},
-  {id:'contas',icon:'store',label:'Contas',curto:'Contas'},
+  {id:'contas',soAdmin:true,icon:'store',label:'Contas',curto:'Contas'},
 ];
 /* Sidebar — casca escura, item ativo em laranja sólido */
 function Sidebar({active,onSelect,seller,onSair,admin}){
@@ -5407,7 +5407,7 @@ function AppLogado({user,erroConexao}){
             {err&&<div style={{marginTop:8}}><Btn variant="neutral" icon="refresh-cw" disabled={loading} onClick={carregar}>Tentar novamente</Btn></div>}
           </div>}
           {!dados&&!loading&&err?null:<>
-          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos} onIrParaSkus={()=>navegar('skus')} onIrParaContas={()=>navegar('contas')} somenteLeitura={Boolean(mentorado)}/>}
+          {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos} onIrParaSkus={()=>navegar('skus')} onIrParaContas={perfil?.admin?()=>navegar('contas'):null} somenteLeitura={Boolean(mentorado)}/>}
           {view==='pedidos'&&(
             <div>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
@@ -5427,15 +5427,15 @@ function AppLogado({user,erroConexao}){
           )}
           {view==='skus'&&<ViewSkus dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} somenteLeitura={Boolean(mentorado)}/>}
           {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos} somenteLeitura={Boolean(mentorado)}/>}
-          {view==='curva'&&<ViewCurvaABC dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} admin={Boolean(perfil?.admin)&&!mentorado}/>}
-          {view==='full'&&<ViewEstoqueFull admin={Boolean(perfil?.admin)&&!mentorado} rotuloPeriodo={rotuloPeriodo} dadosGerais={dados} comoUid={mentorado?.uid||null}/>}
-          {view==='coletas'&&<ViewColetas admin={Boolean(perfil?.admin)&&!mentorado} comoUid={mentorado?.uid||null} contasAtivas={contasAtivas}/>}
+          {view==='curva'&&perfil?.admin&&<ViewCurvaABC dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} admin={Boolean(perfil?.admin)&&!mentorado}/>}
+          {view==='full'&&perfil?.admin&&<ViewEstoqueFull admin={Boolean(perfil?.admin)&&!mentorado} rotuloPeriodo={rotuloPeriodo} dadosGerais={dados} comoUid={mentorado?.uid||null}/>}
+          {view==='coletas'&&perfil?.admin&&<ViewColetas admin={Boolean(perfil?.admin)&&!mentorado} comoUid={mentorado?.uid||null} contasAtivas={contasAtivas}/>}
           {view==='consulta'&&perfil?.admin&&<ViewConsulta contasAtivas={contasAtivas} periodo={periodo} intervalo={intervalo} rotuloPeriodo={rotuloPeriodo} contas={dados?.contas} comoUid={mentorado?.uid||null}/>}
-          {view==='trafego'&&<ViewTrafego dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta}/>}
-          {view==='concorrentes'&&<ViewConcorrentes/>}
+          {view==='trafego'&&perfil?.admin&&<ViewTrafego dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta}/>}
+          {view==='concorrentes'&&perfil?.admin&&<ViewConcorrentes/>}
           {view==='ia'&&perfil?.admin&&<ViewIA dados={dados} periodo={periodo} rotuloPeriodo={rotuloPeriodo}/>}
           {view==='hub'&&perfil?.admin&&<ViewHub perfil={perfil} mentoradoAtivo={mentorado} onAbrir={abrirMentorado} onVoltarParaMim={voltarParaMim}/>}
-          {view==='contas'&&<ViewContas dados={dados} onRefresh={carregar}/>}
+          {view==='contas'&&perfil?.admin&&<ViewContas dados={dados} onRefresh={carregar}/>}
           </>}
         </main>
       </div>
