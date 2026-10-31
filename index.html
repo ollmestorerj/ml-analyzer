@@ -708,10 +708,68 @@ function TelaLogin(){
               <span style={{marginTop:1,flexShrink:0}}><Icon name="alert-octagon" size={15}/></span>{err}
             </div></div>}
           <Btn full size="lg" onClick={login} disabled={loading} icon={loading?undefined:'log-in'}>{loading?'Entrando…':'Entrar'}</Btn>
-          <div className="auth-caption" style={{textAlign:'center',marginTop:'var(--space-4)',fontSize:'var(--text-xs)'}}>Mesmo login da Calculadora REAL</div>
+          <div className="auth-caption" style={{textAlign:'center',marginTop:'var(--space-4)',fontSize:'var(--text-xs)'}}>Acesso criado pela equipe RealEcom. Esqueceu a senha? Fale com a gente.</div>
         </div>
       </div>
     </div>
+  );
+}
+/* ══ ACESSO: troca da senha provisória e conta sem liberação ══ */
+function CascaAuth({children}){
+  return (
+    <div className="auth-page" style={{display:'flex',minHeight:'100vh',alignItems:'center',justifyContent:'center',padding:'var(--space-5)'}}>
+      <div style={{width:'100%',maxWidth:368,animation:'rise var(--duration-slow) var(--ease-out)'}}>
+        <div style={{textAlign:'center',marginBottom:'var(--space-7)'}}>
+          <div style={{display:'flex',justifyContent:'center'}}><Logo height={30} inverse/></div>
+          <div style={{width:40,height:3,background:'var(--action-primary)',borderRadius:2,margin:'var(--space-3) auto'}}/>
+          <Overline>ML Analyzer</Overline>
+        </div>
+        <div className="auth-panel" style={{border:'1px solid var(--border-default)',borderRadius:'var(--radius-2xl)',padding:'var(--space-6)'}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+function TelaTrocarSenha({onOk}){
+  const [s1,setS1]=useState(''),[s2,setS2]=useState('');
+  const [loading,setLoading]=useState(false),[err,setErr]=useState('');
+  async function salvar(){
+    if(s1.length<8){setErr('A senha precisa ter pelo menos 8 caracteres');return;}
+    if(s1!==s2){setErr('As duas senhas não são iguais');return;}
+    setLoading(true);setErr('');
+    try{
+      await auth.currentUser.updatePassword(s1);
+      await call('mlSenhaTrocada');
+      onOk();
+    }catch(e){
+      setErr(e.code==='auth/requires-recent-login'?'Por segurança, saia e entre de novo com a senha provisória para trocar.':e.code==='auth/weak-password'?'Senha fraca. Use pelo menos 8 caracteres, misturando letras e números.':(e.message||'Não foi possível trocar a senha'));
+    }finally{setLoading(false);}
+  }
+  return (
+    <CascaAuth>
+      <h1 style={{fontSize:22,marginBottom:6}}>Crie a sua senha</h1>
+      <p style={{fontSize:13,marginBottom:24}}>Você entrou com uma senha provisória. Escolha uma senha sua para continuar.</p>
+      {[['Nova senha',s1,setS1,'nova'],['Repita a nova senha',s2,setS2,'repete']].map(([lbl,val,set,id],i)=>(
+        <div key={id} style={{marginBottom:i===0?'var(--space-4)':'var(--space-5)'}}>
+          <label htmlFor={`senha-${id}`} style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',display:'block',marginBottom:6}}>{lbl}</label>
+          <input id={`senha-${id}`} className="fld-dark" type="password" value={val} autoComplete="new-password"
+            onChange={e=>set(e.target.value)} onKeyDown={e=>e.key==='Enter'&&salvar()}
+            style={{height:'var(--control-h-lg)',padding:'0 14px'}}/>
+        </div>
+      ))}
+      {err&&<div style={{marginBottom:'var(--space-4)',display:'flex',gap:9,padding:'11px 13px',background:'rgba(211,33,55,.18)',borderRadius:'var(--radius-lg)',fontSize:'var(--text-sm)',color:'#FF8A98',lineHeight:1.5}}>
+        <span style={{marginTop:1,flexShrink:0}}><Icon name="alert-octagon" size={15}/></span>{err}</div>}
+      <Btn full size="lg" onClick={salvar} disabled={loading} icon={loading?undefined:'check'}>{loading?'Salvando…':'Salvar e entrar'}</Btn>
+      <div style={{textAlign:'center',marginTop:'var(--space-4)'}}><a href="#" onClick={e=>{e.preventDefault();auth.signOut();}} style={{fontSize:'var(--text-xs)'}}>Sair</a></div>
+    </CascaAuth>
+  );
+}
+function TelaSemAcesso({user}){
+  return (
+    <CascaAuth>
+      <h1 style={{fontSize:22,marginBottom:6}}>Acesso não liberado</h1>
+      <p style={{fontSize:13,marginBottom:24,lineHeight:1.5}}>O login {user?.email} existe, mas ainda não tem acesso ao ML Analyzer. O acesso é liberado pela equipe RealEcom para os clientes do prep center.</p>
+      <Btn full size="lg" variant="dark" onClick={()=>auth.signOut()} icon="log-out">Sair</Btn>
+    </CascaAuth>
   );
 }
 /* ══ CONECTAR ML ════════════════════════════════════════════ */
@@ -5167,8 +5225,38 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
   const [busy,setBusy]=useState(null);
   const [aviso,setAviso]=useState(null);
   const [diag,setDiag]=useState(null);
+  const [novo,setNovo]=useState({nome:'',email:''});
+  const [credencial,setCredencial]=useState(null); // {nome,email,senha}
 
   useEffect(()=>{carregar();},[]);
+
+  const LINK_ANALYZER='https://ollmestorerj.github.io/ml-analyzer/';
+  const mensagemAcesso=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao ML Analyzer da RealEcom está pronto.\n\nLink: ${LINK_ANALYZER}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso o sistema pede para você criar a sua senha. Depois é só conectar a sua conta do Mercado Livre.`;
+
+  async function criarAcesso(){
+    if(!novo.email.trim()){setAviso({tone:'danger',txt:'Informe o e-mail do mentorado'});return;}
+    setBusy('novo');setAviso(null);setCredencial(null);
+    try{
+      const r=await call('adminCriarAcesso',{nome:novo.nome.trim(),email:novo.email.trim()});
+      setCredencial({nome:novo.nome.trim(),email:r.email,senha:r.senha});
+      setNovo({nome:'',email:''});
+      carregar();
+    }catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui criar o acesso')});}
+    finally{setBusy(null);}
+  }
+  async function novaSenha(m){
+    if(!confirm(`Gerar nova senha provisória para ${m.email}? A senha atual deixa de funcionar.`))return;
+    setBusy('senha-'+m.uid);setAviso(null);setCredencial(null);
+    try{const r=await call('adminNovaSenha',{uid:m.uid});setCredencial({nome:m.nome||'',email:r.email,senha:r.senha});carregar();}
+    catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui gerar a senha')});}
+    finally{setBusy(null);}
+  }
+  async function liberar(m,liberado){
+    setBusy('lib-'+m.uid);
+    try{await call('adminLiberarAcesso',{uid:m.uid,liberado});setLista(l=>l.map(x=>x.uid===m.uid?{...x,acessoAnalyzer:liberado}:x));}
+    catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui salvar')});}
+    finally{setBusy(null);}
+  }
 
   async function carregar(){
     setErro('');
@@ -5212,18 +5300,46 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
       {mentoradoAtivo&&<Note tone="info" icon="eye">Você está vendo a conta de {mentoradoAtivo.nome||mentoradoAtivo.email}. <a href="#" onClick={e=>{e.preventDefault();onVoltarParaMim();}}>Voltar para a minha</a></Note>}
       {aviso&&<Note tone={aviso.tone} icon={aviso.tone==='danger'?'alert-triangle':'check'}>{aviso.txt}</Note>}
 
-      <Card icon="users" title="Mentorados" subtitle={`${lista.length} com conta conectada · ${noPrep} no prep center`}
+      <Card icon="user-plus" title="Criar acesso de mentorado" subtitle="Gera uma senha provisória. No primeiro login ele cria a senha dele.">
+        <div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{flex:'1 1 200px',minWidth:0}}>
+            <label htmlFor="novo-nome" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',display:'block',marginBottom:6}}>Nome</label>
+            <input id="novo-nome" className="fld" value={novo.nome} onChange={e=>setNovo(n=>({...n,nome:e.target.value}))} placeholder="Nome do mentorado" style={{height:'var(--control-h-md)',padding:'0 12px'}}/>
+          </div>
+          <div style={{flex:'1 1 240px',minWidth:0}}>
+            <label htmlFor="novo-email" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',display:'block',marginBottom:6}}>E-mail</label>
+            <input id="novo-email" className="fld" type="email" value={novo.email} onChange={e=>setNovo(n=>({...n,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&criarAcesso()} placeholder="email@exemplo.com" style={{height:'var(--control-h-md)',padding:'0 12px'}}/>
+          </div>
+          <Btn icon="user-plus" disabled={busy==='novo'} onClick={criarAcesso}>{busy==='novo'?'Criando…':'Criar acesso'}</Btn>
+        </div>
+        {credencial&&<div style={{marginTop:'var(--space-4)',display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+          <Note tone="success" icon="check">Acesso pronto para {credencial.email}. Copie a mensagem e mande para o mentorado. A senha não aparece de novo.</Note>
+          <pre style={{margin:0,whiteSpace:'pre-wrap',fontFamily:'inherit',fontSize:'var(--text-sm)',background:'var(--surface-sunken)',padding:12,borderRadius:'var(--radius-lg)'}}>{mensagemAcesso(credencial)}</pre>
+          <div><Btn variant="neutral" size="sm" icon="copy" onClick={()=>{navigator.clipboard?.writeText(mensagemAcesso(credencial));setAviso({tone:'success',txt:'Mensagem copiada'});}}>Copiar mensagem</Btn></div>
+        </div>}
+      </Card>
+
+      <Card icon="users" title="Mentorados" subtitle={`${lista.length} com acesso ou conta conectada · ${noPrep} no prep center`}
         action={<Btn variant="neutral" size="sm" icon="refresh-cw" onClick={()=>{setLista(null);carregar();}}>Atualizar</Btn>}>
-        {!lista.length?<Empty icon="users" title="Ninguém conectou conta ainda" description="Quando um mentorado conectar a conta do Mercado Livre, ele aparece aqui."/>:
+        {!lista.length?<Empty icon="users" title="Nenhum mentorado ainda" description="Crie o primeiro acesso no quadro acima."/>:
         <div style={{display:'flex',flexDirection:'column'}}>
           {lista.map(m=>(
             <div key={m.uid} style={{display:'flex',flexDirection:'column',gap:10,padding:'14px 0',borderTop:'1px solid var(--border-subtle)'}}>
               <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                 <div style={{flex:'1 1 220px',minWidth:0}}>
                   <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{m.nome||m.email||m.uid}{m.souEu&&' (você)'}</div>
-                  <div style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{m.email} · {m.custosCadastrados} produtos com custo</div>
+                  <div style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{m.email}{m.contas.length?` · ${m.custosCadastrados} produtos com custo`:''}</div>
                 </div>
-                {!m.souEu&&<Btn variant="neutral" size="sm" icon="eye" onClick={()=>onAbrir(m)}>Abrir visão</Btn>}
+                {m.trocarSenha&&<Badge tone="warning" dot>senha provisória</Badge>}
+                {!m.souEu&&!m.acessoAnalyzer&&<Badge tone="danger" dot>sem acesso</Badge>}
+                {!m.contas.length&&<Badge tone="neutral">ainda não conectou o ML</Badge>}
+                {!m.souEu&&<span style={{display:'inline-flex',gap:8,flexWrap:'wrap'}}>
+                  {m.acessoAnalyzer
+                    ?<Btn variant="ghost" size="sm" disabled={busy==='lib-'+m.uid} onClick={()=>liberar(m,false)}>Bloquear</Btn>
+                    :<Btn variant="neutral" size="sm" icon="unlock" disabled={busy==='lib-'+m.uid} onClick={()=>liberar(m,true)}>Liberar acesso</Btn>}
+                  <Btn variant="ghost" size="sm" icon="key-round" disabled={busy==='senha-'+m.uid} onClick={()=>novaSenha(m)}>Nova senha provisória</Btn>
+                  {m.contas.length>0&&<Btn variant="neutral" size="sm" icon="eye" onClick={()=>onAbrir(m)}>Abrir visão</Btn>}
+                </span>}
               </div>
               {m.contas.map(c=>{
                 const ligado=prep[c.id]?.ativo;
@@ -5554,6 +5670,7 @@ function App(){
   const [conectandoConta,setConectandoConta]=useState(false);
   const [erroConexao,setErroConexao]=useState('');
   const [nonce,setNonce]=useState(0);
+  const [acesso,setAcesso]=useState(null); // {liberado,trocarSenha}
   // Troca o code do OAuth por token — exatamente uma vez por carregamento.
   // Roda tanto na 1a conexao quanto ao adicionar contas extras.
   useEffect(()=>{
@@ -5579,6 +5696,10 @@ function App(){
     if(u){
       setChk(true);
       try{
+        const p=await call('mlMeuPerfil');
+        setAcesso({liberado:p.liberado!==false,trocarSenha:Boolean(p.trocarSenha)});
+      }catch{setAcesso({liberado:true,trocarSenha:false});}
+      try{
         const c=await call('mlListarContas');
         setMlOk((c.contas?.length||0)>0);
       }catch{
@@ -5595,6 +5716,8 @@ function App(){
     </div>
   );
   if(!user)return <TelaLogin/>;
+  if(acesso&&!acesso.liberado)return <TelaSemAcesso user={user}/>;
+  if(acesso?.trocarSenha)return <TelaTrocarSenha onOk={()=>setAcesso(a=>({...a,trocarSenha:false}))}/>;
   if(conectandoConta)return (
     <div style={{display:'flex',minHeight:'100vh',background:'var(--surface-nav)',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:'var(--space-4)'}}>
       <Logo height={24} inverse/>
