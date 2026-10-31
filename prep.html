@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prep Center · Fila do dia</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
+<style>
+:root{
+  --page:#F6F7F9;--card:#FFFFFF;--sunken:#F4F5F7;--nav:#100D14;
+  --ink:#111111;--body:#2A2733;--muted:#625D6E;--subtle:#6E687B;
+  --line:#E2E0E8;--line-soft:#EDECF1;
+  --orange:#FF590E;--orange-d:#E04700;
+  --ok-bg:#E6F7F0;--ok-fg:#075F41;--ok:#0E9F6E;
+  --warn-bg:#FFF6E5;--warn-fg:#8F6000;--warn:#F0A500;
+  --bad-bg:#FDECEE;--bad-fg:#84131F;--bad:#D32137;
+  --info-bg:#ECF0FE;--info-fg:#1F33A0;--info:#3B5BF5;
+  --neu-bg:#EDECF1;--neu-fg:#5C5769;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--body);font-family:Manrope,'Segoe UI',system-ui,sans-serif;font-size:15px}
+a{color:var(--orange-d)}
+button{font:inherit;cursor:pointer}
+.tab{font-variant-numeric:tabular-nums}
+.mono{font-family:'JetBrains Mono',Menlo,Consolas,monospace}
+.top{background:var(--nav);color:#fff;display:flex;align-items:center;gap:12px;padding:12px 16px;flex-wrap:wrap}
+.top .marca{display:flex;flex-direction:column;line-height:1.15}
+.top .marca small{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.74)}
+.top .marca b{font-size:17px;font-weight:800}
+.top .agora{margin-left:auto;font-size:13px;color:rgba(255,255,255,.74)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--body);font-size:14px;font-weight:700}
+.btn.dark{background:transparent;color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.18)}
+.btn.pri{background:var(--orange-d);border-color:transparent;color:#fff}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+main{max-width:1480px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:24px;font-weight:800;color:var(--ink)}
+.sub{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;background:var(--neu-bg);color:var(--neu-fg)}
+.alerta{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:8px;font-size:14px;font-weight:600}
+.alerta.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.alerta.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.alerta b{font-weight:800}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 2px rgba(17,17,17,.05)}
+.grade-wrap{overflow-x:auto}
+.grade{display:grid;min-width:820px}
+.grade .h{padding:12px 14px;background:var(--sunken);display:flex;flex-direction:column;gap:2px}
+.grade .h b{font-size:15px;font-weight:800;color:var(--ink)}
+.grade .h span{font-size:12px;color:var(--muted)}
+.grade .cli{padding:14px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:2px}
+.grade .cli b{font-size:14px;color:var(--ink)}
+.grade .cli span{font-size:12px;color:var(--muted)}
+.cel{padding:12px 14px;border-top:1px solid var(--line-soft);border-left:1px solid var(--line-soft);display:flex;flex-direction:column;gap:6px;text-align:left;background:#fff;border-right:0;border-bottom:0;min-height:96px}
+button.cel:hover{background:#F8F5FA}
+.cel.vazia{color:var(--subtle);font-size:14px;justify-content:center}
+.cel .n{display:flex;align-items:baseline;gap:6px}
+.cel .n b{font-size:22px;font-weight:800;color:var(--ink)}
+.cel .n span{font-size:12px;font-weight:600;color:var(--muted)}
+.barra{height:6px;border-radius:999px;background:var(--line-soft);overflow:hidden}
+.barra i{display:block;height:6px;border-radius:999px}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800}
+.tag.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.tag.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.tag.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.tag.neu{background:var(--neu-bg);color:var(--neu-fg)}
+.painel{padding:18px;display:flex;flex-direction:column;gap:12px}
+.painel-cab{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.painel-cab .faixa{padding:8px 14px;border-radius:8px;color:#fff;font-weight:800;font-size:18px}
+.ped{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.ped.atrasado{border-color:var(--bad);border-width:2px}
+.ped-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ped-top .id{font-size:12px;color:var(--subtle)}
+.ped-top .prazo{margin-left:auto;font-size:13px;font-weight:700}
+.item{display:flex;align-items:center;gap:12px}
+.item .q{flex:none;width:40px;font-size:20px;font-weight:800;color:var(--ink)}
+.item .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.item .t b{font-size:14px;color:var(--ink)}
+.item .t span{font-size:11px;color:var(--subtle)}
+.vazio{padding:40px 16px;text-align:center;color:var(--muted)}
+.vazio b{display:block;font-size:17px;color:var(--ink);margin-bottom:4px}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--nav)}
+.login form{width:100%;max-width:360px;background:#1A1820;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:24px;display:flex;flex-direction:column;gap:14px;color:#fff}
+.login h1{color:#fff;font-size:22px}
+.login label{font-size:13px;font-weight:700;color:rgba(255,255,255,.85);display:flex;flex-direction:column;gap:6px}
+.login input{height:46px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#100D14;color:#fff;padding:0 12px;font:inherit}
+.login .erro{background:rgba(211,33,55,.18);color:#FF8A98;padding:10px 12px;border-radius:8px;font-size:13px}
+.oculto{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="tela-login" class="login oculto">
+  <form id="form-login">
+    <div class="sub" style="color:rgba(255,255,255,.74)">RealEcom</div>
+    <h1>Prep Center</h1>
+    <label>E-mail<input id="l-email" type="email" autocomplete="username" required></label>
+    <label>Senha<input id="l-senha" type="password" autocomplete="current-password" required></label>
+    <div id="l-erro" class="erro oculto"></div>
+    <button class="btn pri" type="submit" id="l-btn" style="min-height:48px">Entrar</button>
+  </form>
+</div>
+
+<div id="tela-app" class="oculto">
+  <header class="top">
+    <div class="marca"><small>RealEcom</small><b>Prep Center</b></div>
+    <span class="agora" id="agora"></span>
+    <button class="btn dark" id="b-atualizar" type="button">Atualizar</button>
+    <button class="btn dark" id="b-sair" type="button">Sair</button>
+  </header>
+  <main>
+    <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+      <div><div class="sub" id="dia"></div><h1>Fila do dia</h1></div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div id="alertas" style="display:flex;flex-direction:column;gap:8px"></div>
+    <section class="card grade-wrap" aria-label="Pedidos por cliente e modalidade"><div class="grade" id="grade"></div></section>
+    <section class="card oculto" id="painel" aria-live="polite"></section>
+  </main>
+</div>
+
+<script>
+firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
+const auth=firebase.auth();
+const fns=firebase.app().functions('southamerica-east1');
+const call=(fn,args={})=>fns.httpsCallable(fn)(args).then(r=>r.data);
+
+// Ordem = urgencia. Flex sai no dia; a Coleta passa entre 13h e 14h.
+const MODS=[
+  {id:'flex',    nome:'FLEX',     cor:'#D32137', dica:'Só o que sai hoje'},
+  {id:'coleta',  nome:'COLETA',   cor:'#0E9F6E', dica:'Passa 13h–14h'},
+  {id:'agencia', nome:'AGÊNCIA',  cor:'#F0A500', dica:'Horário de cada conta'},
+  {id:'correios',nome:'CORREIOS', cor:'#3B5BF5', dica:'Horário de cada conta'},
+];
+const PRONTOS=['pronto','despachado'];
+const ETAPA={aberto:'Aberto',picking:'Em picking',conferido:'Conferido',pronto:'Pronto',despachado:'Despachado',problema:'Problema'};
+
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hora=d=>d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
+const diaMes=d=>d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
+
+let pedidos=[], aberto=null, timer=null;
+
+function mostrar(t){$('tela-login').classList.toggle('oculto',t!=='login');$('tela-app').classList.toggle('oculto',t!=='app');}
+
+$('form-login').addEventListener('submit',async e=>{
+  e.preventDefault();$('l-erro').classList.add('oculto');$('l-btn').disabled=true;
+  try{await auth.signInWithEmailAndPassword($('l-email').value.trim(),$('l-senha').value);}
+  catch(err){$('l-erro').textContent=err.code==='auth/invalid-credential'?'E-mail ou senha incorretos':(err.message||'Não foi possível entrar');$('l-erro').classList.remove('oculto');}
+  finally{$('l-btn').disabled=false;}
+});
+$('b-sair').onclick=()=>auth.signOut();
+$('b-atualizar').onclick=()=>carregar();
+
+auth.onAuthStateChanged(u=>{
+  clearInterval(timer);
+  if(!u){mostrar('login');return;}
+  mostrar('app');carregar();
+  timer=setInterval(carregar,60000); // a fila se atualiza sozinha a cada minuto
+});
+
+async function carregar(){
+  $('b-atualizar').disabled=true;
+  try{
+    const r=await call('prepFila');
+    pedidos=r.pedidos||[];
+    desenhar();
+  }catch(e){
+    $('grade').innerHTML='';
+    $('alertas').innerHTML=`<div class="alerta bad">${e.code==='functions/permission-denied'?'Este login não tem acesso ao prep. Fale com o Filipe.':'Não consegui carregar a fila: '+esc(e.message)}</div>`;
+  }finally{$('b-atualizar').disabled=false;}
+}
+
+function prazoDe(p){return p.limiteDespacho?new Date(p.limiteDespacho):null;}
+
+function desenhar(){
+  const agora=new Date();
+  $('agora').textContent='Atualizado '+hora(agora);
+  $('dia').textContent=agora.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',timeZone:'America/Sao_Paulo'});
+
+  const ativos=pedidos.filter(p=>p.etapa!=='cancelado');
+  const atrasados=ativos.filter(p=>p.atrasado&&!PRONTOS.includes(p.etapa));
+  const semNF=ativos.filter(p=>p.aguardandoNF);
+  const verificar=ativos.filter(p=>!MODS.some(m=>m.id===p.modalidade));
+
+  $('chips').innerHTML=
+    `<span class="chip tab">${ativos.length} pedidos para hoje</span>`+
+    (semNF.length?`<span class="chip tab" style="background:var(--warn-bg);color:var(--warn-fg)">${semNF.length} aguardando NF</span>`:'')+
+    (atrasados.length?`<span class="chip tab" style="background:var(--bad-bg);color:var(--bad-fg)">${atrasados.length} atrasados</span>`:'');
+
+  const al=[];
+  if(atrasados.length)al.push(`<div class="alerta bad" role="alert"><b>${atrasados.length} pedido(s) ATRASADO(S)</b> · prazo do Mercado Livre já passou · resolver primeiro</div>`);
+  const coleta=ativos.filter(p=>p.modalidade==='coleta'&&!PRONTOS.includes(p.etapa));
+  const h=Number(agora.toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'America/Sao_Paulo'}));
+  if(coleta.length&&h<14)al.push(`<div class="alerta bad"><b>COLETA passa entre 13h e 14h</b> · ${coleta.length} pedido(s) ainda não estão prontos</div>`);
+  if(semNF.length)al.push(`<div class="alerta warn"><b>${semNF.length} aguardando NF</b> · podem ser separados, mas a etiqueta só sai quando o cliente emitir a nota</div>`);
+  if(verificar.length)al.push(`<div class="alerta warn"><b>${verificar.length} com envio fora do padrão</b> · verificar manualmente</div>`);
+  $('alertas').innerHTML=al.join('');
+
+  // Grade: cliente x modalidade
+  const clientes=[...new Set(ativos.map(p=>p.clienteNome||p.contaId))].sort((a,b)=>a.localeCompare(b));
+  const cols=`170px repeat(${MODS.length}, minmax(0, 1fr))`;
+  const g=$('grade');g.style.gridTemplateColumns=cols;
+  if(!ativos.length){
+    g.style.gridTemplateColumns='1fr';
+    g.innerHTML=`<div class="vazio"><b>Nada para sair hoje</b>Quando entrar venda de um cliente do prep, ela aparece aqui sozinha.</div>`;
+    $('painel').classList.add('oculto');return;
+  }
+  let html=`<div class="h"><span class="sub" style="letter-spacing:.08em">Cliente</span></div>`;
+  MODS.forEach((m,i)=>{html+=`<div class="h" style="border-top:4px solid ${m.cor}"><b>${i+1} · ${m.nome}</b><span>${m.dica}</span></div>`;});
+  clientes.forEach(c=>{
+    const doCli=ativos.filter(p=>(p.clienteNome||p.contaId)===c);
+    html+=`<div class="cli"><b>${esc(c)}</b><span class="tab">${doCli.length} pedido(s)</span></div>`;
+    MODS.forEach(m=>{
+      const ps=doCli.filter(p=>p.modalidade===m.id);
+      if(!ps.length){html+=`<div class="cel vazia">—</div>`;return;}
+      const prontos=ps.filter(p=>PRONTOS.includes(p.etapa)).length;
+      const atr=ps.filter(p=>p.atrasado&&!PRONTOS.includes(p.etapa)).length;
+      const nf=ps.filter(p=>p.aguardandoNF).length;
+      const abertos=ps.filter(p=>p.etapa==='aberto').length;
+      html+=`<button type="button" class="cel" data-cli="${esc(c)}" data-mod="${m.id}" aria-label="${esc(c)}, ${m.nome}: ${ps.length} pedidos">
+        <div class="n"><b class="tab">${ps.length}</b><span class="tab">${prontos} prontos</span></div>
+        <div class="barra"><i style="width:${Math.round(prontos/ps.length*100)}%;background:${m.cor}"></i></div>
+        <div class="tags">${atr?`<span class="tag bad">${atr} atrasado</span>`:''}${nf?`<span class="tag warn">${nf} sem NF</span>`:''}${abertos?`<span class="tag neu">${abertos} aberto</span>`:''}</div>
+      </button>`;
+    });
+  });
+  g.innerHTML=html;
+  g.querySelectorAll('button.cel').forEach(b=>b.onclick=()=>{aberto={cli:b.dataset.cli,mod:b.dataset.mod};desenharPainel();});
+  desenharPainel();
+}
+
+function desenharPainel(){
+  const el=$('painel');
+  if(!aberto){el.classList.add('oculto');return;}
+  const m=MODS.find(x=>x.id===aberto.mod);
+  const ps=pedidos.filter(p=>p.etapa!=='cancelado'&&(p.clienteNome||p.contaId)===aberto.cli&&p.modalidade===aberto.mod)
+    .sort((a,b)=>(b.atrasado-a.atrasado)||((prazoDe(a)||0)-(prazoDe(b)||0)));
+  if(!ps.length){aberto=null;el.classList.add('oculto');return;}
+  el.classList.remove('oculto');
+  el.innerHTML=`<div class="painel">
+    <div class="painel-cab"><span class="faixa" style="background:${m.cor}">${esc(aberto.cli).toUpperCase()} · ${m.nome}</span>
+      <span style="font-size:13px;color:var(--muted)">Cesto ${m.nome} · ${ps.length} pedido(s)</span>
+      <button class="btn" type="button" id="b-fechar" style="margin-left:auto">Fechar</button></div>
+    ${ps.map(p=>{
+      const pr=prazoDe(p);
+      return `<article class="ped${p.atrasado&&!PRONTOS.includes(p.etapa)?' atrasado':''}">
+        <div class="ped-top">
+          <span class="tag neu">${ETAPA[p.etapa]||esc(p.etapa)}</span>
+          ${p.atrasado&&!PRONTOS.includes(p.etapa)?'<span class="tag bad">ATRASADO</span>':''}
+          ${p.aguardandoNF?'<span class="tag warn">Aguardando NF</span>':''}
+          ${p.etiquetaLiberada?'<span class="tag ok">Etiqueta liberada</span>':''}
+          <span class="id mono">envio ${esc(p.shipmentId)}</span>
+          <span class="prazo tab" style="color:${p.atrasado?'var(--bad-fg)':'var(--body)'}">${pr?`Prazo ${diaMes(pr)} ${hora(pr)}`:'Sem prazo'}</span>
+        </div>
+        ${(p.itens||[]).map(i=>`<div class="item"><span class="q tab">${esc(i.qtd)}×</span><div class="t"><b>${esc(i.titulo)}</b><span class="mono">${esc(i.sku||'sem SKU')}${i.atributos?' · '+esc(i.atributos):''}</span></div></div>`).join('')}
+      </article>`;}).join('')}
+  </div>`;
+  $('b-fechar').onclick=()=>{aberto=null;desenharPainel();};
+}
+</script>
+</body>
+</html>
