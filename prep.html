@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#100D14">
 <title>Prep Center · Fila do dia</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -17,134 +18,146 @@
   --line:#E2E0E8;--line-soft:#EDECF1;
   --orange:#FF590E;--orange-d:#E04700;
   --ok-bg:#E6F7F0;--ok-fg:#075F41;--ok:#0E9F6E;
-  --warn-bg:#FFF6E5;--warn-fg:#8F6000;--warn:#F0A500;
+  --warn-bg:#FFF6E5;--warn-fg:#8F6000;
   --bad-bg:#FDECEE;--bad-fg:#84131F;--bad:#D32137;
-  --info-bg:#ECF0FE;--info-fg:#1F33A0;--info:#3B5BF5;
   --neu-bg:#EDECF1;--neu-fg:#5C5769;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--page);color:var(--body);font-family:Manrope,'Segoe UI',system-ui,sans-serif;font-size:15px}
-a{color:var(--orange-d)}
+html,body{margin:0;background:var(--page);color:var(--body);font-family:Manrope,'Segoe UI',system-ui,sans-serif;font-size:16px;-webkit-text-size-adjust:100%}
 button{font:inherit;cursor:pointer}
 .tab{font-variant-numeric:tabular-nums}
 .mono{font-family:'JetBrains Mono',Menlo,Consolas,monospace}
-.top{background:var(--nav);color:#fff;display:flex;align-items:center;gap:12px;padding:12px 16px;flex-wrap:wrap}
-.top .marca{display:flex;flex-direction:column;line-height:1.15}
-.top .marca small{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.74)}
-.top .marca b{font-size:17px;font-weight:800}
-.top .agora{margin-left:auto;font-size:13px;color:rgba(255,255,255,.74)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--body);font-size:14px;font-weight:700}
-.btn.dark{background:transparent;color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.18)}
-.btn.pri{background:var(--orange-d);border-color:transparent;color:#fff}
-.btn:disabled{opacity:.55;cursor:not-allowed}
-main{max-width:1480px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:16px}
-h1{margin:0;font-size:24px;font-weight:800;color:var(--ink)}
-.sub{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;background:var(--neu-bg);color:var(--neu-fg)}
-.alerta{display:block;padding:14px 16px;border-radius:8px;font-size:14px;font-weight:600;line-height:1.45}
+.oculto{display:none!important}
+
+.top{position:sticky;top:0;z-index:30;background:var(--nav);color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.top b{font-size:17px;font-weight:800}
+.top .agora{margin-left:auto;font-size:12px;color:rgba(255,255,255,.7);text-align:right;line-height:1.3}
+.icone{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#fff}
+
+main{max-width:1240px;margin:0 auto;padding:12px 12px 40px;display:flex;flex-direction:column;gap:12px}
+h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+
+.alerta{padding:12px 14px;border-radius:8px;font-size:14px;font-weight:600;line-height:1.45}
 .alerta.bad{background:var(--bad-bg);color:var(--bad-fg)}
-.alerta.warn{background:var(--warn-bg);color:var(--warn-fg)}
-.alerta b{font-weight:800}
-.card{background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 2px rgba(17,17,17,.05)}
-.grade-wrap{overflow-x:auto}
-.grade{display:grid;min-width:820px}
-.grade .h{padding:12px 14px;background:var(--sunken);display:flex;flex-direction:column;gap:2px}
-.grade .h b{font-size:15px;font-weight:800;color:var(--ink)}
-.grade .h span{font-size:12px;color:var(--muted)}
-.grade .cli{padding:14px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:2px}
-.grade .cli b{font-size:14px;color:var(--ink)}
-.grade .cli span{font-size:12px;color:var(--muted)}
-.cel{padding:12px 14px;border-top:1px solid var(--line-soft);border-left:1px solid var(--line-soft);display:flex;flex-direction:column;gap:6px;text-align:left;background:#fff;border-right:0;border-bottom:0;min-height:96px}
-button.cel:hover{background:#F8F5FA}
-.cel.vazia{color:var(--subtle);font-size:14px;justify-content:center}
-.cel .n{display:flex;align-items:baseline;gap:6px}
-.cel .n b{font-size:22px;font-weight:800;color:var(--ink)}
-.cel .n span{font-size:12px;font-weight:600;color:var(--muted)}
-.barra{height:6px;border-radius:999px;background:var(--line-soft);overflow:hidden}
-.barra i{display:block;height:6px;border-radius:999px}
-.tags{display:flex;flex-wrap:wrap;gap:4px}
-.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800}
+
+/* Bipar: uma barra so. O sistema decide se e conferencia ou despacho. */
+.leitura{position:sticky;top:64px;z-index:20;background:#fff;border:2px solid var(--orange);border-radius:10px;padding:10px;display:flex;gap:8px;align-items:center;box-shadow:0 6px 16px -10px rgba(17,17,17,.35)}
+.leitura input{flex:1;min-width:0;height:48px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font:inherit;font-size:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--body);font-size:15px;font-weight:800}
+.btn.pri{background:var(--orange-d);border-color:transparent;color:#fff}
+.btn.full{width:100%}
+.btn:disabled{background:var(--line-soft);color:#8A8597;border-color:transparent;cursor:not-allowed}
+.link{border:0;background:none;color:var(--bad-fg);font-weight:700;font-size:13px;padding:8px 2px;text-decoration:underline}
+
+/* Quadro: logistica x momento do pacote */
+.quadro-wrap{background:#fff;border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.quadro{border-collapse:collapse;width:100%;min-width:640px}
+.quadro th,.quadro td{padding:0;border-bottom:1px solid var(--line-soft);text-align:center}
+.quadro thead th{background:var(--sunken);font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:10px 6px;line-height:1.25}
+.quadro tbody th{text-align:left;padding:10px 12px;white-space:nowrap}
+.quadro tbody th span{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:14px;color:var(--ink)}
+.quadro tbody th i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.quadro td button{width:100%;min-height:48px;border:0;background:transparent;font-size:20px;font-weight:800;color:var(--ink)}
+.quadro td button.zero{color:#C9C5D2;font-weight:600;font-size:16px}
+.quadro td button.sel,.quadro tbody th button.sel{background:#FFF3EC;box-shadow:inset 0 0 0 2px var(--orange)}
+.quadro tbody th button{border:0;background:transparent;padding:0;width:100%;text-align:left;min-height:28px}
+.quadro tfoot td{font-size:12px;font-weight:800;color:var(--muted);padding:8px 4px;background:var(--sunken)}
+.quadro .col-bad{color:var(--bad-fg)}
+.filtro{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.filtro b{color:var(--ink)}
+
+/* Colunas por momento (no celular viram secoes empilhadas) */
+.etapas{display:flex;flex-direction:column;gap:16px}
+.etapa{display:flex;flex-direction:column;gap:8px}
+.etapa-cab{display:flex;align-items:center;gap:8px;padding:0 2px}
+.etapa-cab .num{min-width:28px;height:28px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;background:var(--neu-bg);color:var(--neu-fg)}
+.etapa-cab .dica{font-size:12px;color:var(--muted);margin-left:auto;text-align:right}
+
+.ped{background:#fff;border:1px solid var(--line);border-left:6px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.ped.atrasado{border-color:var(--bad);border-left-color:var(--bad);border-width:2px 2px 2px 6px}
+.ped .l1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;color:#fff}
+.tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800}
 .tag.bad{background:var(--bad-bg);color:var(--bad-fg)}
 .tag.warn{background:var(--warn-bg);color:var(--warn-fg)}
-.tag.ok{background:var(--ok-bg);color:var(--ok-fg)}
-.tag.neu{background:var(--neu-bg);color:var(--neu-fg)}
-.painel{padding:18px;display:flex;flex-direction:column;gap:12px}
-.painel-cab{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.painel-cab .faixa{padding:8px 14px;border-radius:8px;color:#fff;font-weight:800;font-size:18px}
-.ped{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-.ped.atrasado{border-color:var(--bad);border-width:2px}
-.ped-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.ped-top .id{font-size:12px;color:var(--subtle)}
-.ped-top .prazo{margin-left:auto;font-size:13px;font-weight:700}
-.item{display:flex;align-items:center;gap:12px}
-.item .q{flex:none;width:40px;font-size:20px;font-weight:800;color:var(--ink)}
-.item .t{display:flex;flex-direction:column;gap:2px;min-width:0}
-.item .t b{font-size:14px;color:var(--ink)}
-.item .t span{font-size:11px;color:var(--subtle)}
-.vazio{padding:40px 16px;text-align:center;color:var(--muted)}
-.vazio b{display:block;font-size:17px;color:var(--ink);margin-bottom:4px}
-.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--nav)}
-.login form{width:100%;max-width:360px;background:#1A1820;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:24px;display:flex;flex-direction:column;gap:14px;color:#fff}
-.login h1{color:#fff;font-size:22px}
-.login label{font-size:13px;font-weight:700;color:rgba(255,255,255,.85);display:flex;flex-direction:column;gap:6px}
-.login input{height:46px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#100D14;color:#fff;padding:0 12px;font:inherit}
-.login .erro{background:rgba(211,33,55,.18);color:#FF8A98;padding:10px 12px;border-radius:8px;font-size:13px}
-.acoes{display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
-.acoes .btn{min-height:44px}
-.btn.bad{color:var(--bad-fg)}
-.bipar{position:sticky;top:8px;z-index:20;display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid var(--orange);border-radius:8px;background:#fff;box-shadow:0 0 0 3px rgba(255,89,14,.18)}
-.bipar input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:16px;height:36px;background:transparent}
-.bipar label{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);white-space:nowrap}
+.ped .cli{font-size:15px;font-weight:800;color:var(--ink)}
+.ped .prazo{margin-left:auto;font-size:12px;font-weight:700;color:var(--muted)}
+.ped .prazo.bad{color:var(--bad-fg)}
+.item{display:flex;align-items:flex-start;gap:10px}
+.item .q{flex:none;min-width:36px;font-size:20px;font-weight:800;color:var(--ink);line-height:1.15}
+.item .t{display:flex;flex-direction:column;gap:1px;min-width:0}
+.item .t b{font-size:15px;color:var(--ink);line-height:1.3}
+.item .t span{font-size:12px;color:var(--subtle)}
+.ped .rodape{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ped .id{font-size:11px;color:var(--subtle)}
+.vazio{background:#fff;border:1px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--subtle);font-size:13px}
+
+@media (min-width:1000px){
+  .etapas{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:start}
+  .etapa{background:var(--line-soft);border-radius:10px;padding:8px;min-height:120px}
+  .etapa-cab{flex-wrap:wrap}
+  .etapa-cab .dica{margin-left:0;text-align:left;width:100%}
+}
+
 .tela-cheia{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff}
-.tela-cheia .g{font-size:clamp(34px,8vw,64px);font-weight:800;line-height:1.05}
-.tela-cheia .m{font-size:clamp(18px,4vw,26px);font-weight:700;max-width:640px}
-.tela-cheia .btn{margin-top:12px;min-height:52px;font-size:17px}
+.tela-cheia .g{font-size:clamp(32px,9vw,60px);font-weight:800;line-height:1.05}
+.tela-cheia .m{font-size:clamp(17px,4.5vw,24px);font-weight:700;max-width:640px}
+.tela-cheia .btn{margin-top:8px;min-height:56px;font-size:18px;min-width:220px}
 .foto-grande{max-width:100%;max-height:70vh;border-radius:8px}
-.oculto{display:none!important}
+
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--nav)}
+.login form{width:100%;max-width:360px;background:#1A1820;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:14px;color:#fff}
+.login h1{margin:0;font-size:24px}
+.login label{font-size:14px;font-weight:700;color:rgba(255,255,255,.85);display:flex;flex-direction:column;gap:6px}
+.login input{height:50px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#100D14;color:#fff;padding:0 12px;font:inherit}
+.login .erro{background:rgba(211,33,55,.18);color:#FF8A98;padding:10px 12px;border-radius:8px;font-size:14px}
 </style>
 </head>
 <body>
 
 <div id="tela-login" class="login oculto">
   <form id="form-login">
-    <div class="sub" style="color:rgba(255,255,255,.74)">RealEcom</div>
+    <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7)">RealEcom</span>
     <h1>Prep Center</h1>
     <label>E-mail<input id="l-email" type="email" autocomplete="username" required></label>
     <label>Senha<input id="l-senha" type="password" autocomplete="current-password" required></label>
     <div id="l-erro" class="erro oculto"></div>
-    <button class="btn pri" type="submit" id="l-btn" style="min-height:48px">Entrar</button>
+    <button class="btn pri" type="submit" id="l-btn">Entrar</button>
   </form>
 </div>
 
 <div id="tela-app" class="oculto">
   <header class="top">
-    <div class="marca"><small>RealEcom</small><b>Prep Center</b></div>
+    <b>Prep Center</b>
     <span class="agora" id="agora"></span>
-    <button class="btn dark" id="b-atualizar" type="button">Atualizar</button>
-    <button class="btn dark" id="b-sair" type="button">Sair</button>
+    <button class="icone" id="b-atualizar" type="button" aria-label="Buscar vendas novas">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></button>
+    <button class="icone" id="b-sair" type="button" aria-label="Sair">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path></svg></button>
   </header>
   <main>
-    <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
-      <div><div class="sub" id="dia"></div><h1>Fila do dia</h1></div>
-      <div class="chips" id="chips"></div>
-    </div>
-    <form class="bipar" id="form-bipar" autocomplete="off">
-      <label for="bip">Despachar</label>
-      <input id="bip" placeholder="Bipe a etiqueta do pacote (leitor ou digite o nº do envio)" inputmode="numeric">
-      <button class="btn" type="submit">OK</button>
+    <form class="leitura" id="form-leitura" autocomplete="off">
+      <input id="bip" inputmode="numeric" aria-label="Bipar etiqueta" placeholder="Bipar etiqueta (leitor ou nº do envio)">
       <button class="btn pri" type="button" id="b-camera">Câmera</button>
     </form>
+
     <div id="alertas" style="display:flex;flex-direction:column;gap:8px"></div>
-    <section class="card grade-wrap" aria-label="Pedidos por cliente e modalidade"><div class="grade" id="grade"></div></section>
-    <section class="card oculto" id="painel" aria-live="polite"></section>
+
+    <section style="display:flex;flex-direction:column;gap:8px">
+      <h2>Onde está cada pacote</h2>
+      <div class="quadro-wrap"><table class="quadro" id="quadro"></table></div>
+      <div class="filtro" id="filtro"></div>
+    </section>
+
+    <div class="etapas" id="etapas"></div>
   </main>
 </div>
+
 <div id="overlay" class="tela-cheia oculto" role="alertdialog" aria-live="assertive"></div>
-<div id="scanner" class="tela-cheia oculto" style="background:#100D14;justify-content:flex-start;padding-top:32px">
-  <div class="m">Aponte para o código de barras ou o QR da etiqueta</div>
+<div id="scanner" class="tela-cheia oculto" style="background:#100D14;justify-content:flex-start;padding-top:28px">
+  <div class="m" id="scanner-titulo">Aponte para o código da etiqueta</div>
   <div id="leitor" style="width:100%;max-width:520px;border-radius:8px;overflow:hidden;background:#000"></div>
-  <div class="m" id="scanner-msg" style="font-size:15px;color:rgba(255,255,255,.74)"></div>
+  <div class="m" id="scanner-msg" style="font-size:15px;color:rgba(255,255,255,.75)"></div>
   <button class="btn" type="button" id="b-scanner-fechar">Fechar câmera</button>
 </div>
 <input type="file" id="foto-input" accept="image/*" capture="environment" class="oculto">
@@ -153,27 +166,44 @@ button.cel:hover{background:#F8F5FA}
 firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
 const auth=firebase.auth();
 const fns=firebase.app().functions('southamerica-east1');
-const call=(fn,args={})=>fns.httpsCallable(fn)(args).then(r=>r.data);
+const chamar=(fn,args={},seg=70)=>fns.httpsCallable(fn,{timeout:seg*1000})(args).then(r=>r.data);
 
-// Ordem = urgencia. Flex sai no dia; a Coleta passa entre 13h e 14h.
+// Logisticas na ordem de urgencia. Flex sai no dia; a Coleta passa entre 13h e 14h.
 const MODS=[
-  {id:'flex',    nome:'FLEX',     cor:'#D32137', dica:'Só o que sai hoje'},
-  {id:'coleta',  nome:'COLETA',   cor:'#0E9F6E', dica:'Passa 13h–14h'},
-  {id:'agencia', nome:'AGÊNCIA',  cor:'#F0A500', dica:'Horário de cada conta'},
-  {id:'correios',nome:'CORREIOS', cor:'#3B5BF5', dica:'Horário de cada conta'},
+  {id:'flex',    nome:'FLEX',     cor:'#D32137'},
+  {id:'coleta',  nome:'COLETA',   cor:'#0E9F6E'},
+  {id:'agencia', nome:'AGÊNCIA',  cor:'#C98A00'},
+  {id:'correios',nome:'CORREIOS', cor:'#3B5BF5'},
 ];
-const PRONTOS=['pronto','despachado'];
-const ETAPA={aberto:'Aberto',picking:'Em picking',conferido:'Conferido',pronto:'Pronto',despachado:'Despachado',problema:'Problema'};
+const modDe=id=>MODS.find(m=>m.id===id)||{id,nome:'VERIFICAR',cor:'#5C5769'};
+
+// Momento do pacote, na ordem do galpao
+const MOMENTOS=[
+  {id:'nf',       nome:'Aguardando NF',     dica:'Cliente precisa emitir a nota'},
+  {id:'imprimir', nome:'Imprimir etiqueta', dica:'NF ok, etiqueta liberada'},
+  {id:'bipar',    nome:'Separar e etiquetar', dica:'Etiqueta impressa: separe, cole e bipe'},
+  {id:'foto',     nome:'Foto da caixa',     dica:'Etiqueta conferida: falta a foto'},
+  {id:'pronto',   nome:'Pronto para sair',  dica:'Bipe de novo na hora de entregar'},
+];
+function momentoDe(p){
+  if(p.etapa==='problema')return 'problema';
+  if(p.etapa==='despachado')return 'despachado';
+  if(p.etapa==='pronto')return 'pronto';
+  if(p.etapa==='etiquetado')return 'foto';
+  if(p.aguardandoNF||!p.etiquetaLiberada)return 'nf';
+  if(p.etiquetaImpressaEm)return 'bipar';
+  return 'imprimir';
+}
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hora=d=>d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
 const diaMes=d=>d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
 
-let pedidos=[], aberto=null, timer=null;
+let pedidos=[], filtro={mod:null,mom:null}, timer=null;
 
+/* ── Login ─────────────────────────────────────────────── */
 function mostrar(t){$('tela-login').classList.toggle('oculto',t!=='login');$('tela-app').classList.toggle('oculto',t!=='app');}
-
 $('form-login').addEventListener('submit',async e=>{
   e.preventDefault();$('l-erro').classList.add('oculto');$('l-btn').disabled=true;
   try{await auth.signInWithEmailAndPassword($('l-email').value.trim(),$('l-senha').value);}
@@ -181,240 +211,235 @@ $('form-login').addEventListener('submit',async e=>{
   finally{$('l-btn').disabled=false;}
 });
 $('b-sair').onclick=()=>auth.signOut();
-$('b-atualizar').onclick=async()=>{
-  // Pede ao servidor para buscar vendas novas no ML agora, depois redesenha
-  $('b-atualizar').disabled=true;$('b-atualizar').textContent='Buscando…';
-  try{await fns.httpsCallable('prepVarrerAgora',{timeout:300000})();}catch(e){console.warn(e);}
-  finally{$('b-atualizar').textContent='Atualizar';}
-  carregar();
-};
-
 auth.onAuthStateChanged(u=>{
   clearInterval(timer);
   if(!u){mostrar('login');return;}
   mostrar('app');carregar();
-  timer=setInterval(carregar,60000); // a fila se atualiza sozinha a cada minuto
+  timer=setInterval(carregar,60000);
 });
 
+/* ── Dados ─────────────────────────────────────────────── */
 async function carregar(){
-  $('b-atualizar').disabled=true;
   try{
-    const r=await call('prepFila');
-    pedidos=r.pedidos||[];
+    const r=await chamar('prepFila');
+    pedidos=(r.pedidos||[]).filter(p=>p.etapa!=='cancelado').map(p=>({...p,momento:momentoDe(p)}));
     desenhar();
   }catch(e){
-    $('grade').innerHTML='';
+    $('etapas').innerHTML='';
     $('alertas').innerHTML=`<div class="alerta bad">${e.code==='functions/permission-denied'?'Este login não tem acesso ao prep. Fale com o Filipe.':'Não consegui carregar a fila: '+esc(e.message)}</div>`;
-  }finally{$('b-atualizar').disabled=false;}
+  }
 }
+$('b-atualizar').onclick=async()=>{
+  $('b-atualizar').disabled=true;$('agora').textContent='Buscando vendas…';
+  try{await chamar('prepVarrerAgora',{},300);}catch(e){console.warn(e);}
+  $('b-atualizar').disabled=false;carregar();
+};
 
-function prazoDe(p){return p.limiteDespacho?new Date(p.limiteDespacho):null;}
+/* ── Tela ──────────────────────────────────────────────── */
+const prazoDe=p=>p.limiteDespacho?new Date(p.limiteDespacho):null;
+function urgencia(a,b){
+  return (b.atrasado-a.atrasado)
+    || (MODS.findIndex(m=>m.id===a.modalidade)-MODS.findIndex(m=>m.id===b.modalidade))
+    || ((prazoDe(a)||0)-(prazoDe(b)||0));
+}
 
 function desenhar(){
   const agora=new Date();
-  $('agora').textContent='Atualizado '+hora(agora);
-  $('dia').textContent=agora.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',timeZone:'America/Sao_Paulo'});
+  $('agora').innerHTML=`${agora.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'})}<br>atualizado ${hora(agora)}`;
 
-  const ativos=pedidos.filter(p=>p.etapa!=='cancelado');
-  const atrasados=ativos.filter(p=>p.atrasado&&!PRONTOS.includes(p.etapa));
-  const semNF=ativos.filter(p=>p.aguardandoNF);
-  const verificar=ativos.filter(p=>!MODS.some(m=>m.id===p.modalidade));
+  const naMesa=pedidos.filter(p=>p.momento!=='despachado');
+  const despachados=pedidos.filter(p=>p.momento==='despachado');
 
-  $('chips').innerHTML=
-    `<span class="chip tab">${ativos.length} pedidos para hoje</span>`+
-    (semNF.length?`<span class="chip tab" style="background:var(--warn-bg);color:var(--warn-fg)">${semNF.length} aguardando NF</span>`:'')+
-    (atrasados.length?`<span class="chip tab" style="background:var(--bad-bg);color:var(--bad-fg)">${atrasados.length} atrasados</span>`:'');
-
+  // Alertas
   const al=[];
-  if(atrasados.length)al.push(`<div class="alerta bad" role="alert"><b>${atrasados.length} pedido(s) ATRASADO(S)</b> · prazo do Mercado Livre já passou · resolver primeiro</div>`);
-  const coleta=ativos.filter(p=>p.modalidade==='coleta'&&!PRONTOS.includes(p.etapa));
+  const atrasados=naMesa.filter(p=>p.atrasado);
+  if(atrasados.length)al.push(`<div class="alerta bad"><b>${atrasados.length} atrasado(s)</b> · o prazo do Mercado Livre já passou. Fazer primeiro.</div>`);
   const h=Number(agora.toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'America/Sao_Paulo'}));
-  if(coleta.length&&h<14)al.push(`<div class="alerta bad"><b>COLETA passa entre 13h e 14h</b> · ${coleta.length} pedido(s) ainda não estão prontos</div>`);
-  if(semNF.length)al.push(`<div class="alerta warn"><b>${semNF.length} aguardando NF</b> · podem ser separados, mas a etiqueta só sai quando o cliente emitir a nota</div>`);
-  if(verificar.length)al.push(`<div class="alerta warn"><b>${verificar.length} com envio fora do padrão</b> · verificar manualmente</div>`);
+  const coleta=naMesa.filter(p=>p.modalidade==='coleta'&&p.momento!=='pronto').length;
+  if(coleta&&h<14)al.push(`<div class="alerta bad"><b>COLETA passa entre 13h e 14h</b> · ${coleta} pacote(s) ainda não estão prontos.</div>`);
+  const problemas=naMesa.filter(p=>p.momento==='problema');
+  if(problemas.length)al.push(`<div class="alerta bad"><b>${problemas.length} com problema</b> · ${problemas.map(p=>esc(p.clienteNome)+': '+esc(p.problema||'')).join(' · ')}</div>`);
   $('alertas').innerHTML=al.join('');
 
-  // Grade: cliente x modalidade
-  const clientes=[...new Set(ativos.map(p=>p.clienteNome||p.contaId))].sort((a,b)=>a.localeCompare(b));
-  const cols=`170px repeat(${MODS.length}, minmax(0, 1fr))`;
-  const g=$('grade');g.style.gridTemplateColumns=cols;
-  if(!ativos.length){
-    g.style.gridTemplateColumns='1fr';
-    g.innerHTML=`<div class="vazio"><b>Nada para sair hoje</b>Quando entrar venda de um cliente do prep, ela aparece aqui sozinha.</div>`;
-    $('painel').classList.add('oculto');return;
-  }
-  let html=`<div class="h"><span class="sub" style="letter-spacing:.08em">Cliente</span></div>`;
-  MODS.forEach((m,i)=>{html+=`<div class="h" style="border-top:4px solid ${m.cor}"><b>${i+1} · ${m.nome}</b><span>${m.dica}</span></div>`;});
-  clientes.forEach(c=>{
-    const doCli=ativos.filter(p=>(p.clienteNome||p.contaId)===c);
-    html+=`<div class="cli"><b>${esc(c)}</b><span class="tab">${doCli.length} pedido(s)</span></div>`;
-    MODS.forEach(m=>{
-      const ps=doCli.filter(p=>p.modalidade===m.id);
-      if(!ps.length){html+=`<div class="cel vazia">—</div>`;return;}
-      const prontos=ps.filter(p=>PRONTOS.includes(p.etapa)).length;
-      const atr=ps.filter(p=>p.atrasado&&!PRONTOS.includes(p.etapa)).length;
-      const nf=ps.filter(p=>p.aguardandoNF).length;
-      const abertos=ps.filter(p=>p.etapa==='aberto').length;
-      html+=`<button type="button" class="cel" data-cli="${esc(c)}" data-mod="${m.id}" aria-label="${esc(c)}, ${m.nome}: ${ps.length} pedidos">
-        <div class="n"><b class="tab">${ps.length}</b><span class="tab">${prontos} prontos</span></div>
-        <div class="barra"><i style="width:${Math.round(prontos/ps.length*100)}%;background:${m.cor}"></i></div>
-        <div class="tags">${atr?`<span class="tag bad">${atr} atrasado</span>`:''}${nf?`<span class="tag warn">${nf} sem NF</span>`:''}${abertos?`<span class="tag neu">${abertos} aberto</span>`:''}</div>
-      </button>`;
-    });
+  // Quadro logistica x momento
+  const conta=(mod,mom)=>naMesa.filter(p=>(!mod||p.modalidade===mod)&&(!mom||p.momento===mom)).length;
+  const modsUsados=MODS.filter(m=>pedidos.some(p=>p.modalidade===m.id));
+  if(pedidos.some(p=>!MODS.some(m=>m.id===p.modalidade)))modsUsados.push(modDe('verificar'));
+  const cel=(mod,mom)=>{const n=conta(mod,mom);const sel=filtro.mod===mod&&filtro.mom===mom;
+    return `<button type="button" class="tab ${n?'':'zero'} ${sel?'sel':''}" data-mod="${mod||''}" data-mom="${mom||''}" aria-label="${n} pacotes">${n||'·'}</button>`;};
+  const desp=mod=>despachados.filter(p=>!mod||p.modalidade===mod).length;
+  $('quadro').innerHTML=`<thead><tr><th style="text-align:left;padding-left:12px">Logística</th>${MOMENTOS.map(m=>`<th>${m.nome}</th>`).join('')}<th>Despachados hoje</th></tr></thead>
+    <tbody>${modsUsados.length?modsUsados.map(m=>`<tr><th><button type="button" data-mod="${m.id}" data-mom="" class="${filtro.mod===m.id&&!filtro.mom?'sel':''}"><span><i style="background:${m.cor}"></i>${m.nome}</span></button></th>
+      ${MOMENTOS.map(x=>`<td>${cel(m.id,x.id)}</td>`).join('')}<td class="tab" style="font-weight:800;color:var(--ok-fg)">${desp(m.id)||'·'}</td></tr>`).join('')
+      :`<tr><td colspan="${MOMENTOS.length+2}" style="padding:16px;color:var(--muted)">Nenhum pacote hoje ainda.</td></tr>`}</tbody>
+    <tfoot><tr><td style="text-align:left;padding-left:12px">Total</td>${MOMENTOS.map(x=>`<td class="tab">${conta(null,x.id)}</td>`).join('')}<td class="tab">${desp(null)}</td></tr></tfoot>`;
+  $('quadro').querySelectorAll('button[data-mod]').forEach(b=>b.onclick=()=>{
+    const mod=b.dataset.mod||null,mom=b.dataset.mom||null;
+    filtro=(filtro.mod===mod&&filtro.mom===mom)?{mod:null,mom:null}:{mod,mom};desenhar();
+    if(filtro.mod||filtro.mom)$('etapas').scrollIntoView({behavior:'smooth',block:'start'});
   });
-  g.innerHTML=html;
-  g.querySelectorAll('button.cel').forEach(b=>b.onclick=()=>{aberto={cli:b.dataset.cli,mod:b.dataset.mod};desenharPainel();});
-  desenharPainel();
-}
+  $('filtro').innerHTML=filtro.mod||filtro.mom
+    ?`Mostrando <b>${filtro.mod?modDe(filtro.mod).nome:'todas as logísticas'}</b>${filtro.mom?` · <b>${MOMENTOS.find(x=>x.id===filtro.mom).nome}</b>`:''} <button class="btn" type="button" id="b-limpar" style="min-height:36px">Mostrar tudo</button>`
+    :'Toque num número para ver só aqueles pacotes.';
+  const bl=$('b-limpar');if(bl)bl.onclick=()=>{filtro={mod:null,mom:null};desenhar();};
 
-function desenharPainel(){
-  const el=$('painel');
-  if(!aberto){el.classList.add('oculto');return;}
-  const m=MODS.find(x=>x.id===aberto.mod);
-  const ps=pedidos.filter(p=>p.etapa!=='cancelado'&&(p.clienteNome||p.contaId)===aberto.cli&&p.modalidade===aberto.mod)
-    .sort((a,b)=>(b.atrasado-a.atrasado)||((prazoDe(a)||0)-(prazoDe(b)||0)));
-  if(!ps.length){aberto=null;el.classList.add('oculto');return;}
-  el.classList.remove('oculto');
-  el.innerHTML=`<div class="painel">
-    <div class="painel-cab"><span class="faixa" style="background:${m.cor}">${esc(aberto.cli).toUpperCase()} · ${m.nome}</span>
-      <span style="font-size:13px;color:var(--muted)">Cesto ${m.nome} · ${ps.length} pedido(s)</span>
-      <button class="btn" type="button" id="b-fechar" style="margin-left:auto">Fechar</button></div>
-    ${ps.map(p=>{
-      const pr=prazoDe(p);
-      return `<article class="ped${p.atrasado&&!PRONTOS.includes(p.etapa)?' atrasado':''}">
-        <div class="ped-top">
-          <span class="tag neu">${ETAPA[p.etapa]||esc(p.etapa)}</span>
-          ${p.atrasado&&!PRONTOS.includes(p.etapa)?'<span class="tag bad">ATRASADO</span>':''}
-          ${p.aguardandoNF?'<span class="tag warn">Aguardando NF</span>':''}
-          ${p.etiquetaLiberada?'<span class="tag ok">Etiqueta liberada</span>':''}
-          <span class="id mono">envio ${esc(p.shipmentId)}</span>
-          <span class="prazo tab" style="color:${p.atrasado?'var(--bad-fg)':'var(--body)'}">${pr?`Prazo ${diaMes(pr)} ${hora(pr)}`:'Sem prazo'}</span>
-        </div>
-        ${(p.itens||[]).map(i=>`<div class="item"><span class="q tab">${esc(i.qtd)}×</span><div class="t"><b>${esc(i.titulo)}</b><span class="mono">${esc(i.sku||'sem SKU')}${i.atributos?' · '+esc(i.atributos):''}</span></div></div>`).join('')}
-        <div class="acoes">${acoesDe(p)}</div>
-      </article>`;}).join('')}
-  </div>`;
-  $('b-fechar').onclick=()=>{aberto=null;desenharPainel();};
-  el.querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
-}
-
-function acoesDe(p){
-  const id=esc(p.shipmentId),b=[];
-  if(['aberto','picking','conferido'].includes(p.etapa)){
-    if(p.etiquetaLiberada)b.push(`<button class="btn" type="button" data-acao="etiqueta" data-id="${id}">Imprimir etiqueta</button>`);
-    b.push(p.etiquetaLiberada
-      ?`<button class="btn pri" type="button" data-acao="foto" data-id="${id}">Foto da caixa · marcar Pronto</button>`
-      :`<span class="tag warn" style="align-self:center">Espere a NF para imprimir a etiqueta</span>`);
-    b.push(`<button class="btn bad" type="button" data-acao="problema" data-id="${id}">Reportar problema</button>`);
-  }else if(p.etapa==='pronto'){
-    b.push(`<button class="btn" type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`);
-    b.push(`<button class="btn" type="button" data-acao="etiqueta" data-id="${id}">Reimprimir etiqueta</button>`);
-    b.push(`<button class="btn pri" type="button" data-acao="despachar" data-id="${id}">Despachar (bipar etiqueta)</button>`);
-  }else if(p.etapa==='despachado'){
-    b.push(`<button class="btn" type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`);
-    b.push(`<span class="tag ok" style="align-self:center">Despachado · esperando o ML confirmar</span>`);
-  }else if(p.etapa==='problema'){
-    b.push(`<span class="tag bad" style="align-self:center">${esc(p.problema||'Problema reportado')}</span>`);
-    b.push(`<button class="btn" type="button" data-acao="reabrir" data-id="${id}">Resolvido · voltar para a fila</button>`);
+  // Pacotes por momento (problema aparece junto do momento em que parou: no topo)
+  const visiveis=naMesa.filter(p=>(!filtro.mod||p.modalidade===filtro.mod));
+  const momentos=filtro.mom?MOMENTOS.filter(x=>x.id===filtro.mom):MOMENTOS;
+  let html='';
+  if(problemas.length&&!filtro.mom){
+    const ps=visiveis.filter(p=>p.momento==='problema').sort(urgencia);
+    if(ps.length)html+=`<section class="etapa" style="grid-column:1/-1"><div class="etapa-cab"><h2 style="color:var(--bad-fg)">Com problema</h2><span class="num" style="background:var(--bad-bg);color:var(--bad-fg)">${ps.length}</span></div>${ps.map(cartao).join('')}</section>`;
   }
-  return b.join('');
+  html+=momentos.map(x=>{
+    const ps=visiveis.filter(p=>p.momento===x.id).sort(urgencia);
+    return `<section class="etapa"><div class="etapa-cab"><h2>${x.nome}</h2><span class="num tab">${ps.length}</span><span class="dica">${x.dica}</span></div>
+      ${ps.length?ps.map(cartao).join(''):'<div class="vazio">Nenhum</div>'}</section>`;
+  }).join('');
+  $('etapas').innerHTML=html;
+  $('etapas').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
 }
 
+function cartao(p){
+  const m=modDe(p.modalidade), pr=prazoDe(p), id=esc(p.shipmentId);
+  let acao='';
+  switch(p.momento){
+    case 'nf':      acao=`<button class="btn full" type="button" disabled>Esperando a NF do cliente</button>`;break;
+    case 'imprimir':acao=`<button class="btn pri full" type="button" data-acao="etiqueta" data-id="${id}">Imprimir etiqueta</button>`;break;
+    case 'bipar':   acao=`<button class="btn pri full" type="button" data-acao="bipar" data-id="${id}">Bipar etiqueta colada</button>
+                          <button class="btn full" type="button" data-acao="etiqueta" data-id="${id}" style="min-height:40px">Reimprimir</button>`;break;
+    case 'foto':    acao=`<button class="btn pri full" type="button" data-acao="foto" data-id="${id}">Tirar foto da caixa</button>`;break;
+    case 'pronto':  acao=`<button class="btn pri full" type="button" data-acao="despachar" data-id="${id}">Despachar (bipar)</button>
+                          <button class="btn full" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px">Ver foto</button>`;break;
+    case 'problema':acao=`<button class="btn full" type="button" data-acao="reabrir" data-id="${id}">Resolvido · voltar para a fila</button>`;break;
+  }
+  return `<article class="ped${p.atrasado?' atrasado':''}" style="border-left-color:${p.atrasado?'var(--bad)':m.cor}">
+    <div class="l1"><span class="pill" style="background:${m.cor}">${m.nome}</span><span class="cli">${esc(p.clienteNome||p.contaId)}</span>
+      <span class="prazo tab ${p.atrasado?'bad':''}">${pr?(p.atrasado?'ATRASADO · ':'até ')+diaMes(pr)+' '+hora(pr):''}</span></div>
+    ${p.momento==='problema'?`<span class="tag bad">${esc(p.problema||'Problema')}</span>`:''}
+    ${(p.itens||[]).map(i=>`<div class="item"><span class="q tab">${esc(i.qtd)}×</span><div class="t"><b>${esc(i.titulo)}</b><span>${i.atributos?esc(i.atributos)+' · ':''}<span class="mono">${esc(i.sku||'sem SKU')}</span></span></div></div>`).join('')}
+    ${acao}
+    <div class="rodape"><span class="id mono">envio ${id}</span>${p.momento!=='problema'?`<button class="link" type="button" data-acao="problema" data-id="${id}">Reportar problema</button>`:''}</div>
+  </article>`;
+}
+
+/* ── Acoes ─────────────────────────────────────────────── */
 let fotoPara=null;
 async function acao(tipo,id,btn){
   try{
     if(tipo==='etiqueta'){
       const janela=window.open('','_blank'); // abre antes, senao o navegador bloqueia
       btn.disabled=true;
-      const r=await fns.httpsCallable('prepEtiqueta',{timeout:60000})({shipmentId:id}).then(x=>x.data);
+      const r=await chamar('prepEtiqueta',{shipmentId:id},60);
       const bytes=Uint8Array.from(atob(r.base64),c=>c.charCodeAt(0));
       const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
       if(janela)janela.location=url;else location.href=url;
-      btn.disabled=false;return;
+      btn.disabled=false;carregar();return;
     }
-    if(tipo==='despachar'){abrirCamera();return;}
-    if(tipo==='foto'){fotoPara=id;$('foto-input').value='';$('foto-input').click();return;}
+    if(tipo==='bipar'){abrirCamera('Bipe a etiqueta colada nesta caixa',lido=>{
+      if(lido!==String(id)){som(false);erro('Etiqueta de outro pedido',`Você bipou o envio ${esc(lido)}, mas esta caixa é do envio ${esc(id)}. Confira se colou a etiqueta certa.`);return;}
+      registrar(lido);});return;}
+    if(tipo==='despachar'){abrirCamera('Bipe a etiqueta do pacote para despachar',lido=>registrar(lido));return;}
+    if(tipo==='foto'){pedirFoto(id);return;}
     if(tipo==='verfoto'){
-      btn.disabled=true;
-      const r=await call('prepFoto',{shipmentId:id});
-      btn.disabled=false;
-      if(!r.base64){alert('Esse pedido não tem foto');return;}
+      btn.disabled=true;const r=await chamar('prepFoto',{shipmentId:id});btn.disabled=false;
+      if(!r.base64){erro('Sem foto','Esse pedido não tem foto.');return;}
       telaCheia('#100D14',`<img class="foto-grande" alt="Foto da caixa do envio ${esc(id)}" src="data:image/jpeg;base64,${r.base64}"><button class="btn" type="button" id="ov-ok">Fechar</button>`);
       return;
     }
     if(tipo==='problema'){
       const motivo=prompt('Qual o problema? (ex.: produto faltando, avariado, etiqueta ilegível)');
       if(!motivo)return;
-      await call('prepMudarEtapa',{shipmentId:id,etapa:'problema',motivo});carregar();return;
+      await chamar('prepMudarEtapa',{shipmentId:id,etapa:'problema',motivo});carregar();return;
     }
-    if(tipo==='reabrir'){await call('prepMudarEtapa',{shipmentId:id,etapa:'aberto'});carregar();return;}
-  }catch(e){btn.disabled=false;alert(e.message||'Não deu certo');}
+    if(tipo==='reabrir'){await chamar('prepMudarEtapa',{shipmentId:id,etapa:'aberto'});carregar();return;}
+  }catch(e){btn.disabled=false;som(false);erro('Não deu certo',esc(e.message));}
 }
 
-// Foto: reduz para ~1024px antes de enviar (celular tira foto de 4-12 MB)
-$('foto-input').addEventListener('change',async e=>{
-  const f=e.target.files?.[0];if(!f||!fotoPara)return;
-  telaCheia('#100D14','<div class="g">Enviando foto…</div>');
+// Uma leitura de etiqueta. O sistema sabe o momento do pacote:
+// etiqueta recem-impressa -> confere; pacote pronto -> despacha.
+async function registrar(id){
+  const p=pedidos.find(x=>String(x.shipmentId)===String(id));
+  let etapa;
+  if(!p){som(false);erro('Pacote não está na fila',`O envio ${esc(id)} não é de um cliente do prep, ou já saiu da fila.`);return;}
+  if(p.momento==='pronto')etapa='despachado';
+  else if(p.momento==='bipar')etapa='etiquetado';
+  else{
+    const msg={nf:'A NF ainda não foi emitida.',imprimir:'Imprima a etiqueta primeiro.',foto:'Etiqueta já conferida. Falta a foto da caixa.',despachado:'Esse pacote JÁ foi despachado.',problema:'Esse pacote está com problema reportado.'}[p.momento];
+    som(false);erro('Nada a fazer com essa etiqueta',msg||'');return;
+  }
   try{
-    const img=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=URL.createObjectURL(f);});
-    const esc_=Math.min(1,1024/Math.max(img.width,img.height));
-    const c=document.createElement('canvas');c.width=Math.round(img.width*esc_);c.height=Math.round(img.height*esc_);
-    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-    let b64=c.toDataURL('image/jpeg',0.7).split(',')[1];
-    if(b64.length>850000)b64=c.toDataURL('image/jpeg',0.5).split(',')[1];
-    const r=await fns.httpsCallable('prepMudarEtapa',{timeout:60000})({shipmentId:fotoPara,etapa:'pronto',fotoBase64:b64}).then(x=>x.data);
+    const r=await chamar('prepMudarEtapa',{shipmentId:id,etapa});
+    if(r.cancelado){
+      som(false);
+      telaCheia('#D32137',`<div class="g">CANCELADO</div><div class="g" style="font-size:30px">NÃO ENVIAR</div><div class="m">${esc(r.pedido?.clienteNome||'')} · tire o produto da caixa e devolva ao estoque</div><button class="btn" type="button" id="ov-ok">Devolvi ao estoque</button>`);
+      return;
+    }
     som(true);
-    const m=MODS.find(x=>x.id===r.modalidade);
-    telaCheia(m?.cor||'#0E9F6E',`<div class="m">PRONTO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m?.nome||''}</div><div class="m">Coloque no cesto ${m?.nome||''}</div><button class="btn" type="button" id="ov-ok">OK</button>`);
+    const m=modDe(r.modalidade);
+    if(etapa==='etiquetado'){
+      telaCheia(m.cor,`<div class="m">ETIQUETA CONFERIDA</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><div class="m">Agora a foto da caixa aberta, com produto e etiqueta</div><button class="btn" type="button" id="ov-foto">Tirar foto</button><button class="btn" type="button" id="ov-ok" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.5)">Depois</button>`);
+      const b=$('ov-foto');if(b)b.onclick=()=>{$('overlay').classList.add('oculto');pedirFoto(id);};
+    }else{
+      telaCheia(m.cor,`<div class="m">DESPACHADO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1500);
+    }
     carregar();
-  }catch(err){som(false);telaCheia('#D32137',`<div class="g">Não salvou</div><div class="m">${esc(err.message||'Erro ao enviar a foto')}</div><button class="btn" type="button" id="ov-ok">Fechar</button>`);}
-  finally{fotoPara=null;}
-});
+  }catch(e){som(false);erro(etapa==='despachado'?'Não despachou':'Não registrou',`${esc(e.message||'Erro')}<br><span class="mono" style="font-size:14px">envio ${esc(id)}</span>`);}
+}
 
-// Despacho: o leitor "digita" o codigo da etiqueta e aperta Enter.
-// Aceita o numero do envio puro ou o QR da etiqueta (que traz {"id":"..."}).
+// Leitor fisico: "digita" o codigo e aperta Enter na barra
+$('form-leitura').addEventListener('submit',e=>{
+  e.preventDefault();
+  const id=idDaEtiqueta($('bip').value);$('bip').value='';
+  if(!id){som(false);erro('Código não reconhecido','Bipe o código de barras ou o QR da etiqueta do Mercado Livre.');return;}
+  registrar(id);
+});
+$('b-camera').onclick=()=>abrirCamera('Bipe a etiqueta',lido=>registrar(lido));
+
+// Aceita o numero do envio puro ou o QR da etiqueta (que traz {"id":"..."})
 function idDaEtiqueta(t){
   t=String(t||'').trim();
   try{const j=JSON.parse(t);if(j&&j.id)return String(j.id);}catch{}
   const m=t.match(/\d{10,}/g);return m?m.sort((a,b)=>b.length-a.length)[0]:'';
 }
-$('form-bipar').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const id=idDaEtiqueta($('bip').value);$('bip').value='';
-  if(!id){som(false);return;}
+
+/* ── Foto (reduzida no celular antes de enviar) ────────── */
+function pedirFoto(id){fotoPara=id;$('foto-input').value='';$('foto-input').click();}
+$('foto-input').addEventListener('change',async e=>{
+  const f=e.target.files?.[0];if(!f||!fotoPara)return;
+  telaCheia('#100D14','<div class="g">Enviando foto…</div>');
   try{
-    const r=await call('prepMudarEtapa',{shipmentId:id,etapa:'despachado'});
-    if(r.cancelado){
-      som(false);
-      telaCheia('#D32137',`<div class="g">CANCELADO</div><div class="g" style="font-size:28px">NÃO ENVIAR</div><div class="m">${esc(r.pedido?.clienteNome||'')} · tire o produto da caixa e devolva ao estoque</div><button class="btn" type="button" id="ov-ok">Devolvi ao estoque</button>`);
-      return;
-    }
+    const img=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=URL.createObjectURL(f);});
+    const k=Math.min(1,1024/Math.max(img.width,img.height));
+    const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    let b64=c.toDataURL('image/jpeg',0.7).split(',')[1];
+    if(b64.length>850000)b64=c.toDataURL('image/jpeg',0.5).split(',')[1];
+    const r=await chamar('prepMudarEtapa',{shipmentId:fotoPara,etapa:'pronto',fotoBase64:b64},60);
     som(true);
-    const m=MODS.find(x=>x.id===r.modalidade);
-    telaCheia(m?.cor||'#0E9F6E',`<div class="m">DESPACHADO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()} · ${m?.nome||''}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1600);
+    const m=modDe(r.modalidade);
+    telaCheia(m.cor,`<div class="m">PRONTO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><div class="m">Coloque no cesto ${m.nome}</div><button class="btn" type="button" id="ov-ok">OK</button>`);
     carregar();
-  }catch(err){
-    som(false);
-    telaCheia('#D32137',`<div class="g">Não despachou</div><div class="m">${esc(err.message||'Erro')}</div><div class="m mono" style="font-size:14px">envio ${esc(id)}</div><button class="btn" type="button" id="ov-ok">Fechar</button>`);
-  }
+  }catch(err){som(false);erro('Foto não salvou',esc(err.message||'Erro ao enviar a foto'));}
+  finally{fotoPara=null;}
 });
 
-// Leitura pela camera do celular (codigo de barras ou QR da etiqueta do ML)
+/* ── Camera ────────────────────────────────────────────── */
 let leitor=null;
-async function abrirCamera(){
-  if(!window.Html5Qrcode){alert('Leitor da câmera não carregou. Atualize a página.');return;}
+async function abrirCamera(titulo,aoLer){
+  if(!window.Html5Qrcode){erro('Câmera indisponível','O leitor da câmera não carregou. Atualize a página.');return;}
+  $('scanner-titulo').textContent=titulo;
   $('scanner').classList.remove('oculto');$('scanner-msg').textContent='Abrindo a câmera…';
   try{
     const F=window.Html5QrcodeSupportedFormats;
-    leitor=new Html5Qrcode('leitor',{verbose:false,
-      formatsToSupport:[F.QR_CODE,F.CODE_128,F.CODE_39,F.EAN_13,F.ITF],
-      experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    leitor=new Html5Qrcode('leitor',{verbose:false,formatsToSupport:[F.QR_CODE,F.CODE_128,F.CODE_39,F.EAN_13,F.ITF],experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    let lido=false;
     await leitor.start({facingMode:'environment'},{fps:12,qrbox:(w,h)=>({width:Math.min(w*0.9,420),height:Math.min(h*0.5,220)})},
       async texto=>{
+        if(lido)return;
         const id=idDaEtiqueta(texto);
-        if(!id){$('scanner-msg').textContent='Li um código, mas não é de etiqueta do ML. Tente o outro código da etiqueta.';return;}
-        await fecharCamera();
-        $('bip').value=id;$('form-bipar').requestSubmit();
+        if(!id){$('scanner-msg').textContent='Esse código não é de etiqueta do ML. Tente o outro código da etiqueta.';return;}
+        lido=true;await fecharCamera();aoLer(id);
       });
     $('scanner-msg').textContent='';
   }catch(e){
@@ -425,15 +450,16 @@ async function fecharCamera(){
   try{if(leitor){await leitor.stop();leitor.clear();}}catch{}
   leitor=null;$('scanner').classList.add('oculto');
 }
-$('b-camera').onclick=abrirCamera;
 $('b-scanner-fechar').onclick=fecharCamera;
 
+/* ── Telas cheias e som ────────────────────────────────── */
 function telaCheia(cor,html,fechaSozinho){
   const o=$('overlay');o.style.background=cor;o.innerHTML=html;o.classList.remove('oculto');
-  const fechar=()=>{o.classList.add('oculto');o.innerHTML='';$('bip').focus();};
+  const fechar=()=>{o.classList.add('oculto');o.innerHTML='';};
   const b=$('ov-ok');if(b){b.onclick=fechar;b.focus();}
   if(fechaSozinho)setTimeout(fechar,fechaSozinho);
 }
+function erro(titulo,msg){telaCheia('#D32137',`<div class="g">${esc(titulo)}</div><div class="m">${msg}</div><button class="btn" type="button" id="ov-ok">Fechar</button>`);}
 // Som curto: agudo = certo, grave = errado (ninguem fica olhando a tela o tempo todo)
 let ac=null;
 function som(ok){
