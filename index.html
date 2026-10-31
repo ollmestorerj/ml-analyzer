@@ -5157,6 +5157,111 @@ function ViewIA({dados,periodo,rotuloPeriodo}){
 // Itens marcados com soAdmin só aparecem para administradores
 const navVisivel=(admin)=>NAV.filter(it=>!it.soAdmin||admin);
 
+/* ══ MENTORADOS (só admin) ══════════════════════════════════
+   Lista quem tem conta conectada, abre a visão de cada um e
+   liga a conta ao prep center (WMS). */
+function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
+  const [lista,setLista]=useState(null);
+  const [prep,setPrep]=useState({});
+  const [erro,setErro]=useState('');
+  const [busy,setBusy]=useState(null);
+  const [aviso,setAviso]=useState(null);
+  const [diag,setDiag]=useState(null);
+
+  useEffect(()=>{carregar();},[]);
+
+  async function carregar(){
+    setErro('');
+    try{
+      const [r,p]=await Promise.all([
+        callLongo('mlListarMentorados',{},300),
+        call('prepClientesListar').catch(()=>[]),
+      ]);
+      setLista(r.mentorados||[]);
+      const m={};(p||[]).forEach(c=>{m[c.contaId]=c;});setPrep(m);
+    }catch(e){setErro(e.message||'Não foi possível carregar os mentorados');}
+  }
+
+  async function ligarPrep(m,c,ativo){
+    if(!ativo&&!confirm(`Tirar ${c.nickname} do prep? Os pedidos novos dele param de entrar na fila.`))return;
+    setBusy(c.id);setAviso(null);
+    try{
+      const r=await callLongo('prepClienteSalvar',{comoUid:m.uid,contaId:c.id,nome:c.nickname,ativo},300);
+      setPrep(p=>({...p,[c.id]:{contaId:c.id,nome:c.nickname,ativo}}));
+      setAviso(ativo
+        ?{tone:'success',txt:`${c.nickname} ligado ao prep. ${r.varredura?`Encontrei ${r.varredura.envios} envio(s) pagos nos últimos 3 dias; ${r.varredura.gravados} entraram na fila (Full fica de fora).`:''}`}
+        :{tone:'neutral',txt:`${c.nickname} saiu do prep.`});
+    }catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui salvar')});}
+    finally{setBusy(null);}
+  }
+
+  async function testarEnvio(c){
+    setBusy('diag-'+c.id);setDiag(null);
+    try{const r=await callLongo('prepDiagnosticoEnvio',{contaId:c.id},120);setDiag({conta:c.nickname,r});}
+    catch(e){setDiag({conta:c.nickname,r:{erro:e.message}});}
+    finally{setBusy(null);}
+  }
+
+  if(erro)return <Card><Note tone="danger" icon="alert-triangle">{erro}</Note></Card>;
+  if(!lista)return <Card><div style={{display:'flex',flexDirection:'column',gap:12}}><Skel h={22} w="40%"/><Skel h={60}/><Skel h={60}/></div></Card>;
+
+  const noPrep=Object.values(prep).filter(c=>c.ativo).length;
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      {mentoradoAtivo&&<Note tone="info" icon="eye">Você está vendo a conta de {mentoradoAtivo.nome||mentoradoAtivo.email}. <a href="#" onClick={e=>{e.preventDefault();onVoltarParaMim();}}>Voltar para a minha</a></Note>}
+      {aviso&&<Note tone={aviso.tone} icon={aviso.tone==='danger'?'alert-triangle':'check'}>{aviso.txt}</Note>}
+
+      <Card icon="users" title="Mentorados" subtitle={`${lista.length} com conta conectada · ${noPrep} no prep center`}
+        action={<Btn variant="neutral" size="sm" icon="refresh-cw" onClick={()=>{setLista(null);carregar();}}>Atualizar</Btn>}>
+        {!lista.length?<Empty icon="users" title="Ninguém conectou conta ainda" description="Quando um mentorado conectar a conta do Mercado Livre, ele aparece aqui."/>:
+        <div style={{display:'flex',flexDirection:'column'}}>
+          {lista.map(m=>(
+            <div key={m.uid} style={{display:'flex',flexDirection:'column',gap:10,padding:'14px 0',borderTop:'1px solid var(--border-subtle)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                <div style={{flex:'1 1 220px',minWidth:0}}>
+                  <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>{m.nome||m.email||m.uid}{m.souEu&&' (você)'}</div>
+                  <div style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{m.email} · {m.custosCadastrados} produtos com custo</div>
+                </div>
+                {!m.souEu&&<Btn variant="neutral" size="sm" icon="eye" onClick={()=>onAbrir(m)}>Abrir visão</Btn>}
+              </div>
+              {m.contas.map(c=>{
+                const ligado=prep[c.id]?.ativo;
+                return (
+                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'10px 12px',borderRadius:'var(--radius-lg)',background:'var(--surface-sunken)'}}>
+                    <Icon name="store" size={16} color="var(--text-subtle)"/>
+                    <span style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>{c.nickname}</span>
+                    <span className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>{c.id}</span>
+                    {!c.tokenValido&&<Badge tone="warning" dot>precisa reconectar</Badge>}
+                    {ligado&&<Badge tone="brand" dot>no prep</Badge>}
+                    <span style={{marginLeft:'auto',display:'inline-flex',gap:8,flexWrap:'wrap'}}>
+                      {ligado&&<Btn variant="ghost" size="sm" icon="search" disabled={busy==='diag-'+c.id} onClick={()=>testarEnvio(c)}>{busy==='diag-'+c.id?'Lendo…':'Testar envio'}</Btn>}
+                      {ligado
+                        ?<Btn variant="neutral" size="sm" disabled={busy===c.id} onClick={()=>ligarPrep(m,c,false)}>Tirar do prep</Btn>
+                        :<Btn variant="secondary" size="sm" icon="warehouse" disabled={busy===c.id} onClick={()=>ligarPrep(m,c,true)}>{busy===c.id?'Ligando…':'Ligar ao prep'}</Btn>}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>}
+      </Card>
+
+      {diag&&<Card icon="search" title={`Último envio de ${diag.conta}`} subtitle="O que o Mercado Livre devolveu, sem tratamento. Serve para conferir modalidade, prazo e NF."
+        action={<Btn variant="ghost" size="sm" onClick={()=>setDiag(null)}>Fechar</Btn>}>
+        {diag.r?.shipment&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+          <Badge tone="info">logistic_type: {String(diag.r.shipment.logistic_type)}</Badge>
+          <Badge tone="neutral">status: {String(diag.r.shipment.status)}</Badge>
+          <Badge tone="neutral">substatus: {String(diag.r.shipment.substatus)}</Badge>
+          <Badge tone="warning">limite: {String(diag.r.shipment.shipping_option?.estimated_handling_limit?.date||'—')}</Badge>
+        </div>}
+        <pre className="mono" style={{maxHeight:360,overflow:'auto',fontSize:'var(--text-2xs)',background:'var(--surface-sunken)',padding:12,borderRadius:'var(--radius-lg)',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{JSON.stringify(diag.r,null,2)}</pre>
+      </Card>}
+    </div>
+  );
+}
+
 const NAV=[
   {id:'dashboard',icon:'layout-dashboard',label:'Visão geral',curto:'Início'},
   {id:'pedidos',icon:'shopping-cart',label:'Pedidos',curto:'Pedidos'},
