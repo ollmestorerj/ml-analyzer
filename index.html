@@ -5365,7 +5365,7 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
       </Card>
 
       {diag&&<Card icon="search" title={`Último envio de ${diag.conta}`} subtitle="O que o Mercado Livre devolveu, sem tratamento. Serve para conferir modalidade, prazo e NF."
-        action={<Btn variant="ghost" size="sm" onClick={()=>setDiag(null)}>Fechar</Btn>}>
+        action={<span style={{display:'inline-flex',gap:8}}><Btn variant="neutral" size="sm" icon="copy" onClick={()=>{navigator.clipboard?.writeText(JSON.stringify(diag.r,null,2));setAviso({tone:'success',txt:'Resultado copiado. Cole na conversa.'});}}>Copiar tudo</Btn><Btn variant="ghost" size="sm" onClick={()=>setDiag(null)}>Fechar</Btn></span>}>
         {diag.r?.shipment&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
           <Badge tone="info">logistic_type: {String(diag.r.shipment.logistic_type)}</Badge>
           <Badge tone="neutral">status: {String(diag.r.shipment.status)}</Badge>
