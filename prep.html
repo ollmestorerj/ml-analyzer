@@ -89,6 +89,17 @@ button.cel:hover{background:#F8F5FA}
 .login label{font-size:13px;font-weight:700;color:rgba(255,255,255,.85);display:flex;flex-direction:column;gap:6px}
 .login input{height:46px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:#100D14;color:#fff;padding:0 12px;font:inherit}
 .login .erro{background:rgba(211,33,55,.18);color:#FF8A98;padding:10px 12px;border-radius:8px;font-size:13px}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
+.acoes .btn{min-height:44px}
+.btn.bad{color:var(--bad-fg)}
+.bipar{display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid var(--orange);border-radius:8px;background:#fff;box-shadow:0 0 0 3px rgba(255,89,14,.18)}
+.bipar input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:16px;height:36px;background:transparent}
+.bipar label{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);white-space:nowrap}
+.tela-cheia{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff}
+.tela-cheia .g{font-size:clamp(34px,8vw,64px);font-weight:800;line-height:1.05}
+.tela-cheia .m{font-size:clamp(18px,4vw,26px);font-weight:700;max-width:640px}
+.tela-cheia .btn{margin-top:12px;min-height:52px;font-size:17px}
+.foto-grande{max-width:100%;max-height:70vh;border-radius:8px}
 .oculto{display:none!important}
 </style>
 </head>
@@ -117,11 +128,18 @@ button.cel:hover{background:#F8F5FA}
       <div><div class="sub" id="dia"></div><h1>Fila do dia</h1></div>
       <div class="chips" id="chips"></div>
     </div>
+    <form class="bipar" id="form-bipar" autocomplete="off">
+      <label for="bip">Despachar</label>
+      <input id="bip" placeholder="Bipe a etiqueta do pacote (leitor ou digite o nº do envio)" inputmode="numeric">
+      <button class="btn pri" type="submit">OK</button>
+    </form>
     <div id="alertas" style="display:flex;flex-direction:column;gap:8px"></div>
     <section class="card grade-wrap" aria-label="Pedidos por cliente e modalidade"><div class="grade" id="grade"></div></section>
     <section class="card oculto" id="painel" aria-live="polite"></section>
   </main>
 </div>
+<div id="overlay" class="tela-cheia oculto" role="alertdialog" aria-live="assertive"></div>
+<input type="file" id="foto-input" accept="image/*" capture="environment" class="oculto">
 
 <script>
 firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
@@ -265,9 +283,124 @@ function desenharPainel(){
           <span class="prazo tab" style="color:${p.atrasado?'var(--bad-fg)':'var(--body)'}">${pr?`Prazo ${diaMes(pr)} ${hora(pr)}`:'Sem prazo'}</span>
         </div>
         ${(p.itens||[]).map(i=>`<div class="item"><span class="q tab">${esc(i.qtd)}×</span><div class="t"><b>${esc(i.titulo)}</b><span class="mono">${esc(i.sku||'sem SKU')}${i.atributos?' · '+esc(i.atributos):''}</span></div></div>`).join('')}
+        <div class="acoes">${acoesDe(p)}</div>
       </article>`;}).join('')}
   </div>`;
   $('b-fechar').onclick=()=>{aberto=null;desenharPainel();};
+  el.querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
+}
+
+function acoesDe(p){
+  const id=esc(p.shipmentId),b=[];
+  if(['aberto','picking','conferido'].includes(p.etapa)){
+    if(p.etiquetaLiberada)b.push(`<button class="btn" type="button" data-acao="etiqueta" data-id="${id}">Imprimir etiqueta</button>`);
+    b.push(p.etiquetaLiberada
+      ?`<button class="btn pri" type="button" data-acao="foto" data-id="${id}">Foto da caixa · marcar Pronto</button>`
+      :`<span class="tag warn" style="align-self:center">Espere a NF para imprimir a etiqueta</span>`);
+    b.push(`<button class="btn bad" type="button" data-acao="problema" data-id="${id}">Reportar problema</button>`);
+  }else if(p.etapa==='pronto'){
+    b.push(`<button class="btn" type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`);
+    b.push(`<button class="btn" type="button" data-acao="etiqueta" data-id="${id}">Reimprimir etiqueta</button>`);
+    b.push(`<span class="tag ok" style="align-self:center">Pronto · bipe no Despachar ao entregar</span>`);
+  }else if(p.etapa==='despachado'){
+    b.push(`<button class="btn" type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`);
+    b.push(`<span class="tag ok" style="align-self:center">Despachado · esperando o ML confirmar</span>`);
+  }else if(p.etapa==='problema'){
+    b.push(`<span class="tag bad" style="align-self:center">${esc(p.problema||'Problema reportado')}</span>`);
+    b.push(`<button class="btn" type="button" data-acao="reabrir" data-id="${id}">Resolvido · voltar para a fila</button>`);
+  }
+  return b.join('');
+}
+
+let fotoPara=null;
+async function acao(tipo,id,btn){
+  try{
+    if(tipo==='etiqueta'){
+      const janela=window.open('','_blank'); // abre antes, senao o navegador bloqueia
+      btn.disabled=true;
+      const r=await fns.httpsCallable('prepEtiqueta',{timeout:60000})({shipmentId:id}).then(x=>x.data);
+      const bytes=Uint8Array.from(atob(r.base64),c=>c.charCodeAt(0));
+      const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+      if(janela)janela.location=url;else location.href=url;
+      btn.disabled=false;return;
+    }
+    if(tipo==='foto'){fotoPara=id;$('foto-input').value='';$('foto-input').click();return;}
+    if(tipo==='verfoto'){
+      btn.disabled=true;
+      const r=await call('prepFoto',{shipmentId:id});
+      btn.disabled=false;
+      if(!r.base64){alert('Esse pedido não tem foto');return;}
+      telaCheia('#100D14',`<img class="foto-grande" alt="Foto da caixa do envio ${esc(id)}" src="data:image/jpeg;base64,${r.base64}"><button class="btn" type="button" id="ov-ok">Fechar</button>`);
+      return;
+    }
+    if(tipo==='problema'){
+      const motivo=prompt('Qual o problema? (ex.: produto faltando, avariado, etiqueta ilegível)');
+      if(!motivo)return;
+      await call('prepMudarEtapa',{shipmentId:id,etapa:'problema',motivo});carregar();return;
+    }
+    if(tipo==='reabrir'){await call('prepMudarEtapa',{shipmentId:id,etapa:'aberto'});carregar();return;}
+  }catch(e){btn.disabled=false;alert(e.message||'Não deu certo');}
+}
+
+// Foto: reduz para ~1280px antes de enviar (celular tira foto de 4-12 MB)
+$('foto-input').addEventListener('change',async e=>{
+  const f=e.target.files?.[0];if(!f||!fotoPara)return;
+  telaCheia('#100D14','<div class="g">Enviando foto…</div>');
+  try{
+    const img=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=URL.createObjectURL(f);});
+    const esc_=Math.min(1,1280/Math.max(img.width,img.height));
+    const c=document.createElement('canvas');c.width=Math.round(img.width*esc_);c.height=Math.round(img.height*esc_);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const b64=c.toDataURL('image/jpeg',0.75).split(',')[1];
+    const r=await fns.httpsCallable('prepMudarEtapa',{timeout:60000})({shipmentId:fotoPara,etapa:'pronto',fotoBase64:b64}).then(x=>x.data);
+    som(true);
+    const m=MODS.find(x=>x.id===r.modalidade);
+    telaCheia(m?.cor||'#0E9F6E',`<div class="m">PRONTO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m?.nome||''}</div><div class="m">Coloque no cesto ${m?.nome||''}</div><button class="btn" type="button" id="ov-ok">OK</button>`);
+    carregar();
+  }catch(err){som(false);telaCheia('#D32137',`<div class="g">Não salvou</div><div class="m">${esc(err.message||'Erro ao enviar a foto')}</div><button class="btn" type="button" id="ov-ok">Fechar</button>`);}
+  finally{fotoPara=null;}
+});
+
+// Despacho: o leitor "digita" o codigo da etiqueta e aperta Enter.
+// Aceita o numero do envio puro ou o QR da etiqueta (que traz {"id":"..."}).
+function idDaEtiqueta(t){
+  t=String(t||'').trim();
+  try{const j=JSON.parse(t);if(j&&j.id)return String(j.id);}catch{}
+  const m=t.match(/\d{10,}/g);return m?m.sort((a,b)=>b.length-a.length)[0]:'';
+}
+$('form-bipar').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const id=idDaEtiqueta($('bip').value);$('bip').value='';
+  if(!id){som(false);return;}
+  try{
+    const r=await call('prepMudarEtapa',{shipmentId:id,etapa:'despachado'});
+    if(r.cancelado){
+      som(false);
+      telaCheia('#D32137',`<div class="g">CANCELADO</div><div class="g" style="font-size:28px">NÃO ENVIAR</div><div class="m">${esc(r.pedido?.clienteNome||'')} · tire o produto da caixa e devolva ao estoque</div><button class="btn" type="button" id="ov-ok">Devolvi ao estoque</button>`);
+      return;
+    }
+    som(true);
+    const m=MODS.find(x=>x.id===r.modalidade);
+    telaCheia(m?.cor||'#0E9F6E',`<div class="m">DESPACHADO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()} · ${m?.nome||''}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1600);
+    carregar();
+  }catch(err){
+    som(false);
+    telaCheia('#D32137',`<div class="g">Não despachou</div><div class="m">${esc(err.message||'Erro')}</div><div class="m mono" style="font-size:14px">envio ${esc(id)}</div><button class="btn" type="button" id="ov-ok">Fechar</button>`);
+  }
+});
+
+function telaCheia(cor,html,fechaSozinho){
+  const o=$('overlay');o.style.background=cor;o.innerHTML=html;o.classList.remove('oculto');
+  const fechar=()=>{o.classList.add('oculto');o.innerHTML='';$('bip').focus();};
+  const b=$('ov-ok');if(b){b.onclick=fechar;b.focus();}
+  if(fechaSozinho)setTimeout(fechar,fechaSozinho);
+}
+// Som curto: agudo = certo, grave = errado (ninguem fica olhando a tela o tempo todo)
+let ac=null;
+function som(ok){
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);
+    o.frequency.value=ok?1200:220;g.gain.value=0.15;o.start();o.stop(ac.currentTime+(ok?0.12:0.45));}catch{}
 }
 </script>
 </body>
