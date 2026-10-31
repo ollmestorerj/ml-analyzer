@@ -92,7 +92,7 @@ button.cel:hover{background:#F8F5FA}
 .acoes{display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
 .acoes .btn{min-height:44px}
 .btn.bad{color:var(--bad-fg)}
-.bipar{display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid var(--orange);border-radius:8px;background:#fff;box-shadow:0 0 0 3px rgba(255,89,14,.18)}
+.bipar{position:sticky;top:8px;z-index:20;display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid var(--orange);border-radius:8px;background:#fff;box-shadow:0 0 0 3px rgba(255,89,14,.18)}
 .bipar input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:16px;height:36px;background:transparent}
 .bipar label{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);white-space:nowrap}
 .tela-cheia{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff}
@@ -301,7 +301,7 @@ function acoesDe(p){
   }else if(p.etapa==='pronto'){
     b.push(`<button class="btn" type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`);
     b.push(`<button class="btn" type="button" data-acao="etiqueta" data-id="${id}">Reimprimir etiqueta</button>`);
-    b.push(`<span class="tag ok" style="align-self:center">Pronto · bipe no Despachar ao entregar</span>`);
+    b.push(`<button class="btn pri" type="button" data-acao="despachar" data-id="${id}">Despachar (bipar etiqueta)</button>`);
   }else if(p.etapa==='despachado'){
     b.push(`<button class="btn" type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`);
     b.push(`<span class="tag ok" style="align-self:center">Despachado · esperando o ML confirmar</span>`);
@@ -324,6 +324,7 @@ async function acao(tipo,id,btn){
       if(janela)janela.location=url;else location.href=url;
       btn.disabled=false;return;
     }
+    if(tipo==='despachar'){window.scrollTo({top:0,behavior:'smooth'});$('bip').focus();return;}
     if(tipo==='foto'){fotoPara=id;$('foto-input').value='';$('foto-input').click();return;}
     if(tipo==='verfoto'){
       btn.disabled=true;
