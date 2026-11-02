@@ -5231,7 +5231,7 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
   useEffect(()=>{carregar();},[]);
 
   const LINK_ANALYZER='https://ollmestorerj.github.io/ml-analyzer/';
-  const mensagemAcesso=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao ML Analyzer da RealEcom está pronto.\n\nLink: ${LINK_ANALYZER}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso o sistema pede para você criar a sua senha. Depois é só conectar a sua conta do Mercado Livre.`;
+  const mensagemAcesso=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao ML Analyzer da RealEcom está pronto.\n\nLink: ${LINK_ANALYZER}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nComo conectar:\n1. Entre com o e-mail e a senha acima e crie a sua senha.\n2. Toque em "Autorizar com Mercado Livre".\n3. Entre com a conta da sua LOJA no Mercado Livre (a que vende).\n4. Na tela do Mercado Livre, toque em "Permitir". Pronto, você volta para o sistema já conectado.`;
 
   async function criarAcesso(){
     if(!novo.email.trim()){setAviso({tone:'danger',txt:'Informe o e-mail do mentorado'});return;}
