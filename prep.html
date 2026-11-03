@@ -99,7 +99,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   .etapa-cab .dica{margin-left:0;text-align:left;width:100%}
 }
 
-.menu{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--line-soft);padding:4px;border-radius:10px}
+.menu{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;background:var(--line-soft);padding:4px;border-radius:10px}
 .menu button{min-height:46px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:800;font-size:15px}
 .menu button[aria-current="page"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,17,17,.12)}
 .hist-filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -148,6 +148,18 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   </form>
 </div>
 
+<div id="tela-senha" class="login oculto">
+  <form id="form-senha">
+    <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7)">Primeiro acesso</span>
+    <h1>Crie a sua senha</h1>
+    <label>Nova senha<input id="s-1" type="password" autocomplete="new-password" required></label>
+    <label>Repita a nova senha<input id="s-2" type="password" autocomplete="new-password" required></label>
+    <div id="s-erro" class="erro oculto"></div>
+    <button class="btn pri" type="submit" id="s-btn">Salvar e entrar</button>
+    <button class="btn" type="button" id="s-sair" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3)">Sair</button>
+  </form>
+</div>
+
 <div id="tela-app" class="oculto">
   <header class="top">
     <b>Prep Center</b>
@@ -160,8 +172,23 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   <main>
     <nav class="menu" aria-label="Seções">
       <button type="button" id="m-fila" aria-current="page">Fila do dia</button>
-      <button type="button" id="m-hist">Histórico de envios</button>
+      <button type="button" id="m-hist">Histórico</button>
+      <button type="button" id="m-equipe" class="oculto">Equipe</button>
     </nav>
+
+    <section id="v-equipe" class="oculto" style="display:flex;flex-direction:column;gap:12px">
+      <form id="form-func" style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px" autocomplete="off">
+        <h2>Criar login de funcionário</h2>
+        <span style="font-size:13px;color:var(--muted)">O funcionário só entra no Prep Center. Não vê o ML Analyzer nem números de venda.</span>
+        <div class="hist-filtros">
+          <input id="f-nome" placeholder="Nome" aria-label="Nome" style="flex:1 1 160px">
+          <input id="f-email" type="email" placeholder="E-mail" aria-label="E-mail" style="flex:1 1 220px">
+          <button class="btn pri" type="submit" id="f-btn">Criar login</button>
+        </div>
+        <div id="f-resultado"></div>
+      </form>
+      <div class="hist" id="equipe-lista"></div>
+    </section>
 
     <section id="v-hist" class="oculto" style="display:flex;flex-direction:column;gap:12px">
       <div class="periodos" id="periodos" role="group" aria-label="Período"></div>
@@ -243,7 +270,7 @@ const diaMes=d=>d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',time
 let pedidos=[], filtro={mod:null,mom:null}, timer=null;
 
 /* ── Login ─────────────────────────────────────────────── */
-function mostrar(t){$('tela-login').classList.toggle('oculto',t!=='login');$('tela-app').classList.toggle('oculto',t!=='app');}
+function mostrar(t){$('tela-login').classList.toggle('oculto',t!=='login');$('tela-senha').classList.toggle('oculto',t!=='senha');$('tela-app').classList.toggle('oculto',t!=='app');}
 $('form-login').addEventListener('submit',async e=>{
   e.preventDefault();$('l-erro').classList.add('oculto');$('l-btn').disabled=true;
   try{await auth.signInWithEmailAndPassword($('l-email').value.trim(),$('l-senha').value);}
@@ -251,12 +278,34 @@ $('form-login').addEventListener('submit',async e=>{
   finally{$('l-btn').disabled=false;}
 });
 $('b-sair').onclick=()=>auth.signOut();
-auth.onAuthStateChanged(u=>{
+let souAdmin=false;
+auth.onAuthStateChanged(async u=>{
   clearInterval(timer);
   if(!u){mostrar('login');return;}
+  // Primeiro acesso com senha provisoria: pede a senha nova antes de tudo
+  let perfil={};
+  try{perfil=await chamar('mlMeuPerfil');}catch{}
+  souAdmin=Boolean(perfil.admin);
+  $('m-equipe').classList.toggle('oculto',!souAdmin);
+  if(perfil.trocarSenha){mostrar('senha');return;}
   mostrar('app');carregar();
   timer=setInterval(carregar,60000);
 });
+$('form-senha').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const a=$('s-1').value,b=$('s-2').value;$('s-erro').classList.add('oculto');
+  const falha=t=>{$('s-erro').textContent=t;$('s-erro').classList.remove('oculto');};
+  if(a.length<8)return falha('A senha precisa ter pelo menos 8 caracteres');
+  if(a!==b)return falha('As duas senhas não são iguais');
+  $('s-btn').disabled=true;
+  try{
+    await auth.currentUser.updatePassword(a);
+    await chamar('mlSenhaTrocada');
+    mostrar('app');carregar();timer=setInterval(carregar,60000);
+  }catch(err){falha(err.code==='auth/requires-recent-login'?'Saia e entre de novo com a senha provisória para trocar.':(err.message||'Não foi possível trocar a senha'));}
+  finally{$('s-btn').disabled=false;}
+});
+$('s-sair').onclick=()=>auth.signOut();
 
 /* ── Dados ─────────────────────────────────────────────── */
 async function carregar(){
@@ -374,12 +423,66 @@ const diaISO=off=>{const d=new Date(Date.now()-off*864e5);return d.toLocaleDateS
 
 $('m-fila').onclick=()=>trocarVista('fila');
 $('m-hist').onclick=()=>trocarVista('hist');
+$('m-equipe').onclick=()=>trocarVista('equipe');
 function trocarVista(v){
-  $('v-fila').classList.toggle('oculto',v!=='fila');$('v-hist').classList.toggle('oculto',v!=='hist');
-  $('m-fila').toggleAttribute('aria-current',v==='fila');$('m-hist').toggleAttribute('aria-current',v==='hist');
-  if(v==='fila')$('m-fila').setAttribute('aria-current','page');else $('m-hist').setAttribute('aria-current','page');
+  [['fila','v-fila','m-fila'],['hist','v-hist','m-hist'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
+    $(vis).classList.toggle('oculto',v!==id);
+    if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
+  });
   if(v==='hist')carregarHistorico();
+  if(v==='equipe')carregarEquipe();
 }
+
+/* ── Equipe do galpao (so admin) ───────────────────────── */
+const LINK_PREP='https://ollmestorerj.github.io/ml-analyzer/prep.html';
+const msgFunc=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao Prep Center da RealEcom está pronto.\n\nLink: ${LINK_PREP}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso você cria a sua senha. Dica: salve o link na tela inicial do celular.`;
+async function carregarEquipe(){
+  $('equipe-lista').innerHTML='<div class="vazio">Carregando…</div>';
+  try{
+    const lista=await chamar('adminListarEquipe');
+    if(!lista.length){$('equipe-lista').innerHTML='<div class="vazio">Nenhum funcionário ainda. Crie o primeiro login acima.</div>';return;}
+    $('equipe-lista').innerHTML=lista.map(f=>`<article class="hrow" style="border-left-color:${f.ativo?'var(--ok)':'var(--line)'}">
+      <div class="l1"><b style="font-size:15px;color:var(--ink)">${esc(f.nome)}</b>${f.ativo?'':'<span class="st bad">Bloqueado</span>'}${f.trocarSenha?'<span class="st warn">Ainda não criou a senha</span>':''}</div>
+      <div class="meta"><span>${esc(f.email)}</span></div>
+      <div class="l1">
+        <button class="btn" type="button" style="min-height:40px" data-f="senha" data-uid="${esc(f.uid)}" data-nome="${esc(f.nome)}" data-email="${esc(f.email)}">Nova senha provisória</button>
+        <button class="btn" type="button" style="min-height:40px" data-f="${f.ativo?'bloquear':'liberar'}" data-email="${esc(f.email)}">${f.ativo?'Bloquear':'Liberar'}</button>
+      </div></article>`).join('');
+    $('equipe-lista').querySelectorAll('[data-f]').forEach(b=>b.onclick=async()=>{
+      b.disabled=true;
+      try{
+        if(b.dataset.f==='senha'){
+          if(!confirm(`Gerar nova senha provisória para ${b.dataset.email}?`)){b.disabled=false;return;}
+          const r=await chamar('adminNovaSenha',{uid:b.dataset.uid});
+          mostrarCredencial({nome:b.dataset.nome,email:r.email,senha:r.senha});
+        }else{await chamar('adminEquipeAtivo',{email:b.dataset.email,ativo:b.dataset.f==='liberar'});}
+        carregarEquipe();
+      }catch(e){b.disabled=false;erro('Não deu certo',esc(e.message));}
+    });
+  }catch(e){$('equipe-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+}
+function mostrarCredencial(c){
+  const txt=msgFunc(c);
+  $('f-resultado').innerHTML=`<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Login pronto. Copie a mensagem e mande para o funcionário. A senha não aparece de novo.</div>
+    <pre style="margin:0;white-space:pre-wrap;font-family:inherit;font-size:14px;background:var(--sunken);padding:12px;border-radius:8px">${esc(txt)}</pre>
+    <button class="btn pri" type="button" id="f-copiar">Copiar mensagem</button>`;
+  $('f-copiar').onclick=()=>{navigator.clipboard?.writeText(txt);$('f-copiar').textContent='Copiado';};
+  $('f-resultado').scrollIntoView({behavior:'smooth',block:'center'});
+}
+$('form-func').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const nome=$('f-nome').value.trim(),email=$('f-email').value.trim();
+  if(!email){erro('Falta o e-mail','Informe o e-mail do funcionário.');return;}
+  $('f-btn').disabled=true;$('f-resultado').innerHTML='';
+  try{
+    const r=await chamar('adminCriarFuncionario',{nome,email});
+    if(r.jaTinhaLogin)$('f-resultado').innerHTML=`<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">${esc(email)} já tinha login e agora tem acesso ao Prep. Ele entra com a senha que já usa.</div>`;
+    else mostrarCredencial({nome,email:r.email,senha:r.senha});
+    $('f-nome').value='';$('f-email').value='';
+    carregarEquipe();
+  }catch(err){erro('Não criou',esc(err.message));}
+  finally{$('f-btn').disabled=false;}
+});
 $('periodos').innerHTML=PERIODOS.map(([id,nome])=>`<button type="button" data-p="${id}">${nome}</button>`).join('');
 $('periodos').querySelectorAll('button').forEach(b=>b.onclick=()=>{hist.periodo=b.dataset.p;carregarHistorico();});
 ['h-cliente','h-mod'].forEach(i=>$(i).onchange=desenharHistorico);
