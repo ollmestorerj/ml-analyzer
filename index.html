@@ -5252,6 +5252,23 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
     catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui gerar a senha')});}
     finally{setBusy(null);}
   }
+  async function editar(m){
+    const email=prompt('E-mail correto:',m.email||'');if(email===null)return;
+    const nome=prompt('Nome:',m.nome||'');if(nome===null)return;
+    setBusy('ed-'+m.uid);setAviso(null);
+    try{await call('adminEditarAcesso',{uid:m.uid,email:email.trim(),nome:nome.trim()});
+      setAviso({tone:'success',txt:`Acesso atualizado para ${email.trim()}. Se ele ainda não entrou, gere uma "Nova senha provisória" e mande a mensagem de novo.`});carregar();}
+    catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui editar')});}
+    finally{setBusy(null);}
+  }
+  async function excluir(m){
+    if(!confirm(`Excluir o acesso de ${m.email}?\n\nSe o login nunca foi usado, ele é apagado. Se já foi usado (ou é da Calculadora), só perde o acesso ao ML Analyzer e ao prep.`))return;
+    setBusy('ex-'+m.uid);setAviso(null);
+    try{const r=await call('adminExcluirAcesso',{uid:m.uid});
+      setAviso({tone:'success',txt:r.apagado?`Acesso de ${m.email} apagado.`:`${m.email} perdeu o acesso ao ML Analyzer e saiu do prep. O login continua existindo (por exemplo para a Calculadora).`});carregar();}
+    catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui excluir')});}
+    finally{setBusy(null);}
+  }
   async function liberar(m,liberado){
     setBusy('lib-'+m.uid);
     try{await call('adminLiberarAcesso',{uid:m.uid,liberado});setLista(l=>l.map(x=>x.uid===m.uid?{...x,acessoAnalyzer:liberado}:x));}
@@ -5339,6 +5356,8 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
                     ?<Btn variant="ghost" size="sm" disabled={busy==='lib-'+m.uid} onClick={()=>liberar(m,false)}>Bloquear</Btn>
                     :<Btn variant="neutral" size="sm" icon="unlock" disabled={busy==='lib-'+m.uid} onClick={()=>liberar(m,true)}>Liberar acesso</Btn>}
                   <Btn variant="ghost" size="sm" icon="key-round" disabled={busy==='senha-'+m.uid} onClick={()=>novaSenha(m)}>Nova senha provisória</Btn>
+                  <Btn variant="ghost" size="sm" icon="pencil" disabled={busy==='ed-'+m.uid} onClick={()=>editar(m)}>Editar</Btn>
+                  <Btn variant="ghost" size="sm" icon="trash-2" disabled={busy==='ex-'+m.uid} onClick={()=>excluir(m)} style={{color:'var(--status-danger-fg)'}}>Excluir</Btn>
                   {m.contas.length>0&&<Btn variant="neutral" size="sm" icon="eye" onClick={()=>onAbrir(m)}>Abrir visão</Btn>}
                 </span>}
               </div>
