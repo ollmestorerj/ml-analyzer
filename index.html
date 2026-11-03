@@ -768,7 +768,10 @@ function TelaSemAcesso({user}){
     <CascaAuth>
       <h1 style={{fontSize:22,marginBottom:6}}>Acesso não liberado</h1>
       <p style={{fontSize:13,marginBottom:24,lineHeight:1.5}}>O login {user?.email} existe, mas ainda não tem acesso ao ML Analyzer. O acesso é liberado pela equipe RealEcom para os clientes do prep center.</p>
-      <Btn full size="lg" variant="dark" onClick={()=>auth.signOut()} icon="log-out">Sair</Btn>
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <Btn full size="lg" onClick={()=>location.reload()} icon="refresh-cw">Já fui liberado · tentar de novo</Btn>
+        <Btn full size="lg" variant="neutral" onClick={()=>auth.signOut()} icon="log-out">Sair e entrar com outro e-mail</Btn>
+      </div>
     </CascaAuth>
   );
 }
