@@ -5238,7 +5238,8 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
     setBusy('novo');setAviso(null);setCredencial(null);
     try{
       const r=await call('adminCriarAcesso',{nome:novo.nome.trim(),email:novo.email.trim()});
-      setCredencial({nome:novo.nome.trim(),email:r.email,senha:r.senha});
+      if(r.jaTinhaLogin)setAviso({tone:'success',txt:`${r.email} já tinha login (por exemplo da Calculadora) e agora tem acesso ao ML Analyzer. Ele entra com a senha que já usa. Se não lembrar, toque em "Nova senha provisória" no nome dele.`});
+      else setCredencial({nome:novo.nome.trim(),email:r.email,senha:r.senha});
       setNovo({nome:'',email:''});
       carregar();
     }catch(e){setAviso({tone:'danger',txt:'Erro: '+(e.message||'não consegui criar o acesso')});}
