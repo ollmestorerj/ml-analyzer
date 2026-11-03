@@ -279,6 +279,7 @@ $('b-atualizar').onclick=async()=>{
 const prazoDe=p=>p.limiteDespacho?new Date(p.limiteDespacho):null;
 function urgencia(a,b){
   return (b.atrasado-a.atrasado)
+    || (Boolean(a.paraAmanha)-Boolean(b.paraAmanha))
     || (MODS.findIndex(m=>m.id===a.modalidade)-MODS.findIndex(m=>m.id===b.modalidade))
     || ((prazoDe(a)||0)-(prazoDe(b)||0));
 }
@@ -299,6 +300,8 @@ function desenhar(){
   if(coleta&&h<14)al.push(`<div class="alerta bad"><b>COLETA passa entre 13h e 14h</b> · ${coleta} pacote(s) ainda não estão prontos.</div>`);
   const problemas=naMesa.filter(p=>p.momento==='problema');
   if(problemas.length)al.push(`<div class="alerta bad"><b>${problemas.length} com problema</b> · ${problemas.map(p=>esc(p.clienteNome)+': '+esc(p.problema||'')).join(' · ')}</div>`);
+  const amanha=naMesa.filter(p=>p.paraAmanha).length;
+  if(amanha)al.push(`<div class="alerta" style="background:#ECF0FE;color:#1F33A0"><b>${amanha} pacote(s) para amanhã</b> · depois das 18h a fila já mostra o dia seguinte. Faça primeiro o que é de hoje.</div>`);
   $('alertas').innerHTML=al.join('');
 
   // Quadro logistica x momento
@@ -356,6 +359,7 @@ function cartao(p){
   return `<article class="ped${p.atrasado?' atrasado':''}" style="border-left-color:${p.atrasado?'var(--bad)':m.cor}">
     <div class="l1"><span class="pill" style="background:${m.cor}">${m.nome}</span><span class="cli">${esc(p.clienteNome||p.contaId)}</span>
       <span class="prazo tab ${p.atrasado?'bad':''}">${pr?(p.atrasado?'ATRASADO · ':'até ')+diaMes(pr)+' '+hora(pr):''}</span></div>
+    ${p.paraAmanha?'<span class="tag" style="background:#ECF0FE;color:#1F33A0;align-self:flex-start">PARA AMANHÃ · pode adiantar</span>':''}
     ${p.momento==='problema'?`<span class="tag bad">${esc(p.problema||'Problema')}</span>`:''}
     ${(p.itens||[]).map(i=>`<div class="item"><span class="q tab">${esc(i.qtd)}×</span><div class="t"><b>${esc(i.titulo)}</b><span>${i.atributos?esc(i.atributos)+' · ':''}<span class="mono">${esc(i.sku||'sem SKU')}</span></span></div></div>`).join('')}
     ${acao}
