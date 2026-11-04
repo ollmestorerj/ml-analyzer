@@ -247,7 +247,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 
     <div id="v-fila" style="display:flex;flex-direction:column;gap:12px">
     <form class="leitura" id="form-leitura" autocomplete="off">
-      <input id="bip" inputmode="numeric" aria-label="Bipar etiqueta" placeholder="Bipar etiqueta (leitor ou nº do envio)">
+      <input id="bip" inputmode="numeric" aria-label="Bipar etiqueta" placeholder="Finalizar: bipe a etiqueta do pacote pronto">
       <button class="btn pri" type="button" id="b-camera">Câmera</button>
     </form>
 
@@ -383,7 +383,7 @@ $('d-amanha').onclick=()=>{dia='amanha';desenhar();};
 
 // Ordem de trabalho dentro da secao
 const ORDEM_MOM=['problema','imprimir','bipar','foto','pronto','nf'];
-const ROTULO={problema:'Problema',imprimir:'Imprimir etiqueta',bipar:'Etiqueta impressa · bipar',foto:'Etiqueta conferida · foto',pronto:'Pronto · despachar',nf:'Aguardando NF do cliente'};
+const ROTULO={problema:'Problema',imprimir:'Imprimir etiqueta',bipar:'Etiqueta impressa · bipar',foto:'Etiqueta conferida · foto',pronto:'Pronto · finalizar',nf:'Aguardando NF do cliente'};
 
 function chaveItens(p){return (p.itens||[]).map(i=>`${i.qtd}x${i.itemId||i.titulo}:${i.variacao||''}`).sort().join('|');}
 
@@ -454,7 +454,7 @@ function loteHtml(L){
     case 'imprimir':bt=`<button class="acao" type="button" data-acao="exec" data-id="${esc(p.shipmentId)}">Começar</button>`;break;
     case 'bipar':
     case 'foto':    bt=`<button class="acao" type="button" data-acao="exec" data-id="${esc(p.shipmentId)}">Continuar</button>`;break;
-    case 'pronto':  bt=`<button class="acao" type="button" data-acao="despachar" data-id="${ids}">Despachar</button>`;break;
+    case 'pronto':  bt=`<button class="acao" type="button" data-acao="despachar" data-id="${ids}">Finalizar</button>`;break;
     case 'nf':      bt=`<button class="acao" type="button" disabled>Sem NF</button>`;break;
     case 'problema':bt=`<button class="acao" type="button" data-acao="reabrir" data-id="${esc(p.shipmentId)}" style="background:#fff;color:var(--body);border:1px solid var(--line)">Resolvido</button>`;break;
   }
@@ -599,7 +599,7 @@ function situacao(e){
   if(e.statusML==='cancelled'||e.etapa==='cancelado')return ['bad','Cancelado'];
   if(e.etapa==='enviado'||e.statusML==='shipped')return ['ok','Em trânsito'];
   const horas=(Date.now()-new Date(e.despachadoEm))/36e5;
-  return horas>24?['warn','Sem confirmação do ML há '+Math.floor(horas)+'h']:['neu','Despachado · aguardando o ML'];
+  return horas>24?['warn','Sem confirmação do ML há '+Math.floor(horas)+'h']:['neu','Finalizado · aguardando o ML'];
 }
 
 function desenharHistorico(){
@@ -654,7 +654,7 @@ async function acao(tipo,id,btn){
     if(tipo==='bipar'){abrirCamera('Bipe a etiqueta colada nesta caixa',lido=>{
       if(lido!==String(id)){som(false);erro('Etiqueta de outro pedido',`Você bipou o envio ${esc(lido)}, mas esta caixa é do envio ${esc(id)}. Confira se colou a etiqueta certa.`);return;}
       registrar(lido);});return;}
-    if(tipo==='despachar'){abrirCamera('Bipe a etiqueta do pacote para despachar',lido=>registrar(lido));return;}
+    if(tipo==='despachar'){abrirCamera('Bipe a etiqueta do pacote para finalizar',lido=>registrar(lido));return;}
     if(tipo==='foto'){pedirFoto(id);return;}
     if(tipo==='verfoto'){
       btn.disabled=true;const r=await chamar('prepFoto',{shipmentId:id});btn.disabled=false;
@@ -683,7 +683,7 @@ async function registrar(id){
     som(false);erro('Abra o pedido primeiro','Para conferir a etiqueta colada, toque em <b>Continuar</b> no pedido. Assim o sistema confere se a etiqueta é daquela caixa.');return;
   }
   else{
-    const msg={nf:'A NF ainda não foi emitida.',imprimir:'Imprima a etiqueta primeiro.',foto:'Etiqueta já conferida. Falta a foto da caixa.',despachado:'Esse pacote JÁ foi despachado.',problema:'Esse pacote está com problema reportado.'}[p.momento];
+    const msg={nf:'A NF ainda não foi emitida.',imprimir:'Imprima a etiqueta primeiro.',foto:'Etiqueta já conferida. Falta a foto da caixa.',despachado:'Esse pacote JÁ foi finalizado.',problema:'Esse pacote está com problema reportado.'}[p.momento];
     som(false);erro('Nada a fazer com essa etiqueta',msg||'');return;
   }
   try{
@@ -699,10 +699,10 @@ async function registrar(id){
       telaCheia(m.cor,`<div class="m">ETIQUETA CONFERIDA</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><div class="m">Agora a foto da caixa aberta, com produto e etiqueta</div><button class="btn" type="button" id="ov-foto">Tirar foto</button><button class="btn" type="button" id="ov-ok" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.5)">Depois</button>`);
       const b=$('ov-foto');if(b)b.onclick=()=>{$('overlay').classList.add('oculto');pedirFoto(id);};
     }else{
-      telaCheia(m.cor,`<div class="m">DESPACHADO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1500);
+      telaCheia(m.cor,`<div class="m">FINALIZADO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1500);
     }
     carregar();
-  }catch(e){som(false);erro(etapa==='despachado'?'Não despachou':'Não registrou',`${esc(e.message||'Erro')}<br><span class="mono" style="font-size:14px">envio ${esc(id)}</span>`);}
+  }catch(e){som(false);erro(etapa==='despachado'?'Não finalizou':'Não registrou',`${esc(e.message||'Erro')}<br><span class="mono" style="font-size:14px">envio ${esc(id)}</span>`);}
 }
 
 // Leitor fisico: "digita" o codigo e aperta Enter na barra
@@ -779,7 +779,35 @@ function conferirEtiqueta(lido){
   registrar(lido);
 }
 
-function pedirFoto(id){fotoPara=id;$('foto-input').value='';$('foto-input').click();}
+// Foto pela camera ao vivo (celular e computador). Sem camera: escolhe arquivo.
+let camStream=null;
+async function pedirFoto(id){
+  fotoPara=id;
+  if(!navigator.mediaDevices?.getUserMedia){$('foto-input').value='';$('foto-input').click();return;}
+  const o=$('overlay');o.style.background='#100D14';o.classList.remove('oculto');
+  o.innerHTML=`<div class="m">Caixa aberta, com o produto e a etiqueta aparecendo</div>
+    <video id="cam-v" autoplay playsinline muted style="width:100%;max-width:640px;max-height:60vh;border-radius:8px;background:#000"></video>
+    <button class="btn pri" type="button" id="cam-tirar" style="min-width:240px">Tirar foto</button>
+    <button class="btn" type="button" id="cam-fechar" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">Cancelar</button>`;
+  const parar=()=>{try{camStream?.getTracks().forEach(t=>t.stop());}catch{}camStream=null;};
+  $('cam-fechar').onclick=()=>{parar();o.classList.add('oculto');o.innerHTML='';fotoPara=null;};
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:960}},audio:false});
+    $('cam-v').srcObject=camStream;
+  }catch(e){
+    parar();o.classList.add('oculto');o.innerHTML='';
+    // Sem permissao ou sem camera: cai para escolher/tirar foto pelo sistema
+    $('foto-input').value='';$('foto-input').click();return;
+  }
+  $('cam-tirar').onclick=()=>{
+    const v=$('cam-v');if(!v.videoWidth)return;
+    const k=Math.min(1,1024/Math.max(v.videoWidth,v.videoHeight));
+    const c=document.createElement('canvas');c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    parar();
+    enviarFoto(c);
+  };
+}
 $('foto-input').addEventListener('change',async e=>{
   const f=e.target.files?.[0];if(!f||!fotoPara)return;
   telaCheia('#100D14','<div class="g">Enviando foto…</div>');
@@ -788,6 +816,13 @@ $('foto-input').addEventListener('change',async e=>{
     const k=Math.min(1,1024/Math.max(img.width,img.height));
     const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
     c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    await enviarFoto(c,true);
+  }catch(err){som(false);erro('Foto não salvou',esc(err.message||'Erro ao ler a foto'));}
+});
+async function enviarFoto(c,_){
+  if(!fotoPara)return;
+  telaCheia('#100D14','<div class="g">Enviando foto…</div>');
+  try{
     let b64=c.toDataURL('image/jpeg',0.7).split(',')[1];
     if(b64.length>850000)b64=c.toDataURL('image/jpeg',0.5).split(',')[1];
     const r=await chamar('prepMudarEtapa',{shipmentId:fotoPara,etapa:'pronto',fotoBase64:b64},60);
@@ -797,7 +832,7 @@ $('foto-input').addEventListener('change',async e=>{
     carregar();
   }catch(err){som(false);erro('Foto não salvou',esc(err.message||'Erro ao enviar a foto'));}
   finally{fotoPara=null;}
-});
+}
 
 /* ── Camera ────────────────────────────────────────────── */
 let leitor=null;
