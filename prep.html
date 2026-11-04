@@ -121,6 +121,34 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .st.warn{background:var(--warn-bg);color:var(--warn-fg)}
 .st.bad{background:var(--bad-bg);color:var(--bad-fg)}
 .st.neu{background:var(--neu-bg);color:var(--neu-fg)}
+.secoes{display:flex;flex-direction:column;gap:10px}
+.secao{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.secao>button{width:100%;display:flex;align-items:center;gap:12px;padding:14px;border:0;background:#fff;text-align:left}
+.secao .barra-cor{width:10px;align-self:stretch;min-height:40px;border-radius:4px;flex:none}
+.secao .nome{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0}
+.secao .nome b{font-size:17px;font-weight:800;color:var(--ink)}
+.secao .nome span{font-size:12px;color:var(--muted)}
+.secao .cont{font-size:16px;font-weight:800;color:var(--ink);white-space:nowrap}
+.secao .seta{font-size:18px;color:var(--muted);width:18px;text-align:center}
+.secao .corpo-sec{padding:0 12px 12px;display:flex;flex-direction:column;gap:8px}
+.lote{border-radius:10px;background:var(--sunken);overflow:hidden}
+.lote.atr{box-shadow:inset 0 0 0 2px var(--bad);background:#FFF7F8}
+.lote.grupo{background:#FFF3EC}
+.lote-l{display:flex;align-items:center;gap:10px;padding:10px}
+.lote-l .qtd{flex:none;min-width:40px;font-size:20px;font-weight:800;color:var(--ink);line-height:1}
+.lote-l .info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px;border:0;background:none;text-align:left;padding:0}
+.lote-l .info b{font-size:14px;font-weight:800;color:var(--ink);line-height:1.3}
+.lote-l .info span{font-size:12px;font-weight:700;color:var(--muted)}
+.lote-l .acao{flex:none;min-height:44px;padding:0 12px;border:0;border-radius:8px;background:var(--orange-d);color:#fff;font-size:13px;font-weight:800;max-width:150px;line-height:1.2}
+.lote-l .acao:disabled{background:var(--line-soft);color:#8A8597}
+.det{border-top:1px solid var(--line);padding:8px 10px;display:flex;flex-direction:column;gap:6px;background:#fff}
+.det-l{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.det-l .mono{color:var(--subtle)}
+.det-l button{min-height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:12px;font-weight:800}
+.dias{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--line-soft);padding:4px;border-radius:10px}
+.dias button{min-height:42px;border:0;border-radius:8px;background:transparent;font-weight:800;font-size:14px;color:var(--muted)}
+.dias button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,17,17,.12)}
+@media (min-width:1000px){.secoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
 .tela-cheia{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff}
 .tela-cheia .g{font-size:clamp(32px,9vw,60px);font-weight:800;line-height:1.05}
 .tela-cheia .m{font-size:clamp(17px,4.5vw,24px);font-weight:700;max-width:640px}
@@ -209,13 +237,11 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 
     <div id="alertas" style="display:flex;flex-direction:column;gap:8px"></div>
 
-    <section style="display:flex;flex-direction:column;gap:8px">
-      <h2>Onde está cada pacote</h2>
-      <div class="quadro-wrap"><table class="quadro" id="quadro"></table></div>
-      <div class="filtro" id="filtro"></div>
-    </section>
-
-    <div class="etapas" id="etapas"></div>
+    <div class="dias" role="group" aria-label="Dia">
+      <button type="button" id="d-hoje" aria-pressed="true">Hoje</button>
+      <button type="button" id="d-amanha" aria-pressed="false">Amanhã</button>
+    </div>
+    <div class="secoes" id="secoes"></div>
     </div>
   </main>
 </div>
@@ -314,7 +340,7 @@ async function carregar(){
     pedidos=(r.pedidos||[]).filter(p=>p.etapa!=='cancelado').map(p=>({...p,momento:momentoDe(p)}));
     desenhar();
   }catch(e){
-    $('etapas').innerHTML='';
+    $('secoes').innerHTML='';
     $('alertas').innerHTML=`<div class="alerta bad">${e.code==='functions/permission-denied'?'Este login não tem acesso ao prep. Fale com o Filipe.':'Não consegui carregar a fila: '+esc(e.message)}</div>`;
   }
 }
@@ -333,205 +359,132 @@ function urgencia(a,b){
     || ((prazoDe(a)||0)-(prazoDe(b)||0));
 }
 
+let dia='hoje';
+const abertas={}; // secoes abertas/fechadas pelo usuario
+$('d-hoje').onclick=()=>{dia='hoje';desenhar();};
+$('d-amanha').onclick=()=>{dia='amanha';desenhar();};
+
+// Ordem de trabalho dentro da secao
+const ORDEM_MOM=['problema','imprimir','bipar','foto','pronto','nf'];
+const ROTULO={problema:'Problema',imprimir:'Imprimir etiqueta',bipar:'Etiqueta impressa · bipar',foto:'Etiqueta conferida · foto',pronto:'Pronto · despachar',nf:'Aguardando NF do cliente'};
+
+function chaveItens(p){return (p.itens||[]).map(i=>`${i.qtd}x${i.itemId||i.titulo}:${i.variacao||''}`).sort().join('|');}
+
 function desenhar(){
   const agora=new Date();
   $('agora').innerHTML=`${agora.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'})}<br>atualizado ${hora(agora)}`;
 
   const naMesa=pedidos.filter(p=>p.momento!=='despachado');
-  const despachados=pedidos.filter(p=>p.momento==='despachado');
+  const despHoje=pedidos.filter(p=>p.momento==='despachado');
+  const deHoje=naMesa.filter(p=>!p.paraAmanha), deAmanha=naMesa.filter(p=>p.paraAmanha);
+  $('d-hoje').textContent=`Hoje · ${deHoje.length}`;
+  $('d-amanha').textContent=deAmanha.length?`Amanhã · ${deAmanha.length}`:'Amanhã (a partir das 15h)';
+  $('d-hoje').setAttribute('aria-pressed',dia==='hoje');$('d-amanha').setAttribute('aria-pressed',dia==='amanha');
+  const base=dia==='hoje'?deHoje:deAmanha;
 
-  // Alertas
+  // Alertas (so do dia de hoje)
   const al=[];
-  const atrasados=naMesa.filter(p=>p.atrasado);
-  if(atrasados.length)al.push(`<div class="alerta bad"><b>${atrasados.length} atrasado(s)</b> · o prazo do Mercado Livre já passou. Fazer primeiro.</div>`);
-  const h=Number(agora.toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'America/Sao_Paulo'}));
-  const coleta=naMesa.filter(p=>p.modalidade==='coleta'&&p.momento!=='pronto').length;
-  if(coleta&&h<14)al.push(`<div class="alerta bad"><b>COLETA passa entre 13h e 14h</b> · ${coleta} pacote(s) ainda não estão prontos.</div>`);
-  const problemas=naMesa.filter(p=>p.momento==='problema');
-  if(problemas.length)al.push(`<div class="alerta bad"><b>${problemas.length} com problema</b> · ${problemas.map(p=>esc(p.clienteNome)+': '+esc(p.problema||'')).join(' · ')}</div>`);
-  const amanha=naMesa.filter(p=>p.paraAmanha).length;
-  if(amanha)al.push(`<div class="alerta" style="background:#ECF0FE;color:#1F33A0"><b>${amanha} pacote(s) para amanhã</b> · depois das 15h a fila já mostra o dia seguinte. Faça primeiro o que é de hoje.</div>`);
+  if(dia==='hoje'){
+    const atrasados=deHoje.filter(p=>p.atrasado);
+    if(atrasados.length)al.push(`<div class="alerta bad"><b>${atrasados.length} atrasado(s)</b> · o prazo do Mercado Livre já passou. Fazer primeiro.</div>`);
+    const h=Number(agora.toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'America/Sao_Paulo'}));
+    const coleta=deHoje.filter(p=>p.modalidade==='coleta'&&p.momento!=='pronto').length;
+    if(coleta&&h<14)al.push(`<div class="alerta bad"><b>COLETA passa entre 13h e 14h</b> · ${coleta} pacote(s) ainda não estão prontos.</div>`);
+  }
   $('alertas').innerHTML=al.join('');
 
-  // Quadro logistica x momento
-  const conta=(mod,mom)=>naMesa.filter(p=>(!mod||p.modalidade===mod)&&(!mom||p.momento===mom)).length;
-  const modsUsados=MODS.filter(m=>pedidos.some(p=>p.modalidade===m.id));
-  if(pedidos.some(p=>!MODS.some(m=>m.id===p.modalidade)))modsUsados.push(modDe('verificar'));
-  const cel=(mod,mom)=>{const n=conta(mod,mom);const sel=filtro.mod===mod&&filtro.mom===mom;
-    return `<button type="button" class="tab ${n?'':'zero'} ${sel?'sel':''}" data-mod="${mod||''}" data-mom="${mom||''}" aria-label="${n} pacotes">${n||'·'}</button>`;};
-  const desp=mod=>despachados.filter(p=>!mod||p.modalidade===mod).length;
-  $('quadro').innerHTML=`<thead><tr><th style="text-align:left;padding-left:12px">Logística</th>${MOMENTOS.map(m=>`<th>${m.nome}</th>`).join('')}<th>Despachados hoje</th></tr></thead>
-    <tbody>${modsUsados.length?modsUsados.map(m=>`<tr><th><button type="button" data-mod="${m.id}" data-mom="" class="${filtro.mod===m.id&&!filtro.mom?'sel':''}"><span><i style="background:${m.cor}"></i>${m.nome}</span></button></th>
-      ${MOMENTOS.map(x=>`<td>${cel(m.id,x.id)}</td>`).join('')}<td class="tab" style="font-weight:800;color:var(--ok-fg)">${desp(m.id)||'·'}</td></tr>`).join('')
-      :`<tr><td colspan="${MOMENTOS.length+2}" style="padding:16px;color:var(--muted)">Nenhum pacote hoje ainda.</td></tr>`}</tbody>
-    <tfoot><tr><td style="text-align:left;padding-left:12px">Total</td>${MOMENTOS.map(x=>`<td class="tab">${conta(null,x.id)}</td>`).join('')}<td class="tab">${desp(null)}</td></tr></tfoot>`;
-  $('quadro').querySelectorAll('button[data-mod]').forEach(b=>b.onclick=()=>{
-    const mod=b.dataset.mod||null,mom=b.dataset.mom||null;
-    filtro=(filtro.mod===mod&&filtro.mom===mom)?{mod:null,mom:null}:{mod,mom};desenhar();
-    if(filtro.mod||filtro.mom)$('etapas').scrollIntoView({behavior:'smooth',block:'start'});
-  });
-  $('filtro').innerHTML=filtro.mod||filtro.mom
-    ?`Mostrando <b>${filtro.mod?modDe(filtro.mod).nome:'todas as logísticas'}</b>${filtro.mom?` · <b>${MOMENTOS.find(x=>x.id===filtro.mom).nome}</b>`:''} <button class="btn" type="button" id="b-limpar" style="min-height:36px">Mostrar tudo</button>`
-    :'Toque num número para ver só aqueles pacotes.';
-  const bl=$('b-limpar');if(bl)bl.onclick=()=>{filtro={mod:null,mom:null};desenhar();};
-
-  // Pacotes por momento (problema aparece junto do momento em que parou: no topo)
-  const visiveis=naMesa.filter(p=>(!filtro.mod||p.modalidade===filtro.mod));
-  const momentos=filtro.mom?MOMENTOS.filter(x=>x.id===filtro.mom):MOMENTOS;
-  let html='';
-  if(problemas.length&&!filtro.mom){
-    const ps=visiveis.filter(p=>p.momento==='problema').sort(urgencia);
-    if(ps.length)html+=`<section class="etapa" style="grid-column:1/-1"><div class="etapa-cab"><h2 style="color:var(--bad-fg)">Com problema</h2><span class="num" style="background:var(--bad-bg);color:var(--bad-fg)">${ps.length}</span></div>${ps.map(cartao).join('')}</section>`;
-  }
-  html+=momentos.map(x=>{
-    const ps=visiveis.filter(p=>p.momento===x.id).sort(urgencia);
-    return `<section class="etapa"><div class="etapa-cab"><h2>${x.nome}</h2><span class="num tab">${ps.length}</span><span class="dica">${x.dica}</span></div>
-      ${ps.length?ps.map(cartao).join(''):'<div class="vazio">Nenhum</div>'}</section>`;
+  const mods=MODS.slice();
+  if(base.some(p=>!MODS.some(m=>m.id===p.modalidade)))mods.push(modDe('verificar'));
+  const secoes=mods.map(m=>{
+    const ps=base.filter(p=>m.id==='verificar'?!MODS.some(x=>x.id===p.modalidade):p.modalidade===m.id);
+    const desp=dia==='hoje'?despHoje.filter(p=>p.modalidade===m.id).length:0;
+    if(!ps.length&&!desp)return '';
+    const prontos=ps.filter(p=>p.momento==='pronto').length+desp, total=ps.length+desp;
+    const pendente=ps.some(p=>p.momento!=='pronto');
+    const aberta=abertas[m.id]??pendente;
+    const dica={flex:'Sai no dia',coleta:'Passa entre 13h e 14h',agencia:'Horário de cada conta',correios:'Horário de cada conta'}[m.id]||'Envio fora do padrão';
+    const atr=ps.filter(p=>p.atrasado).length;
+    return `<section class="secao">
+      <button type="button" data-sec="${m.id}" aria-expanded="${aberta}">
+        <span class="barra-cor" style="background:${m.cor}"></span>
+        <span class="nome"><b>${m.nome}</b><span>${dica}${atr?` · <span style="color:var(--bad-fg)">${atr} atrasado(s)</span>`:''}${!pendente&&ps.length?' · tudo pronto':''}</span></span>
+        <span class="cont tab" style="${prontos===total?'color:var(--ok-fg)':''}">${prontos}/${total}${prontos===total?' ✓':''}</span>
+        <span class="seta" aria-hidden="true">${aberta?'▾':'▸'}</span>
+      </button>
+      ${aberta?`<div class="corpo-sec">${lotesDe(ps).map(loteHtml).join('')||'<div class="vazio">Tudo despachado</div>'}</div>`:''}
+    </section>`;
   }).join('');
-  $('etapas').innerHTML=html;
-  $('etapas').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
+  $('secoes').innerHTML=secoes||`<div class="vazio"><b>${dia==='hoje'?'Nada para sair hoje':'Nada para amanhã ainda'}</b>${dia==='hoje'?'Quando entrar venda de um cliente do prep, ela aparece aqui sozinha.':'As vendas de amanhã aparecem aqui a partir das 15h.'}</div>`;
+  $('secoes').querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>{const id=b.dataset.sec;abertas[id]=b.getAttribute('aria-expanded')!=='true';desenhar();});
+  $('secoes').querySelectorAll('[data-det]').forEach(b=>b.onclick=()=>{detAberto[b.dataset.det]=!detAberto[b.dataset.det];desenhar();});
+  $('secoes').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
 }
 
-function cartao(p){
-  const m=modDe(p.modalidade), pr=prazoDe(p), id=esc(p.shipmentId);
-  let acao='';
-  switch(p.momento){
-    case 'nf':      acao=`<button class="btn full" type="button" disabled>Esperando a NF do cliente</button>`;break;
-    case 'imprimir':acao=`<button class="btn pri full" type="button" data-acao="etiqueta" data-id="${id}">Imprimir etiqueta</button>`;break;
-    case 'bipar':   acao=`<button class="btn pri full" type="button" data-acao="bipar" data-id="${id}">Bipar etiqueta colada</button>
-                          <button class="btn full" type="button" data-acao="etiqueta" data-id="${id}" style="min-height:40px">Reimprimir</button>`;break;
-    case 'foto':    acao=`<button class="btn pri full" type="button" data-acao="foto" data-id="${id}">Tirar foto da caixa</button>`;break;
-    case 'pronto':  acao=`<button class="btn pri full" type="button" data-acao="despachar" data-id="${id}">Despachar (bipar)</button>
-                          <button class="btn full" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px">Ver foto</button>`;break;
-    case 'problema':acao=`<button class="btn full" type="button" data-acao="reabrir" data-id="${id}">Resolvido · voltar para a fila</button>`;break;
+// Lote = mesmo cliente + mesmos itens + mesmo momento (dentro da mesma logistica)
+function lotesDe(ps){
+  const g={};
+  ps.forEach(p=>{const k=[p.contaId,chaveItens(p),p.momento,p.momento==='problema'?p.shipmentId:''].join('#');(g[k]=g[k]||[]).push(p);});
+  return Object.entries(g).map(([k,lista])=>({k,ps:lista.sort(urgencia),momento:lista[0].momento,atr:lista.some(p=>p.atrasado)}))
+    .sort((a,b)=>(b.atr-a.atr)||(ORDEM_MOM.indexOf(a.momento)-ORDEM_MOM.indexOf(b.momento)));
+}
+const detAberto={};
+function loteHtml(L){
+  const p=L.ps[0], n=L.ps.length, ids=L.ps.map(x=>x.shipmentId).join(',');
+  const titulo=(p.itens||[]).map(i=>`${i.qtd>1?i.qtd+'× ':''}${esc(i.titulo)}`).join(' + ');
+  const pr=prazoDe(p);
+  let bt='';
+  switch(L.momento){
+    case 'imprimir':bt=n>1?`<button class="acao" type="button" data-acao="lote" data-id="${ids}">Imprimir ${n} + folha</button>`:`<button class="acao" type="button" data-acao="etiqueta" data-id="${ids}">Imprimir</button>`;break;
+    case 'bipar':   bt=`<button class="acao" type="button" data-acao="bipar-lote" data-id="${ids}">Bipar${n>1?` (${n})`:''}</button>`;break;
+    case 'foto':    bt=`<button class="acao" type="button" data-acao="foto" data-id="${esc(p.shipmentId)}">Foto${n>1?` (1 de ${n})`:''}</button>`;break;
+    case 'pronto':  bt=`<button class="acao" type="button" data-acao="despachar" data-id="${ids}">Despachar</button>`;break;
+    case 'nf':      bt=`<button class="acao" type="button" disabled>Sem NF</button>`;break;
+    case 'problema':bt=`<button class="acao" type="button" data-acao="reabrir" data-id="${esc(p.shipmentId)}" style="background:#fff;color:var(--body);border:1px solid var(--line)">Resolvido</button>`;break;
   }
-  return `<article class="ped${p.atrasado?' atrasado':''}" style="border-left-color:${p.atrasado?'var(--bad)':m.cor}">
-    <div class="l1"><span class="pill" style="background:${m.cor}">${m.nome}</span><span class="cli">${esc(p.clienteNome||p.contaId)}</span>
-      <span class="prazo tab ${p.atrasado?'bad':''}">${pr?(p.atrasado?'ATRASADO · ':'até ')+diaMes(pr)+' '+hora(pr):''}</span></div>
-    ${p.paraAmanha?'<span class="tag" style="background:#ECF0FE;color:#1F33A0;align-self:flex-start">PARA AMANHÃ · pode adiantar</span>':''}
-    ${p.momento==='problema'?`<span class="tag bad">${esc(p.problema||'Problema')}</span>`:''}
-    ${(p.itens||[]).map(i=>`<div class="item"><span class="q tab">${esc(i.qtd)}×</span><div class="t"><b>${esc(i.titulo)}</b><span>${i.atributos?esc(i.atributos)+' · ':''}<span class="mono">${esc(i.sku||'sem SKU')}</span></span></div></div>`).join('')}
-    ${acao}
-    <div class="rodape"><span class="id mono">envio ${id}</span>${p.momento!=='problema'?`<button class="link" type="button" data-acao="problema" data-id="${id}">Reportar problema</button>`:''}</div>
-  </article>`;
+  const sub=[ROTULO[L.momento]];
+  if(n>1)sub.push(`lote de ${n}`);
+  if(L.momento==='problema'&&p.problema)sub.push(esc(p.problema));
+  const aberto=detAberto[L.k];
+  return `<div class="lote${L.atr?' atr':''}${n>1?' grupo':''}">
+    <div class="lote-l">
+      <span class="qtd tab" style="text-align:center">${n}<small style="display:block;font-size:10px;font-weight:700;color:var(--muted);margin-top:2px">${n>1?'pacotes':'pacote'}</small></span>
+      <button class="info" type="button" data-det="${esc(L.k)}" aria-expanded="${!!aberto}">
+        <b>${esc(p.clienteNome||p.contaId)} · ${titulo}</b>
+        <span>${sub.join(' · ')}${L.atr?' · <span style="color:var(--bad-fg)">ATRASADO</span>':pr?` · até ${hora(pr)}`:''} ${aberto?'▴':'▾'}</span>
+      </button>
+      ${bt}
+    </div>
+    ${aberto?`<div class="det">${L.ps.map(x=>{const id=esc(x.shipmentId);return `<div class="det-l"><span class="mono">envio ${id}</span>
+      ${x.momento==='bipar'?`<button type="button" data-acao="etiqueta" data-id="${id}">Reimprimir</button>`:''}
+      ${x.momento==='pronto'?`<button type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`:''}
+      ${x.momento==='foto'?`<button type="button" data-acao="foto" data-id="${id}">Foto</button>`:''}
+      ${x.momento!=='problema'?`<button type="button" data-acao="problema" data-id="${id}" style="color:var(--bad-fg)">Problema</button>`:''}
+      </div>`;}).join('')}
+      ${n>1&&L.momento!=='imprimir'?`<button type="button" class="btn" data-acao="folha" data-id="${ids}" style="min-height:40px">Folha de controle</button>`:''}
+    </div>`:''}
+  </div>`;
 }
 
-/* ── Historico de envios ───────────────────────────────── */
-const PERIODOS=[['hoje','Hoje',0,0],['ontem','Ontem',1,1],['7d','7 dias',6,0],['30d','30 dias',29,0]];
-let hist={periodo:'hoje',envios:[],carregando:false};
-const diaISO=off=>{const d=new Date(Date.now()-off*864e5);return d.toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});};
-
-$('m-fila').onclick=()=>trocarVista('fila');
-$('m-hist').onclick=()=>trocarVista('hist');
-$('m-equipe').onclick=()=>trocarVista('equipe');
-function trocarVista(v){
-  [['fila','v-fila','m-fila'],['hist','v-hist','m-hist'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
-    $(vis).classList.toggle('oculto',v!==id);
-    if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
-  });
-  if(v==='hist')carregarHistorico();
-  if(v==='equipe')carregarEquipe();
-}
-
-/* ── Equipe do galpao (so admin) ───────────────────────── */
-const LINK_PREP='https://ollmestorerj.github.io/ml-analyzer/prep.html';
-const msgFunc=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao Prep Center da RealEcom está pronto.\n\nLink: ${LINK_PREP}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso você cria a sua senha. Dica: salve o link na tela inicial do celular.`;
-async function carregarEquipe(){
-  $('equipe-lista').innerHTML='<div class="vazio">Carregando…</div>';
-  try{
-    const lista=await chamar('adminListarEquipe');
-    if(!lista.length){$('equipe-lista').innerHTML='<div class="vazio">Nenhum funcionário ainda. Crie o primeiro login acima.</div>';return;}
-    $('equipe-lista').innerHTML=lista.map(f=>`<article class="hrow" style="border-left-color:${f.ativo?'var(--ok)':'var(--line)'}">
-      <div class="l1"><b style="font-size:15px;color:var(--ink)">${esc(f.nome)}</b>${f.ativo?'':'<span class="st bad">Bloqueado</span>'}${f.trocarSenha?'<span class="st warn">Ainda não criou a senha</span>':''}</div>
-      <div class="meta"><span>${esc(f.email)}</span></div>
-      <div class="l1">
-        <button class="btn" type="button" style="min-height:40px" data-f="senha" data-uid="${esc(f.uid)}" data-nome="${esc(f.nome)}" data-email="${esc(f.email)}">Nova senha provisória</button>
-        <button class="btn" type="button" style="min-height:40px" data-f="${f.ativo?'bloquear':'liberar'}" data-email="${esc(f.email)}">${f.ativo?'Bloquear':'Liberar'}</button>
-      </div></article>`).join('');
-    $('equipe-lista').querySelectorAll('[data-f]').forEach(b=>b.onclick=async()=>{
-      b.disabled=true;
-      try{
-        if(b.dataset.f==='senha'){
-          if(!confirm(`Gerar nova senha provisória para ${b.dataset.email}?`)){b.disabled=false;return;}
-          const r=await chamar('adminNovaSenha',{uid:b.dataset.uid});
-          mostrarCredencial({nome:b.dataset.nome,email:r.email,senha:r.senha});
-        }else{await chamar('adminEquipeAtivo',{email:b.dataset.email,ativo:b.dataset.f==='liberar'});}
-        carregarEquipe();
-      }catch(e){b.disabled=false;erro('Não deu certo',esc(e.message));}
-    });
-  }catch(e){$('equipe-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
-}
-function mostrarCredencial(c){
-  const txt=msgFunc(c);
-  $('f-resultado').innerHTML=`<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Login pronto. Copie a mensagem e mande para o funcionário. A senha não aparece de novo.</div>
-    <pre style="margin:0;white-space:pre-wrap;font-family:inherit;font-size:14px;background:var(--sunken);padding:12px;border-radius:8px">${esc(txt)}</pre>
-    <button class="btn pri" type="button" id="f-copiar">Copiar mensagem</button>`;
-  $('f-copiar').onclick=()=>{navigator.clipboard?.writeText(txt);$('f-copiar').textContent='Copiado';};
-  $('f-resultado').scrollIntoView({behavior:'smooth',block:'center'});
-}
-$('form-func').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const nome=$('f-nome').value.trim(),email=$('f-email').value.trim();
-  if(!email){erro('Falta o e-mail','Informe o e-mail do funcionário.');return;}
-  $('f-btn').disabled=true;$('f-resultado').innerHTML='';
-  try{
-    const r=await chamar('adminCriarFuncionario',{nome,email});
-    if(r.jaTinhaLogin)$('f-resultado').innerHTML=`<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">${esc(email)} já tinha login e agora tem acesso ao Prep. Ele entra com a senha que já usa.</div>`;
-    else mostrarCredencial({nome,email:r.email,senha:r.senha});
-    $('f-nome').value='';$('f-email').value='';
-    carregarEquipe();
-  }catch(err){erro('Não criou',esc(err.message));}
-  finally{$('f-btn').disabled=false;}
-});
-$('periodos').innerHTML=PERIODOS.map(([id,nome])=>`<button type="button" data-p="${id}">${nome}</button>`).join('');
-$('periodos').querySelectorAll('button').forEach(b=>b.onclick=()=>{hist.periodo=b.dataset.p;carregarHistorico();});
-['h-cliente','h-mod'].forEach(i=>$(i).onchange=desenharHistorico);
-$('h-busca').oninput=desenharHistorico;
-
-async function carregarHistorico(){
-  const [,,de,ate]=PERIODOS.find(x=>x[0]===hist.periodo);
-  $('periodos').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.p===hist.periodo));
-  $('h-lista').innerHTML='<div class="vazio">Carregando…</div>';
-  try{
-    const r=await chamar('prepHistorico',{de:diaISO(de),ate:diaISO(ate)});
-    hist.envios=r.envios||[];
-    // Opcoes de filtro a partir do que veio
-    const clis=[...new Set(hist.envios.map(e=>e.clienteNome||e.contaId))].sort();
-    const selC=$('h-cliente').value;
-    $('h-cliente').innerHTML='<option value="">Todos os clientes</option>'+clis.map(c=>`<option ${c===selC?'selected':''}>${esc(c)}</option>`).join('');
-    const selM=$('h-mod').value;
-    $('h-mod').innerHTML='<option value="">Todas as logísticas</option>'+MODS.map(m=>`<option value="${m.id}" ${m.id===selM?'selected':''}>${m.nome}</option>`).join('');
-    desenharHistorico();
-  }catch(e){$('h-lista').innerHTML=`<div class="alerta bad">Não consegui carregar o histórico: ${esc(e.message)}</div>`;}
-}
-
-function situacao(e){
-  if(e.statusML==='delivered')return ['ok','Entregue'];
-  if(e.statusML==='not_delivered')return ['bad','Não entregue'];
-  if(e.statusML==='cancelled'||e.etapa==='cancelado')return ['bad','Cancelado'];
-  if(e.etapa==='enviado'||e.statusML==='shipped')return ['ok','Em trânsito'];
-  const horas=(Date.now()-new Date(e.despachadoEm))/36e5;
-  return horas>24?['warn','Sem confirmação do ML há '+Math.floor(horas)+'h']:['neu','Despachado · aguardando o ML'];
-}
-
-function desenharHistorico(){
-  const c=$('h-cliente').value,m=$('h-mod').value,q=$('h-busca').value.trim().toLowerCase();
-  const lista=hist.envios.filter(e=>(!c||(e.clienteNome||e.contaId)===c)&&(!m||e.modalidade===m)&&
-    (!q||[e.shipmentId,...(e.pedidos||[]),...(e.itens||[]).map(i=>i.titulo+' '+(i.sku||''))].join(' ').toLowerCase().includes(q)));
-  $('h-resumo').innerHTML=`<span class="tab">${lista.length} envio(s)</span>`+
-    MODS.map(x=>{const n=lista.filter(e=>e.modalidade===x.id).length;return n?`<span class="tab"><i style="background:${x.cor}"></i>${x.nome} ${n}</span>`:'';}).join('');
-  if(!lista.length){$('h-lista').innerHTML='<div class="vazio">Nenhum envio nesse período.</div>';return;}
-  $('h-lista').innerHTML=lista.map(e=>{
-    const md=modDe(e.modalidade),[cls,txt]=situacao(e),d=new Date(e.despachadoEm),id=esc(e.shipmentId);
-    return `<article class="hrow" style="border-left-color:${md.cor}">
-      <div class="l1"><span class="pill" style="background:${md.cor}">${md.nome}</span><b style="font-size:15px;color:var(--ink)">${esc(e.clienteNome||e.contaId)}</b>
-        <span class="quando tab">${diaMes(d)} ${hora(d)}</span></div>
-      ${(e.itens||[]).map(i=>`<div class="item"><span class="q tab" style="font-size:17px;min-width:30px">${esc(i.qtd)}×</span><div class="t"><b style="font-size:14px">${esc(i.titulo)}</b></div></div>`).join('')}
-      <div class="l1"><span class="st ${cls}">${txt}</span>${e.atrasado?'<span class="st bad">Saiu atrasado</span>':''}${e.temFoto?'':'<span class="st warn">Sem foto</span>'}</div>
-      <div class="meta"><span class="mono">envio ${id}</span>${e.despachadoPor?`<span>por ${esc(String(e.despachadoPor).split('@')[0])}</span>`:''}</div>
-      ${e.temFoto?`<button class="btn" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px;align-self:flex-start">Ver foto</button>`:''}
-    </article>`;}).join('');
-  $('h-lista').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
+// Folha de controle do lote: o que separar e a lista dos envios para marcar
+function folhaControle(ids){
+  const ps=ids.map(id=>pedidos.find(p=>String(p.shipmentId)===String(id))).filter(Boolean);
+  if(!ps.length)return;
+  const m=modDe(ps[0].modalidade);
+  const soma={};
+  ps.forEach(p=>(p.itens||[]).forEach(i=>{const k=(i.titulo||'')+'|'+(i.atributos||'');soma[k]=soma[k]||{t:i.titulo,a:i.atributos,sku:i.sku,q:0};soma[k].q+=Number(i.qtd)||1;}));
+  const w=window.open('','_blank');if(!w){erro('Bloqueado','Libere as janelas (pop-ups) para imprimir a folha.');return;}
+  const agora=new Date();
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Folha de controle</title>
+  <style>body{font-family:Arial,sans-serif;margin:24px;color:#111}h1{margin:0 0 4px;font-size:22px}.f{display:inline-block;padding:4px 10px;border-radius:6px;color:#fff;font-weight:700;background:${m.cor};-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #999;padding:8px;text-align:left;font-size:14px}th{background:#eee}.box{width:22px;height:22px;border:2px solid #111;display:inline-block}.sep{font-size:18px}</style></head><body>
+  <h1>${esc(ps[0].clienteNome||ps[0].contaId)} · <span class="f">${m.nome}</span></h1>
+  <div>Folha de controle · ${agora.toLocaleDateString('pt-BR')} ${hora(agora)} · ${ps.length} pacote(s)</div>
+  <h2 style="font-size:16px;margin:18px 0 0">Separar</h2>
+  <table><tr><th>Qtd</th><th>Produto</th><th>SKU</th><th>OK</th></tr>${Object.values(soma).map(x=>`<tr class="sep"><td><b>${x.q}</b></td><td>${esc(x.t)}${x.a?' · '+esc(x.a):''}</td><td>${esc(x.sku||'—')}</td><td><span class="box"></span></td></tr>`).join('')}</table>
+  <h2 style="font-size:16px;margin:18px 0 0">Pacotes</h2>
+  <table><tr><th>#</th><th>Envio</th><th>Itens</th><th>Etiqueta colada</th><th>Foto</th></tr>${ps.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.shipmentId)}</td><td>${(p.itens||[]).map(x=>esc(x.qtd)+'× '+esc(x.titulo)).join('<br>')}</td><td><span class="box"></span></td><td><span class="box"></span></td></tr>`).join('')}</table>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
 }
 
 /* ── Acoes ─────────────────────────────────────────────── */
@@ -547,6 +500,21 @@ async function acao(tipo,id,btn){
       if(janela)janela.location=url;else location.href=url;
       btn.disabled=false;carregar();return;
     }
+    if(tipo==='lote'){
+      const lista=id.split(',');
+      const janela=window.open('','_blank');
+      btn.disabled=true;btn.textContent='Gerando…';
+      const r=await chamar('prepEtiquetasLote',{shipmentIds:lista},120);
+      const bytes=Uint8Array.from(atob(r.base64),c=>c.charCodeAt(0));
+      const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+      if(janela)janela.location=url;else location.href=url;
+      folhaControle(lista);
+      carregar();return;
+    }
+    if(tipo==='folha'){folhaControle(id.split(','));return;}
+    if(tipo==='bipar-lote'){const lista=id.split(',');abrirCamera(lista.length>1?`Bipe uma das ${lista.length} etiquetas deste lote`:'Bipe a etiqueta colada nesta caixa',lido=>{
+      if(!lista.includes(lido)){som(false);erro('Etiqueta de outro pedido',`O envio ${esc(lido)} não é deste lote. Confira se colou a etiqueta certa.`);return;}
+      registrar(lido);});return;}
     if(tipo==='bipar'){abrirCamera('Bipe a etiqueta colada nesta caixa',lido=>{
       if(lido!==String(id)){som(false);erro('Etiqueta de outro pedido',`Você bipou o envio ${esc(lido)}, mas esta caixa é do envio ${esc(id)}. Confira se colou a etiqueta certa.`);return;}
       registrar(lido);});return;}
