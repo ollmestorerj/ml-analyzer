@@ -149,6 +149,22 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .dias button{min-height:42px;border:0;border-radius:8px;background:transparent;font-weight:800;font-size:14px;color:var(--muted)}
 .dias button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,17,17,.12)}
 @media (min-width:1000px){.secoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
+#exec{position:fixed;inset:0;z-index:40;background:var(--page);display:flex;flex-direction:column;overflow-y:auto}
+#exec .ex-cab{color:#fff;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+#exec .ex-cab small{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+#exec .ex-cab b{font-size:30px;font-weight:800;line-height:1.1}
+#exec .ex-corpo{padding:16px;display:flex;flex-direction:column;gap:14px;max-width:640px;width:100%;margin:0 auto;box-sizing:border-box}
+#exec .ex-item{display:flex;gap:12px;align-items:baseline;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}
+#exec .ex-item .q{font-size:34px;font-weight:800;color:var(--ink)}
+#exec .ex-item b{font-size:19px;font-weight:800;color:var(--ink);line-height:1.25}
+#exec .ex-passos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#exec .ex-passo{padding:10px 4px;border-radius:8px;background:var(--sunken);color:var(--muted);font-size:13px;font-weight:800;text-align:center}
+#exec .ex-passo.feito{background:var(--ok-bg);color:var(--ok-fg)}
+#exec .ex-passo.agora{background:#FFF3EC;color:#B53900;box-shadow:inset 0 0 0 2px var(--orange)}
+#exec .ex-instr{font-size:17px;font-weight:700;color:var(--ink);text-align:center;line-height:1.4}
+#exec .ex-main{min-height:64px;font-size:19px}
+#exec form{display:flex;gap:8px}
+#exec form input{flex:1;min-width:0;height:52px;border:2px solid var(--orange);border-radius:8px;padding:0 12px;font:inherit;font-size:16px}
 .tela-cheia{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#fff}
 .tela-cheia .g{font-size:clamp(32px,9vw,60px);font-weight:800;line-height:1.05}
 .tela-cheia .m{font-size:clamp(17px,4.5vw,24px);font-weight:700;max-width:640px}
@@ -246,6 +262,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   </main>
 </div>
 
+<div id="exec" class="oculto" role="dialog" aria-modal="true" aria-labelledby="exec-cli"></div>
 <div id="overlay" class="tela-cheia oculto" role="alertdialog" aria-live="assertive"></div>
 <div id="scanner" class="tela-cheia oculto" style="background:#100D14;justify-content:flex-start;padding-top:28px">
   <div class="m" id="scanner-titulo">Aponte para o código da etiqueta</div>
@@ -418,14 +435,14 @@ function desenhar(){
   $('secoes').querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>{const id=b.dataset.sec;abertas[id]=b.getAttribute('aria-expanded')!=='true';desenhar();});
   $('secoes').querySelectorAll('[data-det]').forEach(b=>b.onclick=()=>{detAberto[b.dataset.det]=!detAberto[b.dataset.det];desenhar();});
   $('secoes').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
+  if(exec)desenharExec();
 }
 
 // Lote = mesmo cliente + mesmos itens + mesmo momento (dentro da mesma logistica)
 function lotesDe(ps){
-  const g={};
-  ps.forEach(p=>{const k=[p.contaId,chaveItens(p),p.momento,p.momento==='problema'?p.shipmentId:''].join('#');(g[k]=g[k]||[]).push(p);});
-  return Object.entries(g).map(([k,lista])=>({k,ps:lista.sort(urgencia),momento:lista[0].momento,atr:lista.some(p=>p.atrasado)}))
-    .sort((a,b)=>(b.atr-a.atr)||(ORDEM_MOM.indexOf(a.momento)-ORDEM_MOM.indexOf(b.momento)));
+  // Um pacote por linha: cada cliente, cada envio, separado
+  return ps.map(p=>({k:p.shipmentId,ps:[p],momento:p.momento,atr:Boolean(p.atrasado)}))
+    .sort((a,b)=>(b.atr-a.atr)||(ORDEM_MOM.indexOf(a.momento)-ORDEM_MOM.indexOf(b.momento))||urgencia(a.ps[0],b.ps[0]));
 }
 const detAberto={};
 function loteHtml(L){
@@ -434,9 +451,9 @@ function loteHtml(L){
   const pr=prazoDe(p);
   let bt='';
   switch(L.momento){
-    case 'imprimir':bt=n>1?`<button class="acao" type="button" data-acao="lote" data-id="${ids}">Imprimir ${n} + folha</button>`:`<button class="acao" type="button" data-acao="etiqueta" data-id="${ids}">Imprimir</button>`;break;
-    case 'bipar':   bt=`<button class="acao" type="button" data-acao="bipar-lote" data-id="${ids}">Bipar${n>1?` (${n})`:''}</button>`;break;
-    case 'foto':    bt=`<button class="acao" type="button" data-acao="foto" data-id="${esc(p.shipmentId)}">Foto${n>1?` (1 de ${n})`:''}</button>`;break;
+    case 'imprimir':bt=`<button class="acao" type="button" data-acao="exec" data-id="${esc(p.shipmentId)}">Começar</button>`;break;
+    case 'bipar':
+    case 'foto':    bt=`<button class="acao" type="button" data-acao="exec" data-id="${esc(p.shipmentId)}">Continuar</button>`;break;
     case 'pronto':  bt=`<button class="acao" type="button" data-acao="despachar" data-id="${ids}">Despachar</button>`;break;
     case 'nf':      bt=`<button class="acao" type="button" disabled>Sem NF</button>`;break;
     case 'problema':bt=`<button class="acao" type="button" data-acao="reabrir" data-id="${esc(p.shipmentId)}" style="background:#fff;color:var(--body);border:1px solid var(--line)">Resolvido</button>`;break;
@@ -618,6 +635,7 @@ async function acao(tipo,id,btn){
       if(janela)janela.location=url;else location.href=url;
       btn.disabled=false;carregar();return;
     }
+    if(tipo==='exec'){abrirExec(id);return;}
     if(tipo==='lote'){
       const lista=id.split(',');
       const janela=window.open('','_blank');
@@ -660,7 +678,10 @@ async function registrar(id){
   let etapa;
   if(!p){som(false);erro('Pacote não está na fila',`O envio ${esc(id)} não é de um cliente do prep, ou já saiu da fila.`);return;}
   if(p.momento==='pronto')etapa='despachado';
-  else if(p.momento==='bipar')etapa='etiquetado';
+  else if(p.momento==='bipar'&&exec&&exec.id===String(id))etapa='etiquetado';
+  else if(p.momento==='bipar'){
+    som(false);erro('Abra o pedido primeiro','Para conferir a etiqueta colada, toque em <b>Continuar</b> no pedido. Assim o sistema confere se a etiqueta é daquela caixa.');return;
+  }
   else{
     const msg={nf:'A NF ainda não foi emitida.',imprimir:'Imprima a etiqueta primeiro.',foto:'Etiqueta já conferida. Falta a foto da caixa.',despachado:'Esse pacote JÁ foi despachado.',problema:'Esse pacote está com problema reportado.'}[p.momento];
     som(false);erro('Nada a fazer com essa etiqueta',msg||'');return;
@@ -701,6 +722,63 @@ function idDaEtiqueta(t){
 }
 
 /* ── Foto (reduzida no celular antes de enviar) ────────── */
+/* ── Modo execucao: um pacote de cada vez, sem chance de trocar ── */
+let exec=null;
+function abrirExec(id){exec={id:String(id)};desenharExec();}
+function fecharExec(){exec=null;$('exec').classList.add('oculto');$('exec').innerHTML='';}
+function desenharExec(){
+  if(!exec)return;
+  const p=pedidos.find(x=>String(x.shipmentId)===exec.id);
+  if(!p||['pronto','despachado','problema'].includes(p.momento)){fecharExec();return;}
+  const m=modDe(p.modalidade), passo={imprimir:1,bipar:2,foto:3}[p.momento]||1;
+  const instr={
+    imprimir:'Imprima a etiqueta deste pedido.',
+    bipar:'Separe o produto acima, cole a etiqueta na caixa e <b>bipe a etiqueta colada</b>.',
+    foto:'Etiqueta conferida. Tire a foto da caixa <b>aberta</b>, com o produto e a etiqueta aparecendo.',
+    nf:'Este pedido está esperando a NF do cliente. A etiqueta ainda não pode ser impressa.'}[p.momento]||'';
+  let principal='';
+  if(p.momento==='imprimir')principal=`<button class="btn pri full ex-main" type="button" id="ex-imprimir">Imprimir etiqueta</button>`;
+  if(p.momento==='bipar')principal=`<form id="ex-form" autocomplete="off"><input id="ex-bip" inputmode="numeric" placeholder="Leitor: bipe aqui" aria-label="Bipar etiqueta colada"><button class="btn pri" type="button" id="ex-cam">Câmera</button></form>
+    <button class="btn full" type="button" id="ex-reimp" style="min-height:44px">Reimprimir etiqueta</button>`;
+  if(p.momento==='foto')principal=`<button class="btn pri full ex-main" type="button" id="ex-foto">Tirar foto da caixa</button>`;
+  $('exec').innerHTML=`<div class="ex-cab" style="background:${m.cor}"><small>Fazendo agora · ${m.nome}${p.atrasado?' · ATRASADO':''}</small><b id="exec-cli">${esc(p.clienteNome||p.contaId)}</b><span style="font-size:13px;opacity:.9" class="mono">envio ${esc(p.shipmentId)}</span></div>
+    <div class="ex-corpo">
+      ${(p.itens||[]).map(i=>`<div class="ex-item"><span class="q tab">${esc(i.qtd)}×</span><div style="display:flex;flex-direction:column;gap:2px"><b>${esc(i.titulo)}</b><span style="font-size:13px;color:var(--subtle)">${i.atributos?esc(i.atributos)+' · ':''}<span class="mono">${esc(i.sku||'sem SKU')}</span></span></div></div>`).join('')}
+      <div class="ex-passos">${['Imprimir','Bipar etiqueta','Foto'].map((t,k)=>`<div class="ex-passo ${k+1<passo?'feito':k+1===passo?'agora':''}">${k+1<passo?'✓ ':''}${t}</div>`).join('')}</div>
+      <div class="ex-instr">${instr}</div>
+      ${principal}
+      <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px">
+        <button class="btn" type="button" id="ex-pausar">Pausar e voltar</button>
+        <button class="btn" type="button" id="ex-prob" style="color:var(--bad-fg)">Reportar problema</button>
+      </div>
+    </div>`;
+  $('exec').classList.remove('oculto');
+  const q=id=>document.getElementById(id);
+  q('ex-pausar').onclick=fecharExec;
+  q('ex-prob').onclick=async()=>{const motivo=prompt('Qual o problema? (ex.: produto faltando, avariado)');if(!motivo)return;
+    try{await chamar('prepMudarEtapa',{shipmentId:exec.id,etapa:'problema',motivo});fecharExec();carregar();}catch(e){erro('Não deu certo',esc(e.message));}};
+  if(q('ex-imprimir'))q('ex-imprimir').onclick=e=>acao('etiqueta',exec.id,e.currentTarget);
+  if(q('ex-reimp'))q('ex-reimp').onclick=e=>acao('etiqueta',exec.id,e.currentTarget);
+  if(q('ex-foto'))q('ex-foto').onclick=()=>pedirFoto(exec.id);
+  if(q('ex-form')){
+    q('ex-form').onsubmit=e=>{e.preventDefault();const lido=idDaEtiqueta(q('ex-bip').value);q('ex-bip').value='';conferirEtiqueta(lido);};
+    q('ex-cam').onclick=()=>abrirCamera('Bipe a etiqueta colada nesta caixa',conferirEtiqueta);
+    setTimeout(()=>q('ex-bip')&&q('ex-bip').focus(),50);
+  }
+}
+// A etiqueta bipada tem que ser exatamente a do pedido em execucao
+function conferirEtiqueta(lido){
+  if(!exec)return;
+  if(!lido){som(false);erro('Código não reconhecido','Bipe o código de barras ou o QR da etiqueta do Mercado Livre.');return;}
+  if(lido!==exec.id){
+    const outro=pedidos.find(x=>String(x.shipmentId)===lido);
+    som(false);
+    erro('ETIQUETA ERRADA',`Essa etiqueta é do envio ${esc(lido)}${outro?` (${esc(outro.clienteNome||'')} · ${esc((outro.itens||[]).map(i=>i.titulo).join(', '))})`:''}.<br><br>Esta caixa é de <b>${esc((pedidos.find(x=>String(x.shipmentId)===exec.id)||{}).clienteNome||'')}</b>. Tire a etiqueta errada e cole a certa.`);
+    return;
+  }
+  registrar(lido);
+}
+
 function pedirFoto(id){fotoPara=id;$('foto-input').value='';$('foto-input').click();}
 $('foto-input').addEventListener('change',async e=>{
   const f=e.target.files?.[0];if(!f||!fotoPara)return;
