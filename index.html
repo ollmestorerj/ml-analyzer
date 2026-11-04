@@ -675,7 +675,7 @@ function TelaLogin(){
     if(!email||!senha){setErr('Preencha email e senha');return;}
     setLoading(true);setErr('');
     try{await auth.signInWithEmailAndPassword(email,senha);}
-    catch(e){setErr({'auth/invalid-credential':'Email ou senha incorretos','auth/too-many-requests':'Muitas tentativas. Aguarde.'}[e.code]||e.message);}
+    catch(e){setErr({'auth/invalid-credential':'E-mail ou senha incorretos','auth/invalid-login-credentials':'E-mail ou senha incorretos','auth/wrong-password':'E-mail ou senha incorretos','auth/user-not-found':'E-mail ou senha incorretos','auth/invalid-email':'E-mail inválido','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.'}[e.code]||e.message);}
     finally{setLoading(false);}
   }
   return (
@@ -708,7 +708,13 @@ function TelaLogin(){
               <span style={{marginTop:1,flexShrink:0}}><Icon name="alert-octagon" size={15}/></span>{err}
             </div></div>}
           <Btn full size="lg" onClick={login} disabled={loading} icon={loading?undefined:'log-in'}>{loading?'Entrando…':'Entrar'}</Btn>
-          <div className="auth-caption" style={{textAlign:'center',marginTop:'var(--space-4)',fontSize:'var(--text-xs)'}}>Acesso criado pela equipe RealEcom. Esqueceu a senha? Fale com a gente.</div>
+          <div className="auth-caption" style={{textAlign:'center',marginTop:'var(--space-4)',fontSize:'var(--text-sm)'}}>
+            <a href="#" onClick={async e=>{e.preventDefault();
+              if(!email){setErr('Digite o seu e-mail acima e toque de novo em "Esqueci minha senha"');return;}
+              try{await auth.sendPasswordResetEmail(email.trim());setErr('');alert('Enviamos um link para '+email.trim()+' criar uma senha nova. Veja também a caixa de spam.');}
+              catch(er){setErr(er.code==='auth/invalid-email'?'E-mail inválido':'Não consegui enviar. Fale com a equipe RealEcom.');}
+            }}>Esqueci minha senha</a>
+          </div>
         </div>
       </div>
     </div>
