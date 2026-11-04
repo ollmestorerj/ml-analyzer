@@ -307,7 +307,18 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
 const auth=firebase.auth();
 const fns=firebase.app().functions('southamerica-east1');
-const chamar=(fn,args={},seg=70)=>fns.httpsCallable(fn,{timeout:seg*1000})(args).then(r=>r.data);
+const chamar=(fn,args={},seg=70)=>fns.httpsCallable(fn,{timeout:seg*1000})(args).then(r=>r.data).catch(e=>{throw traduzErro(e,fn);});
+// Erros do servidor em portugues, com o que fazer
+function traduzErro(e,fn){
+  const c=String(e?.code||''),m=String(e?.message||'');
+  let t=m;
+  if(c==='functions/internal'&&/^internal$/i.test(m.trim()))t=`O servidor ainda não tem essa função (${fn}). Falta publicar a última versão: no computador, rode o deploy.`;
+  else if(c==='functions/not-found'&&/^not.found$/i.test(m.trim()))t=`O servidor ainda não tem essa função (${fn}). Falta publicar a última versão.`;
+  else if(c==='functions/deadline-exceeded')t='O servidor demorou demais para responder. Tente de novo.';
+  else if(c==='functions/unavailable')t='Sem conexão com o servidor. Confira a internet e tente de novo.';
+  else if(c==='functions/unauthenticated')t='Sua sessão expirou. Saia e entre de novo.';
+  const x=new Error(t);x.code=c;return x;
+}
 
 // Logisticas na ordem de urgencia. Flex sai no dia; a Coleta passa entre 13h e 14h.
 const MODS=[
@@ -679,12 +690,13 @@ async function abrirProdutos(){
 $('pr-cli').onchange=()=>{$('pr-form').innerHTML='';desenharProdutos();};
 $('pr-t-prod').onclick=()=>{prAba='prod';desenharProdutos();};
 $('pr-t-anu').onclick=()=>{prAba='anu';desenharProdutos();};
-$('pr-novo').onclick=()=>formProduto(null);
+$('pr-novo').onclick=async()=>{if(prAba!=='prod'){prAba='prod';await desenharProdutos();}formProduto(null);$('pr-form').scrollIntoView({behavior:'smooth',block:'start'});};
 
 async function desenharProdutos(){
   const contaId=$('pr-cli').value;
   $('pr-t-prod').setAttribute('aria-pressed',prAba==='prod');$('pr-t-anu').setAttribute('aria-pressed',prAba==='anu');
-  $('pr-lista').innerHTML='<div class="vazio">Carregando…</div>';
+  $('pr-lista').innerHTML=`<div class="vazio">${prAba==='anu'?'Buscando os anúncios no Mercado Livre… pode levar alguns segundos.':'Carregando…'}</div>`;
+  if(prAba==='anu')$('pr-form').innerHTML='';
   try{
     if(prAba==='prod'){
       const ps=await produtosDe(contaId,true);
@@ -716,7 +728,7 @@ async function desenharProdutos(){
         </div>`).join('');
       $('pr-lista').querySelectorAll('[data-vc]').forEach(b=>b.onclick=()=>editorVinculo(an.find(a=>a.chave===b.dataset.vc),ps));
     }
-  }catch(e){$('pr-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+  }catch(e){$('pr-lista').innerHTML=`<div class="alerta bad"><b>Não consegui carregar.</b> ${esc(e.message)}</div>`;}
 }
 
 function formProduto(p){
@@ -885,7 +897,7 @@ async function acao(tipo,id,btn){
     if(tipo==='etiqueta'){
       const janela=window.open('','_blank'); // abre antes, senao o navegador bloqueia
       btn.disabled=true;
-      const r=await chamar('prepEtiqueta',{shipmentId:id},60);
+      let r;try{r=await chamar('prepEtiqueta',{shipmentId:id},60);}catch(e){try{janela&&janela.close();}catch{}throw e;}
       const bytes=Uint8Array.from(atob(r.base64),c=>c.charCodeAt(0));
       const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
       if(janela)janela.location=url;else location.href=url;
