@@ -350,7 +350,7 @@ function desenhar(){
   const problemas=naMesa.filter(p=>p.momento==='problema');
   if(problemas.length)al.push(`<div class="alerta bad"><b>${problemas.length} com problema</b> · ${problemas.map(p=>esc(p.clienteNome)+': '+esc(p.problema||'')).join(' · ')}</div>`);
   const amanha=naMesa.filter(p=>p.paraAmanha).length;
-  if(amanha)al.push(`<div class="alerta" style="background:#ECF0FE;color:#1F33A0"><b>${amanha} pacote(s) para amanhã</b> · depois das 18h a fila já mostra o dia seguinte. Faça primeiro o que é de hoje.</div>`);
+  if(amanha)al.push(`<div class="alerta" style="background:#ECF0FE;color:#1F33A0"><b>${amanha} pacote(s) para amanhã</b> · depois das 15h a fila já mostra o dia seguinte. Faça primeiro o que é de hoje.</div>`);
   $('alertas').innerHTML=al.join('');
 
   // Quadro logistica x momento
