@@ -487,6 +487,124 @@ function folhaControle(ids){
   w.document.close();
 }
 
+/* ── Historico de envios ───────────────────────────────── */
+const PERIODOS=[['hoje','Hoje',0,0],['ontem','Ontem',1,1],['7d','7 dias',6,0],['30d','30 dias',29,0]];
+let hist={periodo:'hoje',envios:[],carregando:false};
+const diaISO=off=>{const d=new Date(Date.now()-off*864e5);return d.toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});};
+
+$('m-fila').onclick=()=>trocarVista('fila');
+$('m-hist').onclick=()=>trocarVista('hist');
+$('m-equipe').onclick=()=>trocarVista('equipe');
+function trocarVista(v){
+  [['fila','v-fila','m-fila'],['hist','v-hist','m-hist'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
+    $(vis).classList.toggle('oculto',v!==id);
+    if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
+  });
+  if(v==='hist')carregarHistorico();
+  if(v==='equipe')carregarEquipe();
+}
+
+/* ── Equipe do galpao (so admin) ───────────────────────── */
+const LINK_PREP='https://ollmestorerj.github.io/ml-analyzer/prep.html';
+const msgFunc=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao Prep Center da RealEcom está pronto.\n\nLink: ${LINK_PREP}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso você cria a sua senha. Dica: salve o link na tela inicial do celular.`;
+async function carregarEquipe(){
+  $('equipe-lista').innerHTML='<div class="vazio">Carregando…</div>';
+  try{
+    const lista=await chamar('adminListarEquipe');
+    if(!lista.length){$('equipe-lista').innerHTML='<div class="vazio">Nenhum funcionário ainda. Crie o primeiro login acima.</div>';return;}
+    $('equipe-lista').innerHTML=lista.map(f=>`<article class="hrow" style="border-left-color:${f.ativo?'var(--ok)':'var(--line)'}">
+      <div class="l1"><b style="font-size:15px;color:var(--ink)">${esc(f.nome)}</b>${f.ativo?'':'<span class="st bad">Bloqueado</span>'}${f.trocarSenha?'<span class="st warn">Ainda não criou a senha</span>':''}</div>
+      <div class="meta"><span>${esc(f.email)}</span></div>
+      <div class="l1">
+        <button class="btn" type="button" style="min-height:40px" data-f="senha" data-uid="${esc(f.uid)}" data-nome="${esc(f.nome)}" data-email="${esc(f.email)}">Nova senha provisória</button>
+        <button class="btn" type="button" style="min-height:40px" data-f="${f.ativo?'bloquear':'liberar'}" data-email="${esc(f.email)}">${f.ativo?'Bloquear':'Liberar'}</button>
+      </div></article>`).join('');
+    $('equipe-lista').querySelectorAll('[data-f]').forEach(b=>b.onclick=async()=>{
+      b.disabled=true;
+      try{
+        if(b.dataset.f==='senha'){
+          if(!confirm(`Gerar nova senha provisória para ${b.dataset.email}?`)){b.disabled=false;return;}
+          const r=await chamar('adminNovaSenha',{uid:b.dataset.uid});
+          mostrarCredencial({nome:b.dataset.nome,email:r.email,senha:r.senha});
+        }else{await chamar('adminEquipeAtivo',{email:b.dataset.email,ativo:b.dataset.f==='liberar'});}
+        carregarEquipe();
+      }catch(e){b.disabled=false;erro('Não deu certo',esc(e.message));}
+    });
+  }catch(e){$('equipe-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+}
+function mostrarCredencial(c){
+  const txt=msgFunc(c);
+  $('f-resultado').innerHTML=`<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Login pronto. Copie a mensagem e mande para o funcionário. A senha não aparece de novo.</div>
+    <pre style="margin:0;white-space:pre-wrap;font-family:inherit;font-size:14px;background:var(--sunken);padding:12px;border-radius:8px">${esc(txt)}</pre>
+    <button class="btn pri" type="button" id="f-copiar">Copiar mensagem</button>`;
+  $('f-copiar').onclick=()=>{navigator.clipboard?.writeText(txt);$('f-copiar').textContent='Copiado';};
+  $('f-resultado').scrollIntoView({behavior:'smooth',block:'center'});
+}
+$('form-func').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const nome=$('f-nome').value.trim(),email=$('f-email').value.trim();
+  if(!email){erro('Falta o e-mail','Informe o e-mail do funcionário.');return;}
+  $('f-btn').disabled=true;$('f-resultado').innerHTML='';
+  try{
+    const r=await chamar('adminCriarFuncionario',{nome,email});
+    if(r.jaTinhaLogin)$('f-resultado').innerHTML=`<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">${esc(email)} já tinha login e agora tem acesso ao Prep. Ele entra com a senha que já usa.</div>`;
+    else mostrarCredencial({nome,email:r.email,senha:r.senha});
+    $('f-nome').value='';$('f-email').value='';
+    carregarEquipe();
+  }catch(err){erro('Não criou',esc(err.message));}
+  finally{$('f-btn').disabled=false;}
+});
+$('periodos').innerHTML=PERIODOS.map(([id,nome])=>`<button type="button" data-p="${id}">${nome}</button>`).join('');
+$('periodos').querySelectorAll('button').forEach(b=>b.onclick=()=>{hist.periodo=b.dataset.p;carregarHistorico();});
+['h-cliente','h-mod'].forEach(i=>$(i).onchange=desenharHistorico);
+$('h-busca').oninput=desenharHistorico;
+
+async function carregarHistorico(){
+  const [,,de,ate]=PERIODOS.find(x=>x[0]===hist.periodo);
+  $('periodos').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.p===hist.periodo));
+  $('h-lista').innerHTML='<div class="vazio">Carregando…</div>';
+  try{
+    const r=await chamar('prepHistorico',{de:diaISO(de),ate:diaISO(ate)});
+    hist.envios=r.envios||[];
+    // Opcoes de filtro a partir do que veio
+    const clis=[...new Set(hist.envios.map(e=>e.clienteNome||e.contaId))].sort();
+    const selC=$('h-cliente').value;
+    $('h-cliente').innerHTML='<option value="">Todos os clientes</option>'+clis.map(c=>`<option ${c===selC?'selected':''}>${esc(c)}</option>`).join('');
+    const selM=$('h-mod').value;
+    $('h-mod').innerHTML='<option value="">Todas as logísticas</option>'+MODS.map(m=>`<option value="${m.id}" ${m.id===selM?'selected':''}>${m.nome}</option>`).join('');
+    desenharHistorico();
+  }catch(e){$('h-lista').innerHTML=`<div class="alerta bad">Não consegui carregar o histórico: ${esc(e.message)}</div>`;}
+}
+
+function situacao(e){
+  if(e.statusML==='delivered')return ['ok','Entregue'];
+  if(e.statusML==='not_delivered')return ['bad','Não entregue'];
+  if(e.statusML==='cancelled'||e.etapa==='cancelado')return ['bad','Cancelado'];
+  if(e.etapa==='enviado'||e.statusML==='shipped')return ['ok','Em trânsito'];
+  const horas=(Date.now()-new Date(e.despachadoEm))/36e5;
+  return horas>24?['warn','Sem confirmação do ML há '+Math.floor(horas)+'h']:['neu','Despachado · aguardando o ML'];
+}
+
+function desenharHistorico(){
+  const c=$('h-cliente').value,m=$('h-mod').value,q=$('h-busca').value.trim().toLowerCase();
+  const lista=hist.envios.filter(e=>(!c||(e.clienteNome||e.contaId)===c)&&(!m||e.modalidade===m)&&
+    (!q||[e.shipmentId,...(e.pedidos||[]),...(e.itens||[]).map(i=>i.titulo+' '+(i.sku||''))].join(' ').toLowerCase().includes(q)));
+  $('h-resumo').innerHTML=`<span class="tab">${lista.length} envio(s)</span>`+
+    MODS.map(x=>{const n=lista.filter(e=>e.modalidade===x.id).length;return n?`<span class="tab"><i style="background:${x.cor}"></i>${x.nome} ${n}</span>`:'';}).join('');
+  if(!lista.length){$('h-lista').innerHTML='<div class="vazio">Nenhum envio nesse período.</div>';return;}
+  $('h-lista').innerHTML=lista.map(e=>{
+    const md=modDe(e.modalidade),[cls,txt]=situacao(e),d=new Date(e.despachadoEm),id=esc(e.shipmentId);
+    return `<article class="hrow" style="border-left-color:${md.cor}">
+      <div class="l1"><span class="pill" style="background:${md.cor}">${md.nome}</span><b style="font-size:15px;color:var(--ink)">${esc(e.clienteNome||e.contaId)}</b>
+        <span class="quando tab">${diaMes(d)} ${hora(d)}</span></div>
+      ${(e.itens||[]).map(i=>`<div class="item"><span class="q tab" style="font-size:17px;min-width:30px">${esc(i.qtd)}×</span><div class="t"><b style="font-size:14px">${esc(i.titulo)}</b></div></div>`).join('')}
+      <div class="l1"><span class="st ${cls}">${txt}</span>${e.atrasado?'<span class="st bad">Saiu atrasado</span>':''}${e.temFoto?'':'<span class="st warn">Sem foto</span>'}</div>
+      <div class="meta"><span class="mono">envio ${id}</span>${e.despachadoPor?`<span>por ${esc(String(e.despachadoPor).split('@')[0])}</span>`:''}</div>
+      ${e.temFoto?`<button class="btn" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px;align-self:flex-start">Ver foto</button>`:''}
+    </article>`;}).join('');
+  $('h-lista').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
+}
+
 /* ── Acoes ─────────────────────────────────────────────── */
 let fotoPara=null;
 async function acao(tipo,id,btn){
