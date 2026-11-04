@@ -99,8 +99,18 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   .etapa-cab .dica{margin-left:0;text-align:left;width:100%}
 }
 
-.menu{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;background:var(--line-soft);padding:4px;border-radius:10px}
-.menu button{min-height:46px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:800;font-size:15px}
+.menu{display:flex;gap:4px;background:var(--line-soft);padding:4px;border-radius:10px;overflow-x:auto;scrollbar-width:none}
+.menu button{flex:1 0 auto;min-height:46px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:800;font-size:15px;white-space:nowrap}
+.cad{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.cad label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--muted);flex:1 1 140px;min-width:0}
+.cad input,.cad select,.cad textarea{height:44px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font:inherit;font-size:15px;background:#fff;color:var(--body);min-width:0}
+.cad .lin{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.prow{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.prow .sku{font-family:'JetBrains Mono',Menlo,monospace;font-size:13px;font-weight:600;color:var(--ink);background:var(--sunken);padding:4px 8px;border-radius:6px}
+.prow .est{margin-left:auto;text-align:right;line-height:1.1}
+.prow .est b{font-size:22px;font-weight:800;color:var(--ink)}
+.prow .est span{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.chip-sku{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:var(--ok-bg);color:var(--ok-fg);font-size:12px;font-weight:800}
 .menu button[aria-current="page"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,17,17,.12)}
 .hist-filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .hist-filtros select,.hist-filtros input{height:44px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font:inherit;font-size:15px;background:#fff;min-width:0}
@@ -216,6 +226,8 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   <main>
     <nav class="menu" aria-label="Seções">
       <button type="button" id="m-fila" aria-current="page">Fila do dia</button>
+      <button type="button" id="m-receber">Receber</button>
+      <button type="button" id="m-produtos">Produtos</button>
       <button type="button" id="m-hist">Histórico</button>
       <button type="button" id="m-equipe" class="oculto">Equipe</button>
     </nav>
@@ -232,6 +244,25 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
         <div id="f-resultado"></div>
       </form>
       <div class="hist" id="equipe-lista"></div>
+    </section>
+
+    <section id="v-produtos" class="oculto" style="display:flex;flex-direction:column;gap:12px">
+      <div class="cad"><div class="lin">
+        <label>Cliente (dono do estoque)<select id="pr-cli"></select></label>
+        <button class="btn pri" type="button" id="pr-novo">+ Novo produto</button>
+      </div>
+      <div class="dias" role="group" aria-label="Ver"><button type="button" id="pr-t-prod" aria-pressed="true">Produtos e estoque</button><button type="button" id="pr-t-anu" aria-pressed="false">Anúncios e vínculos</button></div></div>
+      <div id="pr-form"></div>
+      <div id="pr-lista" class="hist"></div>
+    </section>
+
+    <section id="v-receber" class="oculto" style="display:flex;flex-direction:column;gap:12px">
+      <div class="lin" style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="dias" role="group" aria-label="Recebimentos" style="flex:1 1 260px"><button type="button" id="rc-t-ag" aria-pressed="true">A receber</button><button type="button" id="rc-t-ok" aria-pressed="false">Conferidos</button></div>
+        <button class="btn pri" type="button" id="rc-novo">+ Aviso de chegada</button>
+      </div>
+      <div id="rc-form"></div>
+      <div id="rc-lista" class="hist"></div>
     </section>
 
     <section id="v-hist" class="oculto" style="display:flex;flex-direction:column;gap:12px">
@@ -512,13 +543,17 @@ const diaISO=off=>{const d=new Date(Date.now()-off*864e5);return d.toLocaleDateS
 $('m-fila').onclick=()=>trocarVista('fila');
 $('m-hist').onclick=()=>trocarVista('hist');
 $('m-equipe').onclick=()=>trocarVista('equipe');
+$('m-produtos').onclick=()=>trocarVista('produtos');
+$('m-receber').onclick=()=>trocarVista('receber');
 function trocarVista(v){
-  [['fila','v-fila','m-fila'],['hist','v-hist','m-hist'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
+  [['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['hist','v-hist','m-hist'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
     $(vis).classList.toggle('oculto',v!==id);
     if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
   });
   if(v==='hist')carregarHistorico();
   if(v==='equipe')carregarEquipe();
+  if(v==='produtos')abrirProdutos();
+  if(v==='receber')abrirReceber();
 }
 
 /* ── Equipe do galpao (so admin) ───────────────────────── */
@@ -620,6 +655,227 @@ function desenharHistorico(){
       ${e.temFoto?`<button class="btn" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px;align-self:flex-start">Ver foto</button>`:''}
     </article>`;}).join('');
   $('h-lista').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
+}
+
+/* ── Produtos, vínculos e estoque ───────────────────────── */
+let clientesPrep=[], prodCache={}, prAba='prod';
+async function garantirClientes(){
+  if(!clientesPrep.length)clientesPrep=(await chamar('prepClientesListar')).filter(c=>c.ativo);
+  return clientesPrep;
+}
+function opcoesClientes(sel,id){
+  sel.innerHTML=clientesPrep.map(c=>`<option value="${esc(c.contaId)}" ${c.contaId===id?'selected':''}>${esc(c.nome)}${c.prefixo?' ('+esc(c.prefixo)+')':''}</option>`).join('');
+}
+async function produtosDe(contaId,forcar){
+  if(forcar||!prodCache[contaId])prodCache[contaId]=await chamar('prepProdutosListar',{contaId});
+  return prodCache[contaId];
+}
+async function abrirProdutos(){
+  try{await garantirClientes();}catch(e){$('pr-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  if(!clientesPrep.length){$('pr-lista').innerHTML='<div class="vazio">Nenhum cliente no prep ainda. Ligue um cliente pelo ML Analyzer (Mentorados → Ligar ao prep).</div>';return;}
+  const atual=$('pr-cli').value||clientesPrep[0].contaId;opcoesClientes($('pr-cli'),atual);
+  desenharProdutos();
+}
+$('pr-cli').onchange=()=>{$('pr-form').innerHTML='';desenharProdutos();};
+$('pr-t-prod').onclick=()=>{prAba='prod';desenharProdutos();};
+$('pr-t-anu').onclick=()=>{prAba='anu';desenharProdutos();};
+$('pr-novo').onclick=()=>formProduto(null);
+
+async function desenharProdutos(){
+  const contaId=$('pr-cli').value;
+  $('pr-t-prod').setAttribute('aria-pressed',prAba==='prod');$('pr-t-anu').setAttribute('aria-pressed',prAba==='anu');
+  $('pr-lista').innerHTML='<div class="vazio">Carregando…</div>';
+  try{
+    if(prAba==='prod'){
+      const ps=await produtosDe(contaId,true);
+      if(!ps.length){$('pr-lista').innerHTML='<div class="vazio"><b>Nenhum produto cadastrado</b>Toque em "+ Novo produto" para cadastrar o primeiro. O SKU é gerado sozinho.</div>';return;}
+      const cm=m=>[m.altura,m.largura,m.comprimento].every(Boolean)?`${m.altura}×${m.largura}×${m.comprimento} cm`:'sem medidas';
+      $('pr-lista').innerHTML=ps.map(p=>`<div class="prow">
+        <span class="sku">${esc(p.sku)}</span>
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px"><b style="font-size:15px;color:var(--ink)">${esc(p.nome)}</b>
+          <span style="font-size:12px;color:var(--muted)">${cm(p.medidas||{})}${p.medidas?.peso?' · '+p.medidas.peso+' g':''}${p.prateleira?' · prateleira '+esc(p.prateleira):''}${p.eans?.length?' · cód. '+esc(p.eans.join(', ')):''}</span></div>
+        <div class="est"><b class="tab" style="${p.estoque<=0?'color:var(--bad-fg)':''}">${p.estoque}</b><span>em estoque</span></div>
+        <div style="display:flex;gap:6px;width:100%">
+          <button class="btn" type="button" style="min-height:38px" data-pe="${esc(p.sku)}">Editar</button>
+          <button class="btn" type="button" style="min-height:38px" data-pl="${esc(p.sku)}">Etiqueta do SKU</button></div>
+      </div>`).join('');
+      $('pr-lista').querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>formProduto(ps.find(p=>p.sku===b.dataset.pe)));
+      $('pr-lista').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>etiquetaSku(ps.find(p=>p.sku===b.dataset.pl)));
+    }else{
+      const [r,ps]=await Promise.all([chamar('prepAnunciosConta',{contaId},120),produtosDe(contaId)]);
+      const an=r.anuncios||[];
+      if(!an.length){$('pr-lista').innerHTML='<div class="vazio">Nenhum anúncio ativo fora do Full nessa conta.</div>';return;}
+      $('pr-lista').innerHTML=(r.semVinculo?`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)"><b>${r.semVinculo} anúncio(s) sem vínculo.</b> Venda deles entra na fila, mas não dá baixa no estoque até vincular.</div>`:'<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Todos os anúncios estão vinculados.</div>')+
+        an.sort((a,b)=>(a.receita.length?1:0)-(b.receita.length?1:0)).map(a=>`<div class="prow" style="${a.receita.length?'':'border-color:#F0A500'}">
+          ${a.foto?`<img src="${esc(a.foto)}" alt="" width="44" height="44" style="border-radius:6px;object-fit:cover">`:''}
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 200px"><b style="font-size:14px;color:var(--ink)">${esc(a.titulo)}</b>
+            <span style="font-size:12px;color:var(--muted)">${a.variacaoTexto?esc(a.variacaoTexto)+' · ':''}<span class="mono">${esc(a.itemId)}</span></span>
+            <span style="display:flex;flex-wrap:wrap;gap:4px">${a.receita.length?a.receita.map(x=>`<span class="chip-sku">${x.qtd}× ${esc(x.sku)}</span>`).join(''):'<span class="tag warn">Sem vínculo</span>'}</span></div>
+          <button class="btn ${a.receita.length?'':'pri'}" type="button" style="min-height:40px" data-vc="${esc(a.chave)}">${a.receita.length?'Alterar':'Vincular'}</button>
+          <div id="vc-${esc(a.chave)}" style="width:100%"></div>
+        </div>`).join('');
+      $('pr-lista').querySelectorAll('[data-vc]').forEach(b=>b.onclick=()=>editorVinculo(an.find(a=>a.chave===b.dataset.vc),ps));
+    }
+  }catch(e){$('pr-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+}
+
+function formProduto(p){
+  const m=p?.medidas||{};
+  $('pr-form').innerHTML=`<form class="cad" id="fp" autocomplete="off">
+    <h2>${p?'Editar '+esc(p.sku):'Novo produto · '+esc((clientesPrep.find(c=>c.contaId===$('pr-cli').value)||{}).nome||'')}</h2>
+    ${p?'':'<span style="font-size:13px;color:var(--muted)">O SKU interno é gerado sozinho, com o prefixo desse cliente. Mesmo produto de outro cliente vira outro SKU.</span>'}
+    <div class="lin"><label>Nome do produto<input id="fp-nome" required value="${esc(p?.nome||'')}" placeholder="Ex.: Saco lava tênis"></label></div>
+    <div class="lin"><label>O que é (descrição curta)<input id="fp-desc" value="${esc(p?.descricao||'')}" placeholder="Ex.: saco de tela com zíper, cor branca"></label></div>
+    <div class="lin"><label>Código de barras da embalagem (opcional)<input id="fp-ean" inputmode="numeric" value="${esc((p?.eans||[]).join(', '))}" placeholder="Bipe ou digite"></label><button class="btn" type="button" id="fp-cam">Câmera</button></div>
+    <span style="font-size:13px;font-weight:800;color:var(--ink)">Medidas do produto embalado, como sai</span>
+    <div class="lin">
+      <label>Altura (cm)<input id="fp-alt" inputmode="decimal" value="${m.altura??''}"></label>
+      <label>Largura (cm)<input id="fp-lar" inputmode="decimal" value="${m.largura??''}"></label>
+      <label>Comprimento (cm)<input id="fp-com" inputmode="decimal" value="${m.comprimento??''}"></label>
+      <label>Peso (g)<input id="fp-pes" inputmode="decimal" value="${m.peso??''}"></label>
+    </div>
+    <div class="lin"><label>Prateleira (opcional)<input id="fp-pra" value="${esc(p?.prateleira||'')}" placeholder="Ex.: B3"></label></div>
+    <div class="lin"><button class="btn pri" type="submit" id="fp-ok">${p?'Salvar':'Cadastrar e gerar SKU'}</button><button class="btn" type="button" id="fp-x">Cancelar</button></div>
+  </form>`;
+  $('fp-x').onclick=()=>{$('pr-form').innerHTML='';};
+  $('fp-cam').onclick=()=>abrirCamera('Bipe o código de barras da embalagem',t=>{$('fp-ean').value=[$('fp-ean').value,t].filter(Boolean).join(', ');},true);
+  $('fp').onsubmit=async e=>{
+    e.preventDefault();$('fp-ok').disabled=true;
+    try{
+      const r=await chamar('prepProdutoSalvar',{contaId:$('pr-cli').value,sku:p?.sku||null,nome:$('fp-nome').value,descricao:$('fp-desc').value,ean:$('fp-ean').value,
+        altura:$('fp-alt').value,largura:$('fp-lar').value,comprimento:$('fp-com').value,peso:$('fp-pes').value,prateleira:$('fp-pra').value});
+      clientesPrep=[];await garantirClientes();opcoesClientes($('pr-cli'),$('pr-cli').value);
+      som(true);
+      $('pr-form').innerHTML=`<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">${p?'Produto salvo.':`Produto cadastrado com o SKU <b class="mono">${esc(r.sku)}</b>. Imprima a etiqueta do SKU e vincule os anúncios.`}</div>`;
+      prAba='prod';await desenharProdutos();
+    }catch(err){$('fp-ok').disabled=false;som(false);erro('Não salvou',esc(err.message));}
+  };
+  $('fp-nome').focus();
+}
+
+// Etiqueta do SKU interno (codigo de barras) para colar no produto ou na prateleira
+function etiquetaSku(p){
+  const n=Math.max(1,Math.min(500,parseInt(prompt(`Quantas etiquetas de ${p.sku}?`,'1'),10)||0));
+  if(!n)return;
+  const w=window.open('','_blank');if(!w){erro('Bloqueado','Libere as janelas (pop-ups) para imprimir.');return;}
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(p.sku)}</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+  <style>@page{size:60mm 40mm;margin:0}body{margin:0;font-family:Arial,sans-serif}.e{width:60mm;height:40mm;box-sizing:border-box;padding:2mm 3mm;display:flex;flex-direction:column;align-items:center;justify-content:center;page-break-after:always;overflow:hidden}
+  .e b{font-size:13pt}.e span{font-size:8pt;text-align:center;max-height:8mm;overflow:hidden}svg{width:100%;height:16mm}</style></head><body>
+  ${Array.from({length:n},()=>`<div class="e"><b>${esc(p.sku)}</b><svg class="bc"></svg><span>${esc(p.nome)} · ${esc(p.clienteNome||'')}</span></div>`).join('')}
+  <script>JsBarcode('.bc',${JSON.stringify(p.sku)},{format:'CODE128',displayValue:false,margin:0});window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
+}
+
+// Vinculo: anuncio/variacao -> quais produtos e quantos
+function editorVinculo(a,ps){
+  const alvo=document.getElementById('vc-'+a.chave);
+  if(!ps.length){alvo.innerHTML='<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Cadastre o produto primeiro, na aba Produtos e estoque.</div>';return;}
+  const sug=(()=>{const t=(a.titulo+' '+a.variacaoTexto).toLowerCase();const m=t.match(/kit\s*(?:com\s*)?(\d+)|(\d+)\s*(?:un|unid|unidades|peças|pecas|pçs|pcs)\b|\bc\/\s*(\d+)/);return m?Number(m[1]||m[2]||m[3]):1;})();
+  let linhas=a.receita.length?a.receita.map(x=>({...x})):[{sku:ps[0].sku,qtd:sug}];
+  const desenhar_=()=>{
+    alvo.innerHTML=`<div class="cad" style="margin-top:8px">
+      ${linhas.map((l,k)=>`<div class="lin"><label>Produto<select data-ls="${k}">${ps.map(p=>`<option value="${esc(p.sku)}" ${p.sku===l.sku?'selected':''}>${esc(p.sku)} · ${esc(p.nome)}</option>`).join('')}</select></label>
+        <label style="flex:0 0 100px">Quantos<input data-lq="${k}" inputmode="numeric" value="${l.qtd}"></label>
+        ${linhas.length>1?`<button class="btn" type="button" data-lr="${k}" style="min-height:44px">Tirar</button>`:''}</div>`).join('')}
+      <span style="font-size:12px;color:var(--muted)">Cada venda deste anúncio dá baixa nessas quantidades. ${sug>1&&!a.receita.length?`Sugeri ${sug} pelo título.`:''}</span>
+      <div class="lin"><button class="btn" type="button" id="vc-add">+ Outro produto (kit misto)</button><button class="btn pri" type="button" id="vc-ok">Salvar vínculo</button></div></div>`;
+    alvo.querySelectorAll('[data-ls]').forEach(x=>x.onchange=()=>{linhas[x.dataset.ls].sku=x.value;});
+    alvo.querySelectorAll('[data-lq]').forEach(x=>x.oninput=()=>{linhas[x.dataset.lq].qtd=x.value;});
+    alvo.querySelectorAll('[data-lr]').forEach(x=>x.onclick=()=>{linhas.splice(Number(x.dataset.lr),1);desenhar_();});
+    alvo.querySelector('#vc-add').onclick=()=>{linhas.push({sku:ps[0].sku,qtd:1});desenhar_();};
+    alvo.querySelector('#vc-ok').onclick=async e=>{
+      e.currentTarget.disabled=true;
+      try{await chamar('prepVinculoSalvar',{contaId:$('pr-cli').value,itemId:a.itemId,variacao:a.variacao,titulo:a.titulo,itens:linhas});som(true);desenharProdutos();}
+      catch(err){e.currentTarget.disabled=false;som(false);erro('Não salvou',esc(err.message));}
+    };
+  };
+  desenhar_();
+}
+
+/* ── Recebimento ───────────────────────────────────────── */
+let rcAba='aguardando';
+async function abrirReceber(){try{await garantirClientes();}catch{} desenharReceber();}
+$('rc-t-ag').onclick=()=>{rcAba='aguardando';desenharReceber();};
+$('rc-t-ok').onclick=()=>{rcAba='conferido';desenharReceber();};
+$('rc-novo').onclick=()=>formAviso();
+
+async function desenharReceber(){
+  $('rc-t-ag').setAttribute('aria-pressed',rcAba==='aguardando');$('rc-t-ok').setAttribute('aria-pressed',rcAba==='conferido');
+  $('rc-lista').innerHTML='<div class="vazio">Carregando…</div>';
+  try{
+    const lista=await chamar('prepRecebimentosListar',{status:rcAba});
+    $('m-receber').textContent=rcAba==='aguardando'&&lista.length?`Receber ${lista.length}`:'Receber';
+    if(!lista.length){$('rc-lista').innerHTML=`<div class="vazio">${rcAba==='aguardando'?'Nenhuma mercadoria para chegar. Toque em "+ Aviso de chegada" quando um cliente avisar que vai mandar.':'Nenhum recebimento conferido ainda.'}</div>`;return;}
+    $('rc-lista').innerHTML=lista.map(r=>`<article class="hrow" style="border-left-color:${r.status==='conferido'?(r.totalAvariadas?'var(--warn-fg)':'var(--ok)'):'var(--orange)'}">
+      <div class="l1"><b style="font-size:15px;color:var(--ink)">${esc(r.clienteNome)}</b>
+        <span class="quando">${r.status==='conferido'?'conferido '+(r.conferidoEm?diaMes(new Date(r.conferidoEm)):''):(r.previsto?'chega '+r.previsto.split('-').reverse().slice(0,2).join('/'):'sem data')}</span></div>
+      ${(r.itens||[]).map(i=>`<div class="item"><span class="q tab" style="font-size:17px;min-width:44px">${r.status==='conferido'?i.boas:i.avisado}</span><div class="t"><b style="font-size:14px">${esc(i.nome)}</b><span><span class="mono">${esc(i.sku)}</span>${r.status==='conferido'?` · avisado ${i.avisado} · chegou ${i.chegou}${i.avariadas?` · <span style="color:var(--bad-fg)">${i.avariadas} avariada(s)</span>`:''}${i.obs?' · '+esc(i.obs):''}`:''}</span></div></div>`).join('')}
+      ${r.status==='aguardando'?`<button class="btn pri" type="button" data-rc="${esc(r.id)}">Conferir chegada</button>`:''}
+      <div id="cf-${esc(r.id)}"></div>
+    </article>`).join('');
+    $('rc-lista').querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>formConferir(lista.find(r=>r.id===b.dataset.rc)));
+  }catch(e){$('rc-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+}
+
+async function formAviso(){
+  await garantirClientes();
+  if(!clientesPrep.length){erro('Sem clientes','Ligue um cliente ao prep primeiro.');return;}
+  let contaId=clientesPrep[0].contaId, linhas=[];
+  const desenhar_=async()=>{
+    const ps=await produtosDe(contaId);
+    if(!linhas.length&&ps.length)linhas=[{sku:ps[0].sku,avisado:''}];
+    $('rc-form').innerHTML=`<form class="cad" id="fa" autocomplete="off"><h2>Aviso de chegada</h2>
+      <div class="lin"><label>Cliente<select id="fa-cli"></select></label><label>Chega em<input id="fa-data" type="date"></label></div>
+      ${ps.length?linhas.map((l,k)=>`<div class="lin"><label>Produto<select data-as="${k}">${ps.map(p=>`<option value="${esc(p.sku)}" ${p.sku===l.sku?'selected':''}>${esc(p.sku)} · ${esc(p.nome)}</option>`).join('')}</select></label>
+        <label style="flex:0 0 110px">Quantidade<input data-aq="${k}" inputmode="numeric" value="${esc(l.avisado)}"></label>${linhas.length>1?`<button class="btn" type="button" data-ar="${k}" style="min-height:44px">Tirar</button>`:''}</div>`).join('')
+        :'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Esse cliente ainda não tem produtos. Cadastre em <b>Produtos</b> primeiro.</div>'}
+      <div class="lin">${ps.length?'<button class="btn" type="button" id="fa-add">+ Outro produto</button><button class="btn pri" type="submit" id="fa-ok">Salvar aviso</button>':''}<button class="btn" type="button" id="fa-x">Cancelar</button></div></form>`;
+    opcoesClientes($('fa-cli'),contaId);
+    $('fa-cli').onchange=()=>{contaId=$('fa-cli').value;linhas=[];desenhar_();};
+    $('fa-x').onclick=()=>{$('rc-form').innerHTML='';};
+    $('rc-form').querySelectorAll('[data-as]').forEach(x=>x.onchange=()=>{linhas[x.dataset.as].sku=x.value;});
+    $('rc-form').querySelectorAll('[data-aq]').forEach(x=>x.oninput=()=>{linhas[x.dataset.aq].avisado=x.value;});
+    $('rc-form').querySelectorAll('[data-ar]').forEach(x=>x.onclick=()=>{linhas.splice(Number(x.dataset.ar),1);desenhar_();});
+    if($('fa-add'))$('fa-add').onclick=()=>{linhas.push({sku:ps[0].sku,avisado:''});desenhar_();};
+    $('fa').onsubmit=async e=>{e.preventDefault();$('fa-ok').disabled=true;
+      try{await chamar('prepRecebimentoCriar',{contaId,previsto:$('fa-data').value,itens:linhas});som(true);$('rc-form').innerHTML='';rcAba='aguardando';desenharReceber();}
+      catch(err){$('fa-ok').disabled=false;som(false);erro('Não salvou',esc(err.message));}};
+  };
+  desenhar_();
+}
+
+function formConferir(r){
+  const alvo=document.getElementById('cf-'+r.id);
+  let fotoRc=null;
+  alvo.innerHTML=`<div class="cad" style="margin-top:6px"><h2>Conferência</h2>
+    <span style="font-size:13px;color:var(--muted)">Conte o que chegou. Só entra no estoque o que veio em boas condições.</span>
+    ${r.itens.map(i=>`<div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px solid var(--line-soft)">
+      <b style="font-size:14px;color:var(--ink)">${esc(i.nome)} <span class="mono" style="font-weight:500;color:var(--subtle)">${esc(i.sku)}</span> · avisado ${i.avisado}</b>
+      <div class="lin"><label>Chegou<input data-cc="${esc(i.sku)}" inputmode="numeric" value="${i.avisado}"></label>
+        <label>Avariadas<input data-ca="${esc(i.sku)}" inputmode="numeric" value="0"></label>
+        <label style="flex:2 1 200px">Observação<input data-co="${esc(i.sku)}" placeholder="Ex.: 2 com a caixa amassada"></label></div></div>`).join('')}
+    <div class="lin"><button class="btn" type="button" id="cf-foto-${esc(r.id)}">Foto das avarias (opcional)</button><span id="cf-fs-${esc(r.id)}" style="font-size:13px;color:var(--ok-fg)"></span></div>
+    <button class="btn pri full" type="button" id="cf-ok-${esc(r.id)}">Confirmar e dar entrada no estoque</button></div>`;
+  document.getElementById('cf-foto-'+r.id).onclick=()=>{
+    const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';
+    inp.onchange=async()=>{const f=inp.files?.[0];if(!f)return;
+      const img=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=URL.createObjectURL(f);});
+      const k=Math.min(1,1024/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);fotoRc=c.toDataURL('image/jpeg',0.6).split(',')[1];
+      document.getElementById('cf-fs-'+r.id).textContent='Foto pronta ✓';};
+    inp.click();
+  };
+  document.getElementById('cf-ok-'+r.id).onclick=async e=>{
+    const itens=r.itens.map(i=>({sku:i.sku,chegou:alvo.querySelector(`[data-cc="${i.sku}"]`).value,avariadas:alvo.querySelector(`[data-ca="${i.sku}"]`).value,obs:alvo.querySelector(`[data-co="${i.sku}"]`).value}));
+    const total=itens.reduce((s,x)=>s+(parseInt(x.chegou,10)||0)-(parseInt(x.avariadas,10)||0),0);
+    if(!confirm(`Dar entrada de ${total} unidade(s) em boas condições no estoque de ${r.clienteNome}?`))return;
+    e.currentTarget.disabled=true;
+    try{await chamar('prepRecebimentoConferir',{id:r.id,itens,fotoBase64:fotoRc},60);som(true);
+      telaCheia('#0E9F6E',`<div class="m">ESTOQUE ATUALIZADO</div><div class="g">${esc(r.clienteNome).toUpperCase()}</div><div class="m">${total} unidade(s) entraram</div><button class="btn" type="button" id="ov-ok">OK</button>`);
+      prodCache={};desenharReceber();}
+    catch(err){e.currentTarget.disabled=false;som(false);erro('Não conferiu',esc(err.message));}
+  };
 }
 
 /* ── Acoes ─────────────────────────────────────────────── */
@@ -743,7 +999,8 @@ function desenharExec(){
   if(p.momento==='foto')principal=`<button class="btn pri full ex-main" type="button" id="ex-foto">Tirar foto da caixa</button>`;
   $('exec').innerHTML=`<div class="ex-cab" style="background:${m.cor}"><small>Fazendo agora · ${m.nome}${p.atrasado?' · ATRASADO':''}</small><b id="exec-cli">${esc(p.clienteNome||p.contaId)}</b><span style="font-size:13px;opacity:.9" class="mono">envio ${esc(p.shipmentId)}</span></div>
     <div class="ex-corpo">
-      ${(p.itens||[]).map(i=>`<div class="ex-item"><span class="q tab">${esc(i.qtd)}×</span><div style="display:flex;flex-direction:column;gap:2px"><b>${esc(i.titulo)}</b><span style="font-size:13px;color:var(--subtle)">${i.atributos?esc(i.atributos)+' · ':''}<span class="mono">${esc(i.sku||'sem SKU')}</span></span></div></div>`).join('')}
+      ${(p.itens||[]).map(i=>`<div class="ex-item"><span class="q tab">${esc(i.qtd)}×</span><div style="display:flex;flex-direction:column;gap:4px"><b>${esc(i.titulo)}</b><span style="font-size:13px;color:var(--subtle)">${i.atributos?esc(i.atributos):''}</span>
+        ${i.receita?`<span style="display:flex;flex-wrap:wrap;gap:4px">${i.receita.map(r=>`<span class="chip-sku">Pegar ${r.qtd*(Number(i.qtd)||1)}× <span class="mono">${esc(r.sku)}</span></span>`).join('')}</span>`:'<span class="tag warn" style="align-self:flex-start">Anúncio sem vínculo com produto · vincule em Produtos</span>'}</div></div>`).join('')}
       <div class="ex-passos">${['Imprimir','Bipar etiqueta','Foto'].map((t,k)=>`<div class="ex-passo ${k+1<passo?'feito':k+1===passo?'agora':''}">${k+1<passo?'✓ ':''}${t}</div>`).join('')}</div>
       <div class="ex-instr">${instr}</div>
       ${principal}
@@ -836,7 +1093,7 @@ async function enviarFoto(c,_){
 
 /* ── Camera ────────────────────────────────────────────── */
 let leitor=null;
-async function abrirCamera(titulo,aoLer){
+async function abrirCamera(titulo,aoLer,cru){
   if(!window.Html5Qrcode){erro('Câmera indisponível','O leitor da câmera não carregou. Atualize a página.');return;}
   $('scanner-titulo').textContent=titulo;
   $('scanner').classList.remove('oculto');$('scanner-msg').textContent='Abrindo a câmera…';
@@ -847,7 +1104,7 @@ async function abrirCamera(titulo,aoLer){
     await leitor.start({facingMode:'environment'},{fps:12,qrbox:(w,h)=>({width:Math.min(w*0.9,420),height:Math.min(h*0.5,220)})},
       async texto=>{
         if(lido)return;
-        const id=idDaEtiqueta(texto);
+        const id=cru?String(texto).trim():idDaEtiqueta(texto);
         if(!id){$('scanner-msg').textContent='Esse código não é de etiqueta do ML. Tente o outro código da etiqueta.';return;}
         lido=true;await fecharCamera();aoLer(id);
       });
