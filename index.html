@@ -5420,6 +5420,7 @@ const NAV=[
   {id:'consulta',icon:'terminal',label:'Consulta livre',curto:'Consulta',soAdmin:true},
   {id:'ia',icon:'sparkles',label:'Análise IA',curto:'IA',soAdmin:true},
   {id:'hub',icon:'users',label:'Mentorados',curto:'Hub',soAdmin:true},
+  {id:'prep',icon:'warehouse',label:'Prep Center ↗',curto:'Prep',soAdmin:true,link:'prep.html'},
   {id:'contas',soAdmin:true,icon:'store',label:'Contas',curto:'Contas'},
 ];
 /* Sidebar — casca escura, item ativo em laranja sólido */
@@ -5547,6 +5548,8 @@ function AppLogado({user,erroConexao}){
   const requestId=useRef(0);
   const descartarSeNecessario=()=>!dirty||window.confirm('Há alterações não salvas. Deseja descartá-las?');
   function navegar(id){
+    const externo=NAV.find(n=>n.id===id)?.link;
+    if(externo){window.open(externo,'_blank');return;} // Prep Center abre em outra aba
     if(id===view)return;
     if(!descartarSeNecessario())return;
     setDirty(false);setFiltroCustos(false);setFiltroPedidos('todos');setView(id);
