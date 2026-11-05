@@ -179,6 +179,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .tela-cheia .g{font-size:clamp(32px,9vw,60px);font-weight:800;line-height:1.05}
 .tela-cheia .m{font-size:clamp(17px,4.5vw,24px);font-weight:700;max-width:640px}
 .tela-cheia .btn{margin-top:8px;min-height:56px;font-size:18px;min-width:220px}
+#zoom-bts button[aria-pressed="true"]{background:var(--orange-d);color:#fff;border-color:transparent}
 .foto-grande{max-width:100%;max-height:70vh;border-radius:8px}
 
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--nav)}
@@ -298,6 +299,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 <div id="scanner" class="tela-cheia oculto" style="background:#100D14;justify-content:flex-start;padding-top:28px">
   <div class="m" id="scanner-titulo">Aponte para o código da etiqueta</div>
   <div id="leitor" style="width:100%;max-width:520px;border-radius:8px;overflow:hidden;background:#000"></div>
+  <div id="zoom-bts" class="oculto" style="display:flex;gap:8px" role="group" aria-label="Aproximar"></div>
   <div class="m" id="scanner-msg" style="font-size:15px;color:rgba(255,255,255,.75)"></div>
   <button class="btn" type="button" id="b-scanner-fechar">Fechar câmera</button>
 </div>
@@ -1111,18 +1113,40 @@ async function abrirCamera(titulo,aoLer,cru){
   if(!window.Html5Qrcode){erro('Câmera indisponível','O leitor da câmera não carregou. Atualize a página.');return;}
   $('scanner-titulo').textContent=titulo;
   $('scanner').classList.remove('oculto');$('scanner-msg').textContent='Abrindo a câmera…';
+  $('zoom-bts').classList.add('oculto');$('zoom-bts').innerHTML='';
   try{
     const F=window.Html5QrcodeSupportedFormats;
-    leitor=new Html5Qrcode('leitor',{verbose:false,formatsToSupport:[F.QR_CODE,F.CODE_128,F.CODE_39,F.EAN_13,F.ITF],experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    // So os formatos que importam: menos formatos = leitura mais rapida
+    const formatos=cru?[F.EAN_13,F.EAN_8,F.UPC_A,F.CODE_128]:[F.CODE_128,F.QR_CODE];
+    leitor=new Html5Qrcode('leitor',{verbose:false,formatsToSupport:formatos,experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
     let lido=false;
-    await leitor.start({facingMode:'environment'},{fps:12,qrbox:(w,h)=>({width:Math.min(w*0.9,420),height:Math.min(h*0.5,220)})},
+    await leitor.start({facingMode:'environment'},{
+        fps:20,
+        // Faixa larga e baixa: o codigo de barras da etiqueta e comprido
+        qrbox:(w,h)=>({width:Math.floor(w*0.92),height:Math.floor(Math.min(h*0.45,260))}),
+        disableFlip:true,
+        videoConstraints:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]}
+      },
       async texto=>{
         if(lido)return;
         const id=cru?String(texto).trim():idDaEtiqueta(texto);
         if(!id){$('scanner-msg').textContent='Esse código não é de etiqueta do ML. Tente o outro código da etiqueta.';return;}
         lido=true;await fecharCamera();aoLer(id);
       });
-    $('scanner-msg').textContent='';
+    $('scanner-msg').textContent='Aproxime até o código ocupar a faixa.';
+    // Zoom: angulo mais fechado, le de mais longe e mais rapido
+    try{
+      const cap=leitor.getRunningTrackCapabilities?.()||{};
+      if(cap.zoom&&cap.zoom.max>1){
+        const max=Math.min(cap.zoom.max,4), niveis=[1,2,3,4].filter(z=>z<=max);
+        const aplicar=async z=>{try{await leitor.applyVideoConstraints({advanced:[{zoom:z}]});}catch{}
+          $('zoom-bts').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',Number(x.dataset.z)===z));};
+        $('zoom-bts').innerHTML=niveis.map(z=>`<button class="btn" type="button" data-z="${z}" style="min-width:64px;min-height:44px">${z}×</button>`).join('');
+        $('zoom-bts').querySelectorAll('button').forEach(x=>x.onclick=()=>aplicar(Number(x.dataset.z)));
+        $('zoom-bts').classList.remove('oculto');
+        aplicar(Math.min(2,max)); // comeca em 2x
+      }
+    }catch{}
   }catch(e){
     $('scanner-msg').textContent=/Permission|NotAllowed/i.test(String(e))?'Libere o acesso à câmera no navegador e tente de novo.':'Não consegui abrir a câmera: '+e;
   }
