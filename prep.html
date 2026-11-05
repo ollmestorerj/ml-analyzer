@@ -496,7 +496,7 @@ function loteHtml(L){
     case 'imprimir':bt=`<button class="acao" type="button" data-acao="exec" data-id="${esc(p.shipmentId)}">Começar</button>`;break;
     case 'bipar':
     case 'foto':    bt=`<button class="acao" type="button" data-acao="exec" data-id="${esc(p.shipmentId)}">Continuar</button>`;break;
-    case 'pronto':  bt=`<button class="acao" type="button" data-acao="despachar" data-id="${ids}">Finalizar</button>`;break;
+    case 'pronto':  bt=`<button class="acao" type="button" data-acao="etiqueta" data-id="${ids}" style="background:#fff;color:var(--body);border:1px solid var(--line);margin-right:6px">Reimprimir</button><button class="acao" type="button" data-acao="despachar" data-id="${ids}">Finalizar</button>`;break;
     case 'nf':      bt=`<button class="acao" type="button" disabled>Sem NF</button>`;break;
     case 'problema':bt=`<button class="acao" type="button" data-acao="reabrir" data-id="${esc(p.shipmentId)}" style="background:#fff;color:var(--body);border:1px solid var(--line)">Resolvido</button>`;break;
   }
@@ -514,7 +514,7 @@ function loteHtml(L){
       ${bt}
     </div>
     ${aberto?`<div class="det">${L.ps.map(x=>{const id=esc(x.shipmentId);return `<div class="det-l"><span class="mono">envio ${id}</span>
-      ${x.momento==='bipar'?`<button type="button" data-acao="etiqueta" data-id="${id}">Reimprimir</button>`:''}
+      ${['bipar','foto','pronto','problema'].includes(x.momento)&&x.etiquetaLiberada?`<button type="button" data-acao="etiqueta" data-id="${id}">Reimprimir etiqueta</button>`:''}
       ${x.momento==='pronto'?`<button type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`:''}
       ${x.momento==='foto'?`<button type="button" data-acao="foto" data-id="${id}">Foto</button>`:''}
       ${x.momento!=='problema'?`<button type="button" data-acao="problema" data-id="${id}" style="color:var(--bad-fg)">Problema</button>`:''}
@@ -663,7 +663,8 @@ function desenharHistorico(){
       ${(e.itens||[]).map(i=>`<div class="item"><span class="q tab" style="font-size:17px;min-width:30px">${esc(i.qtd)}×</span><div class="t"><b style="font-size:14px">${esc(i.titulo)}</b></div></div>`).join('')}
       <div class="l1"><span class="st ${cls}">${txt}</span>${e.atrasado?'<span class="st bad">Saiu atrasado</span>':''}${e.temFoto?'':'<span class="st warn">Sem foto</span>'}</div>
       <div class="meta"><span class="mono">envio ${id}</span>${e.despachadoPor?`<span>por ${esc(String(e.despachadoPor).split('@')[0])}</span>`:''}</div>
-      ${e.temFoto?`<button class="btn" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px;align-self:flex-start">Ver foto</button>`:''}
+      <div class="l1">${e.temFoto?`<button class="btn" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px">Ver foto</button>`:''}
+        <button class="btn" type="button" data-acao="etiqueta" data-id="${id}" style="min-height:40px">Reimprimir etiqueta</button></div>
     </article>`;}).join('');
   $('h-lista').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
 }
@@ -1008,7 +1009,8 @@ function desenharExec(){
   if(p.momento==='imprimir')principal=`<button class="btn pri full ex-main" type="button" id="ex-imprimir">Imprimir etiqueta</button>`;
   if(p.momento==='bipar')principal=`<form id="ex-form" autocomplete="off"><input id="ex-bip" inputmode="numeric" placeholder="Leitor: bipe aqui" aria-label="Bipar etiqueta colada"><button class="btn pri" type="button" id="ex-cam">Câmera</button></form>
     <button class="btn full" type="button" id="ex-reimp" style="min-height:44px">Reimprimir etiqueta</button>`;
-  if(p.momento==='foto')principal=`<button class="btn pri full ex-main" type="button" id="ex-foto">Tirar foto da caixa</button>`;
+  if(p.momento==='foto')principal=`<button class="btn pri full ex-main" type="button" id="ex-foto">Tirar foto da caixa</button>
+    <button class="btn full" type="button" id="ex-reimp" style="min-height:44px">Reimprimir etiqueta</button>`;
   $('exec').innerHTML=`<div class="ex-cab" style="background:${m.cor}"><small>Fazendo agora · ${m.nome}${p.atrasado?' · ATRASADO':''}</small><b id="exec-cli">${esc(p.clienteNome||p.contaId)}</b><span style="font-size:13px;opacity:.9" class="mono">envio ${esc(p.shipmentId)}</span></div>
     <div class="ex-corpo">
       ${(p.itens||[]).map(i=>`<div class="ex-item"><span class="q tab">${esc(i.qtd)}×</span><div style="display:flex;flex-direction:column;gap:4px"><b>${esc(i.titulo)}</b><span style="font-size:13px;color:var(--subtle)">${i.atributos?esc(i.atributos):''}</span>
