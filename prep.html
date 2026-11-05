@@ -461,7 +461,8 @@ function desenhar(){
     const desp=dia==='hoje'?despHoje.filter(p=>p.modalidade===m.id).length:0;
     if(!ps.length&&!desp)return '';
     const prontos=ps.filter(p=>p.momento==='pronto').length+desp, total=ps.length+desp;
-    const pendente=ps.some(p=>p.momento!=='pronto');
+    const semComp=m.id==='correios'&&dia==='hoje'?despHoje.filter(p=>p.modalidade==='correios'&&!p.comprovante):[];
+    const pendente=ps.some(p=>p.momento!=='pronto')||semComp.length>0;
     const aberta=abertas[m.id]??pendente;
     const dica={flex:'Sai no dia',coleta:'Passa entre 13h e 14h',agencia:'Horário de cada conta',correios:'Horário de cada conta'}[m.id]||'Envio fora do padrão';
     const atr=ps.filter(p=>p.atrasado).length;
@@ -469,10 +470,14 @@ function desenhar(){
       <button type="button" data-sec="${m.id}" aria-expanded="${aberta}">
         <span class="barra-cor" style="background:${m.cor}"></span>
         <span class="nome"><b>${m.nome}</b><span>${dica}${atr?` · <span style="color:var(--bad-fg)">${atr} atrasado(s)</span>`:''}${!pendente&&ps.length?' · tudo pronto':''}</span></span>
-        <span class="cont tab" style="${prontos===total?'color:var(--ok-fg)':''}">${prontos}/${total}${prontos===total?' ✓':''}</span>
+        <span class="cont tab" style="${prontos===total&&!semComp.length?'color:var(--ok-fg)':''}">${prontos}/${total}${prontos===total&&!semComp.length?' ✓':''}</span>
         <span class="seta" aria-hidden="true">${aberta?'▾':'▸'}</span>
       </button>
-      ${aberta?`<div class="corpo-sec">${lotesDe(ps).map(loteHtml).join('')||'<div class="vazio">Tudo despachado</div>'}</div>`:''}
+      ${aberta?`<div class="corpo-sec">${lotesDe(ps).map(loteHtml).join('')||(semComp.length?'':'<div class="vazio">Tudo finalizado</div>')}
+        ${semComp.length?`<div class="lote" style="background:var(--warn-bg)"><div class="lote-l">
+          <span class="qtd tab" style="text-align:center">${semComp.length}<small style="display:block;font-size:10px;font-weight:700;color:var(--muted);margin-top:2px">${semComp.length>1?'pacotes':'pacote'}</small></span>
+          <span class="info"><b>Sem comprovante de postagem</b><span style="color:var(--warn-fg)">Finalizados hoje · depois de postar, tire a foto do comprovante</span></span>
+          <button class="acao" type="button" data-acao="comprovante" data-id="${semComp.map(p=>esc(p.shipmentId)).join(',')}">Foto do comprovante</button></div></div>`:''}</div>`:''}
     </section>`;
   }).join('');
   $('secoes').innerHTML=secoes||`<div class="vazio"><b>${dia==='hoje'?'Nada para sair hoje':'Nada para amanhã ainda'}</b>${dia==='hoje'?'Quando entrar venda de um cliente do prep, ela aparece aqui sozinha.':'As vendas de amanhã aparecem aqui a partir das 15h.'}</div>`;
@@ -663,10 +668,11 @@ function desenharHistorico(){
       <div class="l1"><span class="pill" style="background:${md.cor}">${md.nome}</span><b style="font-size:15px;color:var(--ink)">${esc(e.clienteNome||e.contaId)}</b>
         <span class="quando tab">${diaMes(d)} ${hora(d)}</span></div>
       ${(e.itens||[]).map(i=>`<div class="item"><span class="q tab" style="font-size:17px;min-width:30px">${esc(i.qtd)}×</span><div class="t"><b style="font-size:14px">${esc(i.titulo)}</b></div></div>`).join('')}
-      <div class="l1"><span class="st ${cls}">${txt}</span>${e.atrasado?'<span class="st bad">Saiu atrasado</span>':''}${e.temFoto?'':'<span class="st warn">Sem foto</span>'}</div>
+      <div class="l1"><span class="st ${cls}">${txt}</span>${e.atrasado?'<span class="st bad">Saiu atrasado</span>':''}${e.temFoto?'':'<span class="st warn">Sem foto</span>'}${e.modalidade==='correios'?(e.comprovante?'<span class="st ok">Comprovante ✓</span>':'<span class="st bad">Sem comprovante</span>'):''}</div>
       <div class="meta"><span class="mono">envio ${id}</span>${e.despachadoPor?`<span>por ${esc(String(e.despachadoPor).split('@')[0])}</span>`:''}</div>
       <div class="l1">${e.temFoto?`<button class="btn" type="button" data-acao="verfoto" data-id="${id}" style="min-height:40px">Ver foto</button>`:''}
-        <button class="btn" type="button" data-acao="etiqueta" data-id="${id}" style="min-height:40px">Reimprimir etiqueta</button></div>
+        <button class="btn" type="button" data-acao="etiqueta" data-id="${id}" style="min-height:40px">Reimprimir etiqueta</button>
+        ${e.modalidade==='correios'?(e.comprovante?`<button class="btn" type="button" data-acao="vercomp" data-id="${esc(e.comprovante.fotoId)}" style="min-height:40px">Ver comprovante</button>`:`<button class="btn pri" type="button" data-acao="comprovante" data-id="${id}" style="min-height:40px">Foto do comprovante</button>`):''}</div>
     </article>`;}).join('');
   $('h-lista').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
 }
@@ -907,6 +913,20 @@ async function acao(tipo,id,btn){
       btn.disabled=false;carregar();return;
     }
     if(tipo==='exec'){abrirExec(id);return;}
+    if(tipo==='comprovante'){
+      const lista=id.split(',');
+      const b64=await capturarFoto(lista.length>1?`Comprovante de postagem dos ${lista.length} pacotes`:'Comprovante de postagem');
+      if(!b64)return;
+      telaCheia('#100D14','<div class="g">Enviando…</div>');
+      const r=await chamar('prepComprovante',{shipmentIds:lista,fotoBase64:b64},60);
+      som(true);telaCheia('#0E9F6E',`<div class="m">COMPROVANTE SALVO</div><div class="g">${r.quantidade} pacote(s)</div><button class="btn" type="button" id="ov-ok">OK</button>`,1800);
+      carregar();if(!$('v-hist').classList.contains('oculto'))carregarHistorico();return;
+    }
+    if(tipo==='vercomp'){
+      btn.disabled=true;const r=await chamar('prepFotoPorId',{fotoId:id});btn.disabled=false;
+      if(!r.base64){erro('Sem foto','Comprovante não encontrado.');return;}
+      telaCheia('#100D14',`<img class="foto-grande" alt="Comprovante de postagem" src="data:image/jpeg;base64,${r.base64}"><button class="btn" type="button" id="ov-ok">Fechar</button>`);return;
+    }
     if(tipo==='lote'){
       const lista=id.split(',');
       const janela=window.open('','_blank');
@@ -970,7 +990,7 @@ async function registrar(id){
       telaCheia(m.cor,`<div class="m">ETIQUETA CONFERIDA</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><div class="m">Agora a foto da caixa aberta, com produto e etiqueta</div><button class="btn" type="button" id="ov-foto">Tirar foto</button><button class="btn" type="button" id="ov-ok" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.5)">Depois</button>`);
       const b=$('ov-foto');if(b)b.onclick=()=>{$('overlay').classList.add('oculto');pedirFoto(id);};
     }else{
-      telaCheia(m.cor,`<div class="m">FINALIZADO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1500);
+      telaCheia(m.cor,`<div class="m">FINALIZADO</div><div class="g">${esc(r.clienteNome||'').toUpperCase()}<br>${m.nome}</div>${r.modalidade==='correios'?'<div class="m">Depois de postar, tire a foto do comprovante na seção CORREIOS</div>':''}<button class="btn" type="button" id="ov-ok">OK</button>`,r.modalidade==='correios'?3500:1500);
     }
     carregar();
   }catch(e){som(false);erro(etapa==='despachado'?'Não finalizou':'Não registrou',`${esc(e.message||'Erro')}<br><span class="mono" style="font-size:14px">envio ${esc(id)}</span>`);}
@@ -1050,6 +1070,29 @@ function conferirEtiqueta(lido){
     return;
   }
   registrar(lido);
+}
+
+// Tira uma foto (camera ao vivo; sem camera, escolhe arquivo) e devolve o JPEG em base64
+function capturarFoto(instrucao){
+  return new Promise(async resolve=>{
+    const reduzir=c=>{let b=c.toDataURL('image/jpeg',0.7).split(',')[1];if(b.length>850000)b=c.toDataURL('image/jpeg',0.5).split(',')[1];return b;};
+    const canvasDe=(src,w,h)=>{const k=Math.min(1,1280/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c;};
+    const porArquivo=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';
+      inp.onchange=async()=>{const f=inp.files?.[0];if(!f)return resolve(null);
+        const img=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=URL.createObjectURL(f);});
+        resolve(reduzir(canvasDe(img,img.width,img.height)));};
+      inp.click();};
+    if(!navigator.mediaDevices?.getUserMedia)return porArquivo();
+    const o=$('overlay');o.style.background='#100D14';o.classList.remove('oculto');
+    o.innerHTML=`<div class="m">${esc(instrucao)}</div><video id="cap-v" autoplay playsinline muted style="width:100%;max-width:640px;max-height:60vh;border-radius:8px;background:#000"></video>
+      <button class="btn pri" type="button" id="cap-ok" style="min-width:240px">Tirar foto</button>
+      <button class="btn" type="button" id="cap-x" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">Cancelar</button>`;
+    let st=null;const parar=()=>{try{st?.getTracks().forEach(t=>t.stop());}catch{}};
+    $('cap-x').onclick=()=>{parar();o.classList.add('oculto');o.innerHTML='';resolve(null);};
+    try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});$('cap-v').srcObject=st;}
+    catch{parar();o.classList.add('oculto');o.innerHTML='';return porArquivo();}
+    $('cap-ok').onclick=()=>{const v=$('cap-v');if(!v.videoWidth)return;const c=canvasDe(v,v.videoWidth,v.videoHeight);parar();o.classList.add('oculto');o.innerHTML='';resolve(reduzir(c));};
+  });
 }
 
 // Foto pela camera ao vivo (celular e computador). Sem camera: escolhe arquivo.
