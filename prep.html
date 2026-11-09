@@ -251,6 +251,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
       <div class="cad"><div class="lin">
         <label>Cliente (dono do estoque)<select id="pr-cli"></select></label>
         <button class="btn pri" type="button" id="pr-novo">+ Novo produto</button>
+        <button class="btn" type="button" id="pr-contar">Contar estoque</button>
       </div>
       <div class="dias" role="group" aria-label="Ver"><button type="button" id="pr-t-prod" aria-pressed="true">Produtos e estoque</button><button type="button" id="pr-t-anu" aria-pressed="false">Anúncios e vínculos</button></div></div>
       <div id="pr-form"></div>
@@ -699,6 +700,7 @@ async function abrirProdutos(){
 $('pr-cli').onchange=()=>{$('pr-form').innerHTML='';desenharProdutos();};
 $('pr-t-prod').onclick=()=>{prAba='prod';desenharProdutos();};
 $('pr-t-anu').onclick=()=>{prAba='anu';desenharProdutos();};
+$('pr-contar').onclick=()=>abrirContagem();
 $('pr-novo').onclick=async()=>{if(prAba!=='prod'){prAba='prod';await desenharProdutos();}formProduto(null);$('pr-form').scrollIntoView({behavior:'smooth',block:'start'});};
 
 async function desenharProdutos(){
@@ -715,11 +717,22 @@ async function desenharProdutos(){
         <span class="sku">${esc(p.sku)}</span>
         <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px"><b style="font-size:15px;color:var(--ink)">${esc(p.nome)}</b>
           <span style="font-size:12px;color:var(--muted)">${cm(p.medidas||{})}${p.medidas?.peso?' · '+p.medidas.peso+' g':''}${p.prateleira?' · prateleira '+esc(p.prateleira):''}${p.eans?.length?' · cód. '+esc(p.eans.join(', ')):''}</span></div>
-        <div class="est"><b class="tab" style="${p.estoque<=0?'color:var(--bad-fg)':''}">${p.estoque}</b><span>em estoque</span></div>
-        <div style="display:flex;gap:6px;width:100%">
+        <div class="est"><b class="tab" style="${(p.disponivel??p.estoque)<=0?'color:var(--bad-fg)':''}">${p.disponivel??p.estoque}</b><span>disponível</span></div>
+        <div style="width:100%;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
+          <span>Na prateleira: <b class="tab" style="color:var(--ink)">${p.estoque}</b></span>
+          <span>Reservado (vendido, no galpão): <b class="tab" style="color:var(--ink)">${p.reservado||0}</b></span>
+          ${p.ultimaContagem?`<span>Última contagem: ${diaMes(new Date(p.ultimaContagem))}</span>`:''}</div>
+        <div style="display:flex;gap:6px;width:100%;flex-wrap:wrap">
+          <button class="btn" type="button" style="min-height:38px" data-pm="entrada" data-sku="${esc(p.sku)}">+ Entrada</button>
+          <button class="btn" type="button" style="min-height:38px" data-pm="saida" data-sku="${esc(p.sku)}">− Saída</button>
+          <button class="btn" type="button" style="min-height:38px" data-pm="ajuste" data-sku="${esc(p.sku)}">Corrigir estoque</button>
+          <button class="btn" type="button" style="min-height:38px" data-pv="${esc(p.sku)}">Movimentos</button>
           <button class="btn" type="button" style="min-height:38px" data-pe="${esc(p.sku)}">Editar</button>
           <button class="btn" type="button" style="min-height:38px" data-pl="${esc(p.sku)}">Etiqueta do SKU</button></div>
+        <div id="mv-${esc(p.sku)}" style="width:100%"></div>
       </div>`).join('');
+      $('pr-lista').querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>formMovimento(ps.find(p=>p.sku===b.dataset.sku),b.dataset.pm));
+      $('pr-lista').querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>verMovimentos(b.dataset.pv));
       $('pr-lista').querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>formProduto(ps.find(p=>p.sku===b.dataset.pe)));
       $('pr-lista').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>etiquetaSku(ps.find(p=>p.sku===b.dataset.pl)));
     }else{
@@ -772,6 +785,84 @@ function formProduto(p){
     }catch(err){$('fp-ok').disabled=false;som(false);erro('Não salvou',esc(err.message));}
   };
   $('fp-nome').focus();
+}
+
+// Entrada, saida ou correcao de estoque de um produto (sempre com motivo)
+function formMovimento(p,tipo){
+  const alvo=document.getElementById('mv-'+p.sku);
+  const tit={entrada:'Entrada de estoque',saida:'Saída de estoque',ajuste:'Corrigir estoque para o valor certo'}[tipo];
+  const dica={entrada:'Ex.: chegou sem aviso, devolução de comprador',saida:'Ex.: avaria no galpão, cliente retirou',ajuste:'Ex.: contagem rápida, erro de lançamento'}[tipo];
+  alvo.innerHTML=`<form class="cad" style="margin-top:6px" autocomplete="off"><h2>${tit}</h2>
+    <div class="lin"><label style="flex:0 0 140px">${tipo==='ajuste'?'Estoque certo':'Quantidade'}<input name="q" inputmode="numeric" value="${tipo==='ajuste'?p.estoque:''}" required></label>
+      <label>Motivo<input name="m" placeholder="${dica}" required></label></div>
+    <span style="font-size:12px;color:var(--muted)">Hoje na prateleira: <b>${p.estoque}</b>. Fica registrado quem fez e quando.</span>
+    <div class="lin"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-x>Cancelar</button></div></form>`;
+  const f=alvo.querySelector('form');f.q.focus();
+  alvo.querySelector('[data-x]').onclick=()=>{alvo.innerHTML='';};
+  f.onsubmit=async e=>{e.preventDefault();const bt=f.querySelector('[type=submit]');bt.disabled=true;
+    try{const r=await chamar('prepEstoqueAjustar',{sku:p.sku,tipo,qtd:f.q.value,motivo:f.m.value});som(true);
+      telaCheia('#0E9F6E',`<div class="m">ESTOQUE ATUALIZADO</div><div class="g">${esc(p.sku)}</div><div class="m">${r.antes} → ${r.depois}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1800);
+      desenharProdutos();}
+    catch(err){bt.disabled=false;som(false);erro('Não salvou',esc(err.message));}};
+}
+async function verMovimentos(sku){
+  const alvo=document.getElementById('mv-'+sku);
+  if(alvo.dataset.aberto){alvo.innerHTML='';delete alvo.dataset.aberto;return;}
+  alvo.dataset.aberto='1';alvo.innerHTML='<div class="vazio">Carregando…</div>';
+  try{
+    const ms=await chamar('prepMovimentosListar',{sku});
+    const nome={entrada:'Entrada',saida:'Saída',ajuste:'Correção',contagem:'Contagem',estorno:'Volta ao estoque'};
+    alvo.innerHTML=ms.length?`<div class="cad" style="margin-top:6px;gap:0">${ms.map(m=>`<div style="display:flex;gap:10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px">
+      <b class="tab" style="min-width:44px;color:${m.qtd<0?'var(--bad-fg)':'var(--ok-fg)'}">${m.qtd>0?'+':''}${m.qtd}</b>
+      <span style="flex:1">${nome[m.tipo]||esc(m.tipo)}${m.recebimentoId?' (recebimento)':''}${m.shipmentId?` · envio <span class="mono">${esc(m.shipmentId)}</span>`:''}${m.motivo?' · '+esc(m.motivo):''}</span>
+      <span style="color:var(--muted);white-space:nowrap">${m.em?diaMes(new Date(m.em))+' '+hora(new Date(m.em)):''} · ${esc(String(m.por||'').split('@')[0])}</span></div>`).join('')}</div>`
+      :'<div class="vazio">Nenhum movimento ainda.</div>';
+  }catch(e){alvo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+}
+
+// Contagem (inventario): conta tudo do cliente, bipando ou digitando, e salva as diferencas
+async function abrirContagem(){
+  const contaId=$('pr-cli').value;
+  const cli=(clientesPrep.find(c=>c.contaId===contaId)||{}).nome||'';
+  let ps;try{ps=await produtosDe(contaId,true);}catch(e){erro('Não carregou',esc(e.message));return;}
+  if(!ps.length){erro('Sem produtos','Esse cliente ainda não tem produtos cadastrados.');return;}
+  const cont={};
+  const desenhar_=()=>{
+    const feitos=ps.filter(p=>cont[p.sku]!==undefined&&cont[p.sku]!=='').length;
+    $('pr-form').innerHTML=`<div class="cad"><h2>Contagem de estoque · ${esc(cli)}</h2>
+      <span style="font-size:13px;color:var(--muted)">Bipe a etiqueta do SKU (ou o código de barras da embalagem) a cada unidade: soma 1. Ou digite a quantidade contada. Só os produtos contados são atualizados.</span>
+      <form class="lin" id="ct-f" autocomplete="off"><label>Bipar<input id="ct-bip" placeholder="Leitor: bipe aqui"></label><button class="btn" type="button" id="ct-cam">Câmera</button></form>
+      ${ps.map(p=>{const c=cont[p.sku];const dif=c===undefined||c===''?null:Number(c)-p.estoque;return `<div class="lin" style="align-items:center;padding:6px 0;border-top:1px solid var(--line-soft)">
+        <span class="sku" style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--sunken);padding:4px 6px;border-radius:6px">${esc(p.sku)}</span>
+        <span style="flex:1 1 140px;font-size:14px;font-weight:700;color:var(--ink)">${esc(p.nome)}<br><span style="font-size:12px;font-weight:500;color:var(--muted)">sistema: ${p.estoque}${p.prateleira?' · '+esc(p.prateleira):''}</span></span>
+        <input data-ct="${esc(p.sku)}" inputmode="numeric" value="${c??''}" placeholder="contado" style="width:96px">
+        <span class="tab" style="width:56px;text-align:right;font-weight:800;color:${dif===null?'var(--muted)':dif===0?'var(--ok-fg)':'var(--bad-fg)'}">${dif===null?'—':dif===0?'ok':(dif>0?'+':'')+dif}</span></div>`;}).join('')}
+      <div class="lin"><button class="btn pri" type="button" id="ct-ok">Salvar contagem (${feitos} de ${ps.length})</button><button class="btn" type="button" id="ct-x">Cancelar</button></div></div>`;
+    $('pr-form').querySelectorAll('[data-ct]').forEach(x=>x.oninput=()=>{cont[x.dataset.ct]=x.value;});
+    $('pr-form').querySelectorAll('[data-ct]').forEach(x=>x.onchange=()=>desenhar_());
+    const somar=cod=>{cod=String(cod||'').trim().toUpperCase();if(!cod)return;
+      const p=ps.find(x=>x.sku.toUpperCase()===cod)||ps.find(x=>(x.eans||[]).includes(cod.replace(/\D/g,'')));
+      if(!p){som(false);erro('Não é deste cliente',`O código ${esc(cod)} não é de nenhum produto de ${esc(cli)}.`);return;}
+      cont[p.sku]=String((Number(cont[p.sku])||0)+1);som(true);desenhar_();setTimeout(()=>$('ct-bip')&&$('ct-bip').focus(),30);};
+    $('ct-f').onsubmit=e=>{e.preventDefault();const v=$('ct-bip').value;$('ct-bip').value='';somar(v);};
+    $('ct-cam').onclick=()=>abrirCamera('Bipe a etiqueta do SKU',somar,true);
+    $('ct-x').onclick=()=>{$('pr-form').innerHTML='';};
+    $('ct-ok').onclick=async e=>{
+      const itens=Object.entries(cont).filter(([,v])=>String(v).trim()!=='').map(([sku,contado])=>({sku,contado}));
+      if(!itens.length){erro('Nada contado','Conte pelo menos um produto.');return;}
+      const difs=itens.filter(x=>Number(x.contado)!==(ps.find(p=>p.sku===x.sku)||{}).estoque).length;
+      if(!confirm(`Salvar a contagem de ${itens.length} produto(s)? ${difs?difs+' com diferença: o estoque passa a ser o que foi contado.':'Sem diferenças.'}`))return;
+      e.currentTarget.disabled=true;
+      try{const r=await chamar('prepContagemSalvar',{contaId,itens});som(true);
+        const d=r.itens.filter(x=>x.diferenca);
+        $('pr-form').innerHTML=`<div class="alerta" style="background:${d.length?'var(--warn-bg)':'var(--ok-bg)'};color:${d.length?'var(--warn-fg)':'var(--ok-fg)'}"><b>Contagem salva.</b> ${d.length?d.map(x=>`${esc(x.sku)}: sistema ${x.sistema}, contado ${x.contado} (${x.diferenca>0?'+':''}${x.diferenca})`).join(' · '):'Tudo bateu com o sistema.'}</div>`;
+        desenharProdutos();}
+      catch(err){e.currentTarget.disabled=false;som(false);erro('Não salvou',esc(err.message));}
+    };
+    setTimeout(()=>$('ct-bip')&&$('ct-bip').focus(),30);
+  };
+  if(prAba!=='prod'){prAba='prod';await desenharProdutos();}
+  desenhar_();$('pr-form').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 // Etiqueta do SKU interno (codigo de barras) para colar no produto ou na prateleira
