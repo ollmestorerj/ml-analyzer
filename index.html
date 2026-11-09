@@ -1524,6 +1524,232 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
   );
 }
 /* ══ VIEW: ANÚNCIOS (edição em lote) ════════════════════════ */
+/* ══ HISTÓRICO DE CUSTO ═════════════════════════════════════
+   Um produto não custa o mesmo o ano inteiro: cada lote vem a um
+   preço. Aqui cada período vale A PARTIR da data até o próximo
+   começar, e a margem de cada venda usa o custo que valia no dia
+   dela — não o de hoje. */
+
+function BotaoHistorico({periodos,onClick,disabled}){
+  const tem=periodos>1;
+  return (
+    <button onClick={onClick} disabled={disabled}
+      title={tem?`${periodos} períodos de custo`:'Custo por período'}
+      aria-label={tem?`Ver os ${periodos} períodos de custo`:'Definir custo por período'}
+      style={{width:32,height:'var(--control-h-sm)',display:'inline-flex',alignItems:'center',
+        justifyContent:'center',gap:2,border:'1px solid',
+        borderColor:tem?'var(--status-accent-fg)':'var(--border-default)',
+        borderRadius:'var(--radius-md)',cursor:disabled?'not-allowed':'pointer',
+        background:tem?'var(--status-accent-bg)':'var(--surface-card)',
+        color:tem?'var(--status-accent-fg)':'var(--text-subtle)',padding:0}}>
+      <Icon name="history" size={13}/>
+      {tem&&<span className="tab" style={{fontSize:9,fontWeight:'var(--weight-extrabold)'}}>{periodos}</span>}
+    </button>
+  );
+}
+
+function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFechar,onSalvo}){
+  const [linhas,setLinhas]=useState(null);
+  const [carregando,setCarregando]=useState(true);
+  const [salvando,setSalvando]=useState(false);
+  const [erro,setErro]=useState('');
+  const hoje=new Date(Date.now()-3*3600000).toISOString().slice(0,10);
+  const [nova,setNova]=useState({de:hoje,custo:'',imposto:''});
+
+  useEffect(()=>{
+    let vivo=true;
+    (async()=>{
+      try{
+        const r=await call('mlHistoricoCusto',{skus:[sku],comoUid:comoUid||null});
+        if(!vivo)return;
+        const h=r.custos?.[sku]?.historico||[];
+        setLinhas(h.map(x=>({de:x.de,custo:PARACAMPO(x.custo),imposto:x.imposto==null?'':PARACAMPO(x.imposto)})));
+      }catch(e){if(vivo)setErro(e.message||'Não consegui carregar o histórico.');}
+      finally{if(vivo)setCarregando(false);}
+    })();
+    return ()=>{vivo=false;};
+  },[sku,comoUid]);
+
+  // Fechar no Esc, como qualquer painel
+  useEffect(()=>{
+    const f=e=>{if(e.key==='Escape')onFechar();};
+    window.addEventListener('keydown',f);
+    return ()=>window.removeEventListener('keydown',f);
+  },[onFechar]);
+
+  const ordenadas=[...(linhas||[])].sort((a,b)=>String(a.de).localeCompare(String(b.de)));
+  const maisAntiga=ordenadas[0];
+  const vigente=ordenadas.length?ordenadas[ordenadas.length-1]:null;
+
+  function adicionar(){
+    if(!nova.de){setErro('Escolha a data a partir da qual esse custo passa a valer.');return;}
+    const c=PARSE(nova.custo);
+    if(!Number.isFinite(c)||c<0){setErro('Informe o custo desse período.');return;}
+    if((linhas||[]).some(l=>l.de===nova.de)){
+      setErro('Já existe um período começando nessa data — edite aquele em vez de criar outro.');return;
+    }
+    setErro('');
+    setLinhas([...(linhas||[]),{de:nova.de,custo:nova.custo,imposto:nova.imposto}]);
+    setNova({de:hoje,custo:'',imposto:''});
+  }
+  function mudar(i,campo,v){
+    const c=[...linhas];c[i]={...c[i],[campo]:v};setLinhas(c);setErro('');
+  }
+  function remover(i){
+    const c=[...linhas];c.splice(i,1);setLinhas(c);setErro('');
+  }
+
+  async function salvar(){
+    setSalvando(true);setErro('');
+    try{
+      await call('mlSalvarHistoricoCusto',{sku,
+        historico:(linhas||[]).map(l=>({de:l.de,custo:PARSE(l.custo),
+          imposto:l.imposto===''?null:PARSE(l.imposto)}))});
+      onSalvo?.();onFechar();
+    }catch(e){setErro(e.message||'Não consegui salvar.');}
+    finally{setSalvando(false);}
+  }
+
+  return (
+    <div onClick={onFechar} style={{position:'fixed',inset:0,background:'var(--surface-overlay)',
+      backdropFilter:'blur(2px)',zIndex:70,display:'flex',alignItems:'center',justifyContent:'center',
+      padding:'max(16px, env(safe-area-inset-left, 0px))'}}>
+      <div onClick={e=>e.stopPropagation()} role="dialog" aria-modal="true"
+        aria-label={`Custo por período de ${titulo||sku}`}
+        style={{background:'var(--surface-card)',borderRadius:'var(--radius-xl)',
+          boxShadow:'var(--shadow-lg)',width:'min(620px, 100%)',maxHeight:'min(84vh, 760px)',
+          display:'flex',flexDirection:'column',overflow:'hidden'}}>
+
+        <div style={{padding:'var(--layout-card-pad)',borderBottom:'1px solid var(--border-subtle)',
+          display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+          <div style={{minWidth:0}}>
+            <Overline>Custo por período</Overline>
+            <div className="ell" style={{fontSize:'var(--text-lg)',fontWeight:'var(--weight-bold)',
+              color:'var(--text-strong)',marginTop:3}}>{titulo||sku}</div>
+            <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2}}>{sku}</div>
+          </div>
+          <IconBtn icon="x" label="Fechar" onClick={onFechar}/>
+        </div>
+
+        <div style={{padding:'var(--layout-card-pad)',overflowY:'auto',flex:1,
+          display:'flex',flexDirection:'column',gap:'var(--space-4)'}}>
+
+          {erro&&<Note tone="danger" icon="circle-alert">{erro}</Note>}
+
+          {/* O caso mais comum: chegou lote novo, a partir de hoje custa outro valor */}
+          <div style={{background:'var(--surface-sunken)',borderRadius:'var(--radius-lg)',
+            padding:'var(--space-4)',display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
+            <Overline>Novo preço</Overline>
+            <div style={{display:'flex',gap:'var(--space-3)',flexWrap:'wrap',alignItems:'flex-end'}}>
+              <label style={{display:'flex',flexDirection:'column',gap:4}}>
+                <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',
+                  fontWeight:'var(--weight-semibold)'}}>A partir de</span>
+                <input type="date" value={nova.de} onChange={e=>setNova({...nova,de:e.target.value})}
+                  className="fld" style={{height:'var(--control-h-md)',padding:'0 10px',fontSize:'var(--text-sm)'}}/>
+              </label>
+              <label style={{display:'flex',flexDirection:'column',gap:4}}>
+                <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',
+                  fontWeight:'var(--weight-semibold)'}}>Custo (R$)</span>
+                <input value={nova.custo} onChange={e=>setNova({...nova,custo:LIMPAR(e.target.value)})}
+                  onKeyDown={e=>{if(e.key==='Enter')adicionar();}}
+                  inputMode="decimal" placeholder="0,00" className="fld mono"
+                  style={{height:'var(--control-h-md)',width:110,padding:'0 10px',
+                    fontSize:'var(--text-sm)',textAlign:'right'}}/>
+              </label>
+              <label style={{display:'flex',flexDirection:'column',gap:4}}>
+                <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',
+                  fontWeight:'var(--weight-semibold)'}}>Imposto %</span>
+                <input value={nova.imposto} onChange={e=>setNova({...nova,imposto:LIMPAR(e.target.value)})}
+                  onKeyDown={e=>{if(e.key==='Enter')adicionar();}}
+                  inputMode="decimal" placeholder={PARACAMPO(impostoAtual)||'0'} className="fld mono"
+                  style={{height:'var(--control-h-md)',width:88,padding:'0 10px',
+                    fontSize:'var(--text-sm)',textAlign:'right'}}/>
+              </label>
+              <Btn variant="primary" icon="plus" onClick={adicionar}>Adicionar</Btn>
+            </div>
+          </div>
+
+          {carregando
+            ? <div style={{display:'flex',flexDirection:'column',gap:8}}>{[0,1].map(i=><Skel key={i} h={44}/>)}</div>
+            : !ordenadas.length
+              ? <Empty compact icon="history" title="Nenhum período ainda"
+                  description={`Hoje o custo é único: ${BRL(custoAtual)}. Enquanto não houver período, toda venda usa esse valor — inclusive as antigas.`}/>
+              : <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                <Overline>Períodos</Overline>
+                {ordenadas.map((l)=>{
+                  const i=linhas.indexOf(l);
+                  const ehVigente=l===vigente;
+                  const proximo=ordenadas[ordenadas.indexOf(l)+1];
+                  return (
+                    <div key={l.de+'-'+i} style={{display:'flex',gap:'var(--space-3)',alignItems:'center',
+                      padding:'10px 2px',borderBottom:'1px solid var(--border-subtle)',flexWrap:'wrap'}}>
+                      <div style={{display:'flex',flexDirection:'column',gap:2,minWidth:130}}>
+                        <input type="date" value={l.de} onChange={e=>mudar(i,'de',e.target.value)}
+                          className="fld" style={{height:'var(--control-h-sm)',padding:'0 8px',
+                            fontSize:'var(--text-xs)'}}/>
+                        <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>
+                          {proximo?`até ${fmtData(proximo.de)}`:'até hoje'}</span>
+                      </div>
+                      <span style={{position:'relative',display:'inline-flex',alignItems:'center'}}>
+                        <span style={{position:'absolute',left:8,fontSize:'var(--text-2xs)',
+                          color:'var(--text-muted)',pointerEvents:'none'}}>R$</span>
+                        <input value={l.custo} onChange={e=>mudar(i,'custo',LIMPAR(e.target.value))}
+                          inputMode="decimal" className="fld mono"
+                          style={{height:'var(--control-h-sm)',width:104,padding:'0 8px 0 26px',
+                            fontSize:'var(--text-xs)',textAlign:'right'}}/>
+                      </span>
+                      <span style={{position:'relative',display:'inline-flex',alignItems:'center'}}>
+                        <input value={l.imposto} onChange={e=>mudar(i,'imposto',LIMPAR(e.target.value))}
+                          inputMode="decimal" placeholder={PARACAMPO(impostoAtual)||'0'} className="fld mono"
+                          style={{height:'var(--control-h-sm)',width:76,padding:'0 20px 0 8px',
+                            fontSize:'var(--text-xs)',textAlign:'right'}}/>
+                        <span style={{position:'absolute',right:7,fontSize:'var(--text-2xs)',
+                          color:'var(--text-muted)',pointerEvents:'none'}}>%</span>
+                      </span>
+                      {ehVigente&&<Badge tone="success">vale hoje</Badge>}
+                      <IconBtn icon="trash-2" size={30} label={`Remover o período de ${fmtData(l.de)}`}
+                        onClick={()=>remover(i)}/>
+                    </div>
+                  );
+                })}
+              </div>}
+
+          {Boolean(ordenadas.length)&&maisAntiga&&(
+            <Note tone="warning" icon="triangle-alert">
+              <strong>Venda anterior a {fmtData(maisAntiga.de)} usa {BRL(PARSE(maisAntiga.custo))}</strong>,
+              o custo do período mais antigo. Se naquela época o custo era outro, adicione um período
+              com a data em que ele começou — é isso que corrige a margem do passado.
+            </Note>
+          )}
+
+          <Note tone="neutral" icon="info">
+            Cada período vale a partir da data até o próximo começar. A margem de cada venda passa a usar
+            o custo do dia em que ela aconteceu, inclusive nas vendas já registradas — nada precisa ser
+            recalculado nem reimportado. Editar o custo direto na tabela continua funcionando: ele muda
+            o período que vale hoje.
+          </Note>
+        </div>
+
+        <div style={{padding:'var(--layout-card-pad)',borderTop:'1px solid var(--border-subtle)',
+          display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <span style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
+            {ordenadas.length
+              ? <>Hoje: <strong style={{color:'var(--text-strong)'}}>{BRL(PARSE(vigente.custo))}</strong>
+                  {' · '}{ordenadas.length} {ordenadas.length===1?'período':'períodos'}</>
+              : `Custo único: ${BRL(custoAtual)}`}
+          </span>
+          <div style={{display:'flex',gap:8}}>
+            <Btn variant="neutral" onClick={onFechar}>Cancelar</Btn>
+            <Btn variant="primary" icon={salvando?'loader':'check'} onClick={salvar} disabled={salvando||carregando}>
+              {salvando?'Salvando…':'Salvar períodos'}</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,somenteLeitura=false}){
   const [sync,setSync]=useState({loading:false,resumo:null,erro:''});
   async function sincronizar(){
@@ -1623,20 +1849,21 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
     }catch(e){setMsg('Erro: '+e.message);}
     finally{setSalvando(false);}
   }
+  const [histAberto,setHistAberto]=useState(null);
   const GRID=somenteLeitura
     ? (multiConta
         ? '56px minmax(0,1fr) 84px 96px 88px 60px 84px'
         : '56px minmax(0,1fr) 96px 88px 60px 84px')
     : (multiConta
-        ? '56px minmax(0,1fr) 84px 96px 88px 60px 84px 104px 84px'
-        : '56px minmax(0,1fr) 96px 88px 60px 84px 104px 84px');
+        ? '56px minmax(0,1fr) 84px 96px 88px 60px 84px 104px 84px 36px'
+        : '56px minmax(0,1fr) 96px 88px 60px 84px 104px 84px 36px');
   const HEADS=somenteLeitura
     ? (multiConta
         ? ['','Título','Conta','SKU','Preço','Est.','Visitas']
         : ['','Título','SKU','Preço','Est.','Visitas'])
     : (multiConta
-        ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %']
-        : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %']);
+        ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','']
+        : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','']);
   if(loading)return (
     <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
       {[...Array(6)].map((_,i)=>(
@@ -1715,10 +1942,11 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
       {/* Tabela */}
       <Card pad={false}>
         <div className="data-scroll">
-        <div className="data-grid" style={{minWidth:(multiConta?1080:1000)-(somenteLeitura?188:0)}}>
+        <div className="data-grid" style={{minWidth:(multiConta?1124:1044)-(somenteLeitura?232:0)}}>
           <div className="data-head" style={{display:'grid',gridTemplateColumns:GRID,gap:8,padding:'12px var(--layout-card-pad)',
             background:'linear-gradient(180deg,var(--surface-sunken),#fff)',borderBottom:'1px solid var(--border-default)',position:'sticky',top:0,zIndex:2}}>
-            {HEADS.map((h,i)=><THead key={i} align={i>=HEADS.length-(somenteLeitura?4:6)&&h?'right':'left'}>{h}</THead>)}
+            {HEADS.map((h,i)=><THead key={i}
+              align={['Preço','Est.','Visitas','Custo un.','Imp. %'].includes(h)?'right':'left'}>{h}</THead>)}
           </div>
           {pg.fatia.map((a,i)=>{
             const custoV=val(a,'custo'),impV=val(a,'imposto');
@@ -1762,6 +1990,11 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
                     onChange={e=>setCampo(a.sku,'imposto',e.target.value)}
                     style={{height:'var(--control-h-sm)',padding:'0 8px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                 </div>
+                <div data-label="Períodos de custo">
+                  <BotaoHistorico periodos={a.periodosCusto||0} disabled={salvando}
+                    onClick={()=>setHistAberto({sku:a.sku,titulo:a.titulo,
+                      custo:PARSE(custoV)||a.custo,imposto:PARSE(impV)||a.imposto})}/>
+                </div>
                 </>}
               </div>
             );
@@ -1804,6 +2037,13 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
             <Btn size="md" icon="check" onClick={salvarTudo} disabled={salvando}>{salvando?'Salvando…':'Salvar tudo'}</Btn>
           </div>
         </div>
+      )}
+
+      {histAberto&&(
+        <PainelHistoricoCusto sku={histAberto.sku} titulo={histAberto.titulo}
+          custoAtual={histAberto.custo} impostoAtual={histAberto.imposto}
+          onFechar={()=>setHistAberto(null)}
+          onSalvo={()=>{setRascunho({});onRefresh?.(true);}}/>
       )}
     </div>
   );
@@ -2080,21 +2320,23 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
     finally{setSalvando(false);}
   }
 
+  const [histAberto,setHistAberto]=useState(null);
+
   // Em modo leitura as colunas de custo e imposto saem da tabela
   const GRID=somenteLeitura
     ? (multiConta
         ? '34px 48px minmax(0,1fr) 84px 116px 100px 72px 70px 74px 48px'
         : '34px 48px minmax(0,1fr) 116px 100px 72px 70px 74px 48px')
     : (multiConta
-        ? '34px 48px minmax(0,1fr) 84px 104px 96px 68px 66px 70px 92px 68px 48px'
-        : '34px 48px minmax(0,1fr) 104px 96px 68px 66px 70px 92px 68px 48px');
+        ? '34px 48px minmax(0,1fr) 84px 104px 96px 68px 66px 70px 92px 68px 36px 48px'
+        : '34px 48px minmax(0,1fr) 104px 96px 68px 66px 70px 92px 68px 36px 48px');
   const HEADS=somenteLeitura
     ? (multiConta
         ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Cancel.','ABC']
         : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Cancel.','ABC'])
     : (multiConta
-        ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC']
-        : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','ABC']);
+        ? ['#','','Produto','Conta','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','','ABC']
+        : ['#','','Produto','Faturamento','Lucro','Margem','Vendas','Cancel.','Custo un.','Imp. %','','ABC']);
 
   if(loading)return (
     <Card pad={false}>
@@ -2224,6 +2466,12 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
                       onChange={e=>setCampo(x.sku,'imposto',e.target.value)}
                       style={{height:'var(--control-h-sm)',padding:'0 6px',fontSize:'var(--text-xs)',textAlign:'right'}}/>
                   </div>
+                  <div data-label="Períodos de custo">
+                    <BotaoHistorico periodos={x.periodosCusto||0} disabled={salvando}
+                      onClick={()=>setHistAberto({sku:x.sku,titulo:x.titulo,
+                        custo:PARSE(val(x,'custo'))||x.custoUnit,
+                        imposto:PARSE(val(x,'imposto'))||x.impostoPct})}/>
+                  </div>
                   </>}
 
                   <div data-label="Curva ABC" className="so-desktop" style={{textAlign:'right'}}>
@@ -2269,6 +2517,13 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
             <Btn size="md" icon="check" onClick={salvarTudo} disabled={salvando}>{salvando?'Salvando…':'Salvar tudo'}</Btn>
           </div>
         </div>
+      )}
+
+      {histAberto&&(
+        <PainelHistoricoCusto sku={histAberto.sku} titulo={histAberto.titulo}
+          custoAtual={histAberto.custo} impostoAtual={histAberto.imposto}
+          onFechar={()=>setHistAberto(null)}
+          onSalvo={()=>{setRascunho({});onRefresh?.(true);}}/>
       )}
     </div>
   );
@@ -4817,6 +5072,855 @@ function ViewColetas({admin,comoUid,contasAtivas}){
   );
 }
 
+/* ══ REPOSIÇÃO ══════════════════════════════════════════════
+   O que comprar, quanto e quando. Ordenada por urgência, não por
+   faturamento: o que vai romper primeiro fica em cima. */
+
+const SITUACOES_REP={
+  ruptura:   {rotulo:'Ruptura',    tom:'danger',  ajuda:'Estoque zerado — está perdendo venda agora'},
+  atrasado:  {rotulo:'Atrasado',   tom:'danger',  ajuda:'Vai zerar antes da compra chegar'},
+  comprar:   {rotulo:'Comprar',    tom:'warning', ajuda:'Abaixo do ponto de compra e sem pedido em aberto'},
+  a_caminho: {rotulo:'A caminho',  tom:'info',    ajuda:'Abaixo do ponto, mas a compra chega a tempo'},
+  ok:        {rotulo:'OK',         tom:'success', ajuda:'Cobertura folgada'},
+  parado:    {rotulo:'Sem giro',   tom:'neutral', ajuda:'Não vendeu nada nos últimos 30 dias'},
+};
+
+const dias1=v=>v==null?'—':`${Number(v).toFixed(v<10?1:0)}d`;
+const hojeMais=n=>{const d=new Date(Date.now()-3*3600000);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);};
+
+/* Campo numérico curto usado no cadastro por SKU */
+function CampoNum({rotulo,valor,onChange,sufixo,largura=84,placeholder}){
+  return (
+    <label style={{display:'flex',flexDirection:'column',gap:4,minWidth:0}}>
+      <span style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',letterSpacing:'var(--tracking-caps)',
+        textTransform:'uppercase',color:'var(--text-subtle)'}}>{rotulo}</span>
+      <span style={{position:'relative',display:'inline-flex',alignItems:'center'}}>
+        <input value={valor??''} onChange={e=>onChange(LIMPAR(e.target.value))} inputMode="decimal"
+          placeholder={placeholder} className="fld mono"
+          style={{height:'var(--control-h-sm)',width:largura,padding:sufixo?'0 26px 0 9px':'0 9px',
+            fontSize:'var(--text-xs)',textAlign:'right'}}/>
+        {sufixo&&<span style={{position:'absolute',right:8,fontSize:'var(--text-2xs)',
+          color:'var(--text-subtle)',pointerEvents:'none'}}>{sufixo}</span>}
+      </span>
+    </label>
+  );
+}
+
+/* O cadastro que vive dentro da linha, aberto sob demanda */
+function CadastroSku({x,padrao,onSalvo}){
+  const [f,setF]=useState({
+    fornecedor:x.fornecedor||'',
+    prazoDias:x.prazoDias===padrao.prazoDias?'':String(x.prazoDias),
+    margemSegDias:x.margemSegDias===padrao.margemSegDias?'':String(x.margemSegDias),
+    coberturaAlvoDias:x.coberturaAlvoDias===padrao.coberturaAlvoDias?'':String(x.coberturaAlvoDias),
+    pedidoMinimo:x.pedidoMinimo?String(x.pedidoMinimo):'',
+    estoquePrep:x.estoquePrep?String(x.estoquePrep):'',
+    emTransitoFull:x.emTransitoFull?String(x.emTransitoFull):'',
+  });
+  const [salvando,setSalvando]=useState(false);
+  const [msg,setMsg]=useState('');
+  const set=(k,v)=>{setF(o=>({...o,[k]:v}));setMsg('');};
+
+  async function salvar(){
+    setSalvando(true);setMsg('');
+    try{
+      await call('mlSalvarReposicaoSku',{sku:x.sku,
+        fornecedor:f.fornecedor||null,
+        prazoDias:f.prazoDias===''?null:PARSE(f.prazoDias),
+        margemSegDias:f.margemSegDias===''?null:PARSE(f.margemSegDias),
+        coberturaAlvoDias:f.coberturaAlvoDias===''?null:PARSE(f.coberturaAlvoDias),
+        pedidoMinimo:f.pedidoMinimo===''?null:PARSE(f.pedidoMinimo),
+        estoquePrep:f.estoquePrep===''?null:PARSE(f.estoquePrep),
+        emTransitoFull:f.emTransitoFull===''?null:PARSE(f.emTransitoFull),
+      });
+      setMsg('salvo');onSalvo?.();
+    }catch(e){setMsg('Erro: '+e.message);}
+    finally{setSalvando(false);}
+  }
+
+  return (
+    <div style={{padding:'var(--space-4)',background:'var(--surface-sunken)',
+      borderRadius:'var(--radius-lg)',display:'flex',flexDirection:'column',gap:'var(--space-4)'}}>
+
+      <div style={{display:'flex',gap:'var(--space-4)',flexWrap:'wrap',alignItems:'flex-end'}}>
+        <label style={{display:'flex',flexDirection:'column',gap:4,minWidth:180,flex:'1 1 180px'}}>
+          <span style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',
+            letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',color:'var(--text-subtle)'}}>Fornecedor</span>
+          <input value={f.fornecedor} onChange={e=>set('fornecedor',e.target.value)}
+            placeholder="Nome do fornecedor" className="fld"
+            style={{height:'var(--control-h-sm)',padding:'0 9px',fontSize:'var(--text-xs)'}}/>
+        </label>
+        <CampoNum rotulo="Prazo" valor={f.prazoDias} onChange={v=>set('prazoDias',v)}
+          sufixo="d" placeholder={String(padrao.prazoDias)}/>
+        <CampoNum rotulo="Margem" valor={f.margemSegDias} onChange={v=>set('margemSegDias',v)}
+          sufixo="d" placeholder={String(padrao.margemSegDias)}/>
+        <CampoNum rotulo="Cobertura alvo" valor={f.coberturaAlvoDias} onChange={v=>set('coberturaAlvoDias',v)}
+          sufixo="d" placeholder={String(padrao.coberturaAlvoDias)} largura={96}/>
+        <CampoNum rotulo="Pedido mínimo" valor={f.pedidoMinimo} onChange={v=>set('pedidoMinimo',v)}
+          placeholder="0" largura={96}/>
+      </div>
+
+      <div style={{display:'flex',gap:'var(--space-4)',flexWrap:'wrap',alignItems:'flex-end'}}>
+        <CampoNum rotulo="Estoque no prep" valor={f.estoquePrep} onChange={v=>set('estoquePrep',v)}
+          placeholder="0" largura={110}/>
+        <CampoNum rotulo="Em trânsito p/ Full" valor={f.emTransitoFull} onChange={v=>set('emTransitoFull',v)}
+          placeholder="0" largura={124}/>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginLeft:'auto'}}>
+          {msg&&<span style={{fontSize:'var(--text-xs)',
+            color:msg.startsWith('Erro')?'var(--status-danger-fg)':'var(--status-success-fg)'}}>
+            {msg==='salvo'?'Salvo':msg}</span>}
+          <Btn variant="primary" size="sm" icon={salvando?'loader':'check'} onClick={salvar} disabled={salvando}>
+            {salvando?'Salvando…':'Salvar'}</Btn>
+        </div>
+      </div>
+
+      <Note tone="neutral" icon="info">
+        Campo em branco usa o padrão global. A unidade de reposição aqui é o anúncio — é assim que
+        você compra do fornecedor.
+      </Note>
+    </div>
+  );
+}
+
+function ViewReposicao({contasAtivas}){
+  const [dados,setDados]=useState(null);
+  const [carregando,setCarregando]=useState(false);
+  const [erro,setErro]=useState('');
+  const [aberto,setAberto]=useState(null);
+  const [filtro,setFiltro]=useState('precisa');
+  const [busca,setBusca]=useState('');
+  const [compras,setCompras]=useState([]);
+  const [novaCompra,setNovaCompra]=useState(null);
+  const [cfgAberta,setCfgAberta]=useState(false);
+
+  async function carregar(){
+    setCarregando(true);setErro('');
+    try{
+      const [r,c]=await Promise.all([
+        callLongo('mlReposicao',{},480),
+        call('mlComprasListar',{status:'aberta'}).catch(()=>({compras:[]})),
+      ]);
+      setDados(r);setCompras(c.compras||[]);
+    }catch(e){setErro(e.message||'Não consegui calcular a reposição.');}
+    finally{setCarregando(false);}
+  }
+
+  async function recarregarCompras(){
+    try{const c=await call('mlComprasListar',{status:'aberta'});setCompras(c.compras||[]);}catch{}
+  }
+
+  const todos=dados?.skus||[];
+  const lista=todos.filter(x=>{
+    if(busca&&!`${x.sku} ${x.titulo||''}`.toLowerCase().includes(busca.toLowerCase()))return false;
+    if(filtro==='todos')return true;
+    if(filtro==='precisa')return ['ruptura','atrasado','comprar'].includes(x.situacao);
+    if(filtro==='semCadastro')return !x.temCadastro;
+    return x.situacao===filtro;
+  });
+  const pg=usePaginacao(lista,[filtro,busca,dados]);
+  const r=dados?.resumo;
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+      <div className="toolbar" style={{justifyContent:'space-between',marginBottom:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <Overline>Reposição</Overline>
+          {dados&&<Badge tone="neutral">{NUM(todos.length)} {todos.length===1?'SKU':'SKUs'}</Badge>}
+          {dados&&<Badge tone={dados.origemEstoqueFull==='inventario'?'success':'warning'}>
+            estoque: {dados.origemEstoqueFull==='inventario'?'inventário do Full':'quantidade do anúncio'}</Badge>}
+        </div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <Btn variant="neutral" size="sm" icon="settings" onClick={()=>setCfgAberta(!cfgAberta)}>Padrões</Btn>
+          <Btn variant={dados?'neutral':'primary'} size="sm" icon={carregando?'loader':'refresh-cw'}
+            onClick={carregar} disabled={carregando}>
+            {carregando?'Calculando…':dados?'Recalcular':'Calcular reposição'}</Btn>
+        </div>
+      </div>
+
+      {erro&&<Note tone="danger" icon="circle-alert">{erro}</Note>}
+
+      {cfgAberta&&<ConfigReposicao cfg={dados?.cfg} onSalvo={()=>{setCfgAberta(false);carregar();}}/>}
+
+      {!dados&&!carregando&&(
+        <Card>
+          <Empty icon="shopping-cart" title="Reposição ainda não calculada"
+            description="Cruza a venda dos últimos 30 dias com o estoque e o que já está comprado, e diz o que precisa entrar no pedido de hoje."
+            action={<Btn variant="primary" icon="shopping-cart" onClick={carregar}>Calcular reposição</Btn>}/>
+        </Card>
+      )}
+
+      {carregando&&!dados&&(
+        <Card title="Calculando" subtitle="Lendo venda por SKU, estoque e compras em aberto" icon="loader">
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>{[0,1,2,3].map(i=><Skel key={i} h={46}/>)}</div>
+        </Card>
+      )}
+
+      {dados&&r&&(<>
+        <section className="dashboard-overview" aria-label="Resumo da reposição">
+          <div>
+            <Overline>Em ruptura</Overline>
+            <div className="metric-value" style={{color:r.ruptura?'var(--status-danger-fg)':'var(--text-strong)'}}>
+              {NUM(r.ruptura)}</div>
+            <div className="metric-caption">{r.ruptura?'Perdendo venda agora':'Nenhum SKU zerado'}</div>
+          </div>
+          <div>
+            <Overline>Precisa comprar</Overline>
+            <div className="metric-value" style={{color:(r.comprar+r.atrasado)?'var(--status-warning-fg)':'var(--text-strong)'}}>
+              {NUM(r.comprar+r.atrasado)}</div>
+            <div className="metric-caption">
+              {r.atrasado?`${NUM(r.atrasado)} com compra que chega tarde · `:''}{NUM(r.unidadesAComprar)} unidades</div>
+          </div>
+          <div>
+            <Overline>Investimento</Overline>
+            <div className="metric-value" style={{color:'var(--purple-500)'}}>{BRL(r.investimento)}</div>
+            <div className="metric-caption">
+              {r.semCadastro
+                ? `${NUM(r.semCadastro)} ${r.semCadastro===1?'SKU sem custo ou fornecedor':'SKUs sem custo ou fornecedor'}`
+                : 'Pelo custo cadastrado'}</div>
+          </div>
+        </section>
+
+        {dados.origemEstoqueFull!=='inventario'&&(
+          <Note tone="warning" icon="triangle-alert">
+            <strong>O estoque está vindo da quantidade do anúncio, não do inventário do Full.</strong>{' '}
+            {dados.fullErro?`O inventário respondeu: ${dados.fullErro}. `:'O endpoint de inventário não respondeu. '}
+            Isso funciona, mas soma Full e prep num número só se os seus anúncios forem mistos — nesse caso
+            preencha o estoque do prep à mão e desconte, ou me mande o diagnóstico da aba Estoque Full.
+          </Note>
+        )}
+        {r.corrigidosPorRuptura>0&&(
+          <Note tone="info" icon="info">
+            <strong>{NUM(r.corrigidosPorRuptura)} {r.corrigidosPorRuptura===1?'SKU teve':'SKUs tiveram'} a média corrigida por ruptura.</strong>{' '}
+            Estão zerados e sem venda recente — o silêncio é falta de estoque, não queda de demanda, então
+            a conta usou a média de 30 dias em vez da ponderada. Sem isso o sistema mandaria comprar menos
+            justo do que rompeu.
+          </Note>
+        )}
+        {dados.janelaCortada&&(
+          <Note tone="warning" icon="scissors">
+            O histórico devolveu o teto de {NUM(dados.pedidosLidos)} pedidos, então a janela de 30 dias
+            pode estar incompleta e as médias saem baixas. Termine a carga do índice na aba Contas.
+          </Note>
+        )}
+
+        <Card title="Comprar agora" icon="shopping-cart"
+          subtitle={`${NUM(lista.length)} de ${NUM(todos.length)} SKUs · média ponderada ${Math.round(dados.pesos.d7*100)}/${Math.round(dados.pesos.d15*100)}/${Math.round(dados.pesos.d30*100)} entre 7, 15 e 30 dias`}
+          action={
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar SKU ou título"
+                style={{height:34,padding:'0 11px',border:'1px solid var(--border-default)',
+                  borderRadius:'var(--radius-md)',fontSize:'var(--text-xs)',width:170,
+                  background:'var(--surface-card)',color:'var(--text-body)'}}/>
+              <select value={filtro} onChange={e=>setFiltro(e.target.value)}
+                style={{height:34,padding:'0 9px',border:'1px solid var(--border-default)',
+                  borderRadius:'var(--radius-md)',fontSize:'var(--text-xs)',
+                  background:'var(--surface-card)',color:'var(--text-body)'}}>
+                <option value="precisa">Precisa comprar</option>
+                <option value="todos">Todos</option>
+                <option value="ruptura">Só ruptura</option>
+                <option value="atrasado">Só atrasados</option>
+                <option value="a_caminho">A caminho</option>
+                <option value="ok">OK</option>
+                <option value="parado">Sem giro</option>
+                <option value="semCadastro">Sem cadastro</option>
+              </select>
+            </div>
+          }>
+          {!lista.length
+            ? <Empty compact icon="check" title={filtro==='precisa'?'Nada a comprar':'Nenhum SKU neste filtro'}
+                description={filtro==='precisa'?'Todos os SKUs com giro estão com cobertura acima do ponto de compra.':'Mude o filtro ou a busca.'}/>
+            : <>
+              <div className="tabela-lista">
+                {pg.fatia.map(x=>{
+                  const s=SITUACOES_REP[x.situacao]||SITUACOES_REP.ok;
+                  const urgente=['ruptura','atrasado'].includes(x.situacao);
+                  const estaAberto=aberto===x.sku;
+                  return (
+                    <div key={x.sku} style={{borderBottom:'1px solid var(--border-subtle)'}}>
+                      <div style={{display:'grid',
+                        gridTemplateColumns:'auto minmax(0,1fr) 104px 108px 96px 104px 112px 36px',
+                        gap:'var(--space-3)',alignItems:'center',padding:'12px 2px',
+                        boxShadow:urgente?'inset 3px 0 var(--status-danger-solid)':undefined,
+                        paddingLeft:urgente?10:2}}>
+                        <Thumb src={x.foto} alt={x.titulo} size={40}/>
+                        <div style={{minWidth:0}}>
+                          <div className="ell" style={{fontSize:'var(--text-sm)',
+                            fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{x.titulo}</div>
+                          <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',
+                            marginTop:2,display:'flex',gap:8,flexWrap:'wrap'}}>
+                            <span>{x.sku}</span>
+                            {x.fornecedor&&<span>{x.fornecedor}</span>}
+                            {!x.temCadastro&&<span style={{color:'var(--status-warning-fg)'}}>sem cadastro</span>}
+                          </div>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>
+                            {x.media.toFixed(x.media<10?1:0)}/dia</div>
+                          <div className="tab" style={{fontSize:'var(--text-2xs)',
+                            color:x.tendenciaRotulo==='acelerando'?'var(--status-success-fg)'
+                              :x.tendenciaRotulo==='desacelerando'?'var(--status-warning-fg)':'var(--text-muted)'}}>
+                            {x.situacao==='parado'?'sem venda em 30d'
+                              :x.corrigidaPorRuptura?'corrigida':x.tendenciaRotulo}</div>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>
+                            {NUM(x.estoqueTotal)}</div>
+                          <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+                            {NUM(x.estoqueFull)} Full{x.estoquePrep?` + ${NUM(x.estoquePrep)} prep`:''}</div>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <div className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',
+                            color:urgente?'var(--status-danger-fg)':'var(--text-strong)'}}>
+                            {dias1(x.diasAteZerar)}</div>
+                          <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+                            {x.situacao==='parado'?'sem giro':`até zerar · ponto ${x.pontoDeCompra}d`}</div>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          {x.sugestaoCompra>0?(<>
+                            <div className="tab" style={{fontSize:'var(--text-md)',fontWeight:'var(--weight-extrabold)',
+                              color:'var(--purple-500)'}}>{NUM(x.sugestaoCompra)}</div>
+                            <div className="tab" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+                              {x.custoUnit>0?BRL(x.valorSugestao):'sem custo'}</div>
+                          </>):<span style={{fontSize:'var(--text-sm)',color:'var(--text-subtle)'}}>—</span>}
+                        </div>
+                        <div style={{display:'flex',justifyContent:'flex-end'}}>
+                          <Badge tone={s.tom} dot>{s.rotulo}</Badge>
+                        </div>
+                        <IconBtn icon={estaAberto?'chevron-up':'chevron-down'} size={32}
+                          label={estaAberto?'Fechar cadastro':'Abrir cadastro'}
+                          onClick={()=>setAberto(estaAberto?null:x.sku)}/>
+                      </div>
+
+                      {estaAberto&&(
+                        <div style={{padding:'0 2px 14px'}}>
+                          <div style={{display:'flex',gap:'var(--space-3)',flexWrap:'wrap',
+                            marginBottom:'var(--space-3)',fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>
+                            <span>7d: <strong className="tab">{NUM(x.unidades7)}</strong> un ({x.media7.toFixed(1)}/dia)</span>
+                            <span>15d: <strong className="tab">{NUM(x.unidades15)}</strong> un ({x.media15.toFixed(1)}/dia)</span>
+                            <span>30d: <strong className="tab">{NUM(x.unidades30)}</strong> un ({x.media30.toFixed(1)}/dia)</span>
+                            {x.emTransitoFornecedor>0&&<span style={{color:'var(--status-info-fg)'}}>
+                              {NUM(x.emTransitoFornecedor)} em trânsito do fornecedor
+                              {x.proximaChegada?` · chega ${fmtData(String(x.proximaChegada).slice(0,10))}`:''}</span>}
+                            {x.contas?.length>1&&<span>vende em {x.contas.length} contas</span>}
+                          </div>
+                          <CadastroSku x={x} padrao={dados.cfg} onSalvo={carregar}/>
+                          <div style={{marginTop:'var(--space-3)',display:'flex',gap:8,flexWrap:'wrap'}}>
+                            <Btn variant="secondary" size="sm" icon="truck"
+                              onClick={()=>setNovaCompra({sku:x.sku,quantidade:String(x.sugestaoCompra||''),
+                                fornecedor:x.fornecedor||'',previsaoChegada:hojeMais(x.prazoDias||30)})}>
+                              Registrar compra deste SKU</Btn>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <Paginacao {...pg} rotulo="SKUs"/>
+            </>}
+        </Card>
+
+        <ComprasAbertas compras={compras} nova={novaCompra} setNova={setNovaCompra}
+          onMudou={()=>{recarregarCompras();carregar();}}/>
+
+        <Note tone="neutral" icon="info">
+          Calculado em {new Date(dados.geradoEm).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} ·
+          venda de {fmtData(dados.periodo.de)} a {fmtData(dados.periodo.ate)} ·
+          ponto de compra = prazo do fornecedor + margem de segurança ·
+          sugestão = média × (prazo + margem + cobertura alvo) − estoque − em trânsito, arredondada no pedido mínimo.
+          <br/>Esta tela soma <strong>todas as suas contas ativas</strong> e ignora o filtro de contas do resto do
+          sistema: o estoque é um só, então a demanda do mesmo SKU precisa somar entre as lojas.
+        </Note>
+      </>)}
+    </div>
+  );
+}
+
+/* Padrões globais, usados quando o SKU não tem valor próprio */
+function ConfigReposicao({cfg,onSalvo}){
+  const [f,setF]=useState({
+    prazoDias:String(cfg?.prazoDias??30),
+    margemSegDias:String(cfg?.margemSegDias??7),
+    coberturaAlvoDias:String(cfg?.coberturaAlvoDias??30),
+    pedidoMinimo:String(cfg?.pedidoMinimo??0),
+    telefone:cfg?.telefone||'',
+    resumoAtivo:cfg?.resumoAtivo!==false,
+  });
+  const [salvando,setSalvando]=useState(false);
+  const [msg,setMsg]=useState('');
+  const set=(k,v)=>{setF(o=>({...o,[k]:v}));setMsg('');};
+
+  async function salvar(){
+    setSalvando(true);setMsg('');
+    try{
+      await call('mlSalvarConfigReposicao',{
+        prazoDias:PARSE(f.prazoDias),margemSegDias:PARSE(f.margemSegDias),
+        coberturaAlvoDias:PARSE(f.coberturaAlvoDias),pedidoMinimo:PARSE(f.pedidoMinimo),
+        telefone:f.telefone||null,resumoAtivo:f.resumoAtivo});
+      onSalvo?.();
+    }catch(e){setMsg(e.message);}
+    finally{setSalvando(false);}
+  }
+
+  return (
+    <Card title="Padrões de reposição" icon="settings"
+      subtitle="Valem para todo SKU que não tiver valor próprio cadastrado">
+      {msg&&<Note tone="danger" icon="circle-alert">{msg}</Note>}
+      <div style={{display:'flex',gap:'var(--space-4)',flexWrap:'wrap',alignItems:'flex-end'}}>
+        <CampoNum rotulo="Prazo do fornecedor" valor={f.prazoDias} onChange={v=>set('prazoDias',v)} sufixo="d" largura={110}/>
+        <CampoNum rotulo="Margem de segurança" valor={f.margemSegDias} onChange={v=>set('margemSegDias',v)} sufixo="d" largura={120}/>
+        <CampoNum rotulo="Cobertura alvo" valor={f.coberturaAlvoDias} onChange={v=>set('coberturaAlvoDias',v)} sufixo="d" largura={110}/>
+        <CampoNum rotulo="Pedido mínimo" valor={f.pedidoMinimo} onChange={v=>set('pedidoMinimo',v)} largura={100}/>
+        <label style={{display:'flex',flexDirection:'column',gap:4}}>
+          <span style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',
+            letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',color:'var(--text-subtle)'}}>WhatsApp do resumo</span>
+          <input value={f.telefone} onChange={e=>set('telefone',e.target.value)} placeholder="21999998888"
+            className="fld mono" style={{height:'var(--control-h-sm)',width:150,padding:'0 9px',fontSize:'var(--text-xs)'}}/>
+        </label>
+        <label style={{display:'flex',alignItems:'center',gap:7,height:'var(--control-h-sm)',
+          fontSize:'var(--text-xs)',color:'var(--text-body)',cursor:'pointer'}}>
+          <input type="checkbox" checked={f.resumoAtivo} onChange={e=>set('resumoAtivo',e.target.checked)}
+            style={{accentColor:'var(--purple-500)',width:16,height:16}}/>
+          Resumo diário às 8h
+        </label>
+        <Btn variant="primary" size="sm" icon={salvando?'loader':'check'} onClick={salvar} disabled={salvando}
+          style={{marginLeft:'auto'}}>{salvando?'Salvando…':'Salvar padrões'}</Btn>
+      </div>
+    </Card>
+  );
+}
+
+/* Compras em andamento: o que já foi pedido e quando chega */
+function ComprasAbertas({compras,nova,setNova,onMudou}){
+  const [salvando,setSalvando]=useState(false);
+  const [erro,setErro]=useState('');
+  const f=nova||{};
+  const set=(k,v)=>setNova({...f,[k]:v});
+
+  async function salvar(){
+    if(!f.sku||!f.quantidade||!f.previsaoChegada){setErro('Preencha SKU, quantidade e data prevista.');return;}
+    setSalvando(true);setErro('');
+    try{
+      await call('mlCompraSalvar',{id:f.id||null,sku:f.sku,quantidade:PARSE(f.quantidade),
+        previsaoChegada:f.previsaoChegada,fornecedor:f.fornecedor||null});
+      setNova(null);onMudou?.();
+    }catch(e){setErro(e.message);}
+    finally{setSalvando(false);}
+  }
+  async function receber(c){
+    setSalvando(true);setErro('');
+    try{await call('mlCompraReceber',{id:c.id});onMudou?.();}
+    catch(e){setErro(e.message);}
+    finally{setSalvando(false);}
+  }
+  async function remover(c){
+    setSalvando(true);setErro('');
+    try{await call('mlCompraRemover',{id:c.id});onMudou?.();}
+    catch(e){setErro(e.message);}
+    finally{setSalvando(false);}
+  }
+
+  const hoje=hojeMais(0);
+  return (
+    <Card title="Compras em andamento" icon="truck"
+      subtitle={`${NUM(compras.length)} ${compras.length===1?'pedido aberto':'pedidos abertos'}`}
+      action={!nova&&<Btn variant="neutral" size="sm" icon="plus"
+        onClick={()=>setNova({sku:'',quantidade:'',fornecedor:'',previsaoChegada:hojeMais(30)})}>
+        Nova compra</Btn>}>
+      {erro&&<Note tone="danger" icon="circle-alert">{erro}</Note>}
+
+      {nova&&(
+        <div style={{padding:'var(--space-4)',background:'var(--surface-sunken)',borderRadius:'var(--radius-lg)',
+          display:'flex',gap:'var(--space-3)',flexWrap:'wrap',alignItems:'flex-end',marginBottom:'var(--space-4)'}}>
+          <label style={{display:'flex',flexDirection:'column',gap:4}}>
+            <span style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',
+              letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',color:'var(--text-subtle)'}}>SKU</span>
+            <input value={f.sku||''} onChange={e=>set('sku',e.target.value)} className="fld mono"
+              style={{height:'var(--control-h-sm)',width:150,padding:'0 9px',fontSize:'var(--text-xs)'}}/>
+          </label>
+          <CampoNum rotulo="Quantidade" valor={f.quantidade} onChange={v=>set('quantidade',v)} largura={100}/>
+          <label style={{display:'flex',flexDirection:'column',gap:4}}>
+            <span style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',
+              letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',color:'var(--text-subtle)'}}>Chega em</span>
+            <input type="date" value={f.previsaoChegada||''} onChange={e=>set('previsaoChegada',e.target.value)}
+              className="fld" style={{height:'var(--control-h-sm)',padding:'0 9px',fontSize:'var(--text-xs)'}}/>
+          </label>
+          <label style={{display:'flex',flexDirection:'column',gap:4,flex:'1 1 160px',minWidth:140}}>
+            <span style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',
+              letterSpacing:'var(--tracking-caps)',textTransform:'uppercase',color:'var(--text-subtle)'}}>Fornecedor</span>
+            <input value={f.fornecedor||''} onChange={e=>set('fornecedor',e.target.value)} className="fld"
+              style={{height:'var(--control-h-sm)',padding:'0 9px',fontSize:'var(--text-xs)'}}/>
+          </label>
+          <div style={{display:'flex',gap:8}}>
+            <Btn variant="neutral" size="sm" onClick={()=>{setNova(null);setErro('');}}>Cancelar</Btn>
+            <Btn variant="primary" size="sm" icon={salvando?'loader':'check'} onClick={salvar} disabled={salvando}>
+              {salvando?'Salvando…':'Salvar compra'}</Btn>
+          </div>
+        </div>
+      )}
+
+      {!compras.length&&!nova
+        ? <Empty compact icon="truck" title="Nenhuma compra em aberto"
+            description="Registre o que já foi pedido ao fornecedor para o cálculo considerar o que está a caminho."/>
+        : <div className="tabela-lista">
+          {compras.map(c=>{
+            const atrasada=c.previsaoChegada&&c.previsaoChegada<hoje;
+            return (
+              <div key={c.id} style={{display:'grid',
+                gridTemplateColumns:'minmax(0,1fr) 88px 128px 150px',gap:'var(--space-3)',
+                alignItems:'center',padding:'11px 2px',borderBottom:'1px solid var(--border-subtle)'}}>
+                <div style={{minWidth:0}}>
+                  <div className="mono" style={{fontSize:'var(--text-sm)',
+                    fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{c.sku}</div>
+                  {c.fornecedor&&<div style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2}}>
+                    {c.fornecedor}</div>}
+                </div>
+                <div className="tab" style={{textAlign:'right',fontSize:'var(--text-sm)',
+                  fontWeight:'var(--weight-semibold)'}}>{NUM(c.quantidade)} un</div>
+                <div style={{textAlign:'right'}}>
+                  <div className="tab" style={{fontSize:'var(--text-sm)',
+                    color:atrasada?'var(--status-danger-fg)':'var(--text-strong)',
+                    fontWeight:atrasada?'var(--weight-bold)':'var(--weight-medium)'}}>
+                    {fmtData(c.previsaoChegada)}</div>
+                  {atrasada&&<div style={{fontSize:'var(--text-2xs)',color:'var(--status-danger-fg)'}}>
+                    passou da data</div>}
+                </div>
+                <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                  <Btn variant="neutral" size="sm" icon="package-check" onClick={()=>receber(c)} disabled={salvando}>
+                    Recebi</Btn>
+                  <IconBtn icon="trash-2" size={32} label="Remover compra"
+                    onClick={()=>remover(c)} disabled={salvando}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>}
+
+      {Boolean(compras.length)&&(
+        <Note tone="neutral" icon="info">
+          “Recebi” fecha o pedido e soma a quantidade no estoque do prep — o número sai de “em trânsito”
+          e entra no estoque, em vez de sumir dos dois lados.
+        </Note>
+      )}
+    </Card>
+  );
+}
+
+
+/* ══ DIA A DIA ══════════════════════════════════════════════
+   "Vendemos 50 xícaras hoje. E ontem?" — essa pergunta não pode
+   custar o carregamento de 30 dias. Um dia tem poucos pedidos, e
+   dia fechado vira foto guardada: da segunda vez é uma leitura só. */
+
+const DIA_SEMANA=['dom','seg','ter','qua','qui','sex','sáb'];
+function rotuloDia(dia,hoje){
+  if(dia===hoje)return 'Hoje';
+  const d=new Date(dia+'T12:00:00-03:00');
+  const h=new Date(hoje+'T12:00:00-03:00');
+  const diff=Math.round((h-d)/86400000);
+  if(diff===1)return 'Ontem';
+  return `${DIA_SEMANA[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function diaMais(dia,n){
+  const d=new Date(dia+'T12:00:00-03:00');
+  d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+
+/* A variação ao lado do número: o sinal e a cor já contam a história */
+function Delta({atual,anterior,sufixo='',moeda=false}){
+  if(anterior==null)return null;
+  const d=(Number(atual)||0)-(Number(anterior)||0);
+  if(Math.abs(d)<(moeda?0.005:0.5))
+    return <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>igual a ontem</span>;
+  const sobe=d>0;
+  const pct=(Number(anterior)||0)!==0?Math.abs(d/(Number(anterior)||0))*100:null;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:'var(--text-2xs)',
+      fontWeight:'var(--weight-semibold)',
+      color:sobe?'var(--status-success-fg)':'var(--status-danger-fg)'}}>
+      <Icon name={sobe?'arrow-up-right':'arrow-down-right'} size={11}/>
+      {moeda?BRL(Math.abs(d)):NUM(Math.abs(d))}{sufixo}
+      {pct!=null&&pct<1000&&<span style={{color:'var(--text-muted)',fontWeight:'var(--weight-medium)'}}>
+        ({pct.toFixed(0)}%)</span>}
+    </span>
+  );
+}
+
+function ViewDiaADia({comoUid,contasAtivas}){
+  const hojeLocal=new Date(Date.now()-3*3600000).toISOString().slice(0,10);
+  const [dia,setDia]=useState(hojeLocal);
+  const [dados,setDados]=useState(null);
+  const [tira,setTira]=useState([]);
+  const [carregando,setCarregando]=useState(false);
+  const [erro,setErro]=useState('');
+  const [verSumiram,setVerSumiram]=useState(false);
+  const [busca,setBusca]=useState('');
+
+  useEffect(()=>{carregar(dia);},[dia,comoUid,JSON.stringify(contasAtivas)]);
+  useEffect(()=>{carregarTira();},[comoUid,JSON.stringify(contasAtivas)]);
+
+  async function carregar(d){
+    setCarregando(true);setErro('');
+    try{
+      const r=await call('mlDia',{dia:d,contas:contasAtivas,comoUid:comoUid||null});
+      setDados(r);
+    }catch(e){setErro(e.message||'Não consegui carregar esse dia.');setDados(null);}
+    finally{setCarregando(false);}
+  }
+  async function carregarTira(){
+    try{
+      const r=await call('mlUltimosDias',{dias:14,contas:contasAtivas,comoUid:comoUid||null});
+      setTira(r.dias||[]);
+    }catch{}
+  }
+
+  const t=dados?.totais, ta=dados?.totaisAnterior;
+  const lista=(dados?.skus||[]).filter(x=>!busca
+    ||`${x.sku} ${x.titulo||''}`.toLowerCase().includes(busca.toLowerCase()));
+  const multiConta=(dados?.porConta||[]).length>1;
+  const GRID_DIA=multiConta
+    ? '52px minmax(0,1fr) 96px 118px 124px 112px'
+    : '52px minmax(0,1fr) 96px 118px 124px';
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+
+      {/* A tira de dias: clica e troca, sem recarregar o resto do sistema */}
+      <Card pad={false}>
+        <div style={{padding:'var(--space-4) var(--layout-card-pad)',display:'flex',
+          flexDirection:'column',gap:'var(--space-3)'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+            gap:12,flexWrap:'wrap'}}>
+            <Overline>Escolha o dia</Overline>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <input type="date" value={dia} max={hojeLocal}
+                onChange={e=>{if(e.target.value)setDia(e.target.value);}}
+                className="fld" style={{height:'var(--control-h-sm)',padding:'0 10px',
+                  fontSize:'var(--text-xs)'}}/>
+              <IconBtn icon="chevron-left" size={32} label="Dia anterior"
+                onClick={()=>setDia(diaMais(dia,-1))}/>
+              <IconBtn icon="chevron-right" size={32} label="Dia seguinte"
+                disabled={dia>=hojeLocal} onClick={()=>setDia(diaMais(dia,1))}/>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:4}}>
+            {tira.map(d=>{
+              const sel=d.dia===dia;
+              // O dia aberto já tem o número carregado: mostra em vez de "—",
+              // inclusive hoje, que nunca tem foto guardada.
+              const vivo=(d.dia===dia&&dados?.totais)
+                ? {faturamento:dados.totais.faturamento,unidades:dados.totais.unidades}
+                : null;
+              const mostra=d.pronto?d:vivo;
+              return (
+                <button key={d.dia} onClick={()=>setDia(d.dia)}
+                  style={{flexShrink:0,minWidth:88,padding:'9px 11px',borderRadius:'var(--radius-md)',
+                    border:'1px solid',borderColor:sel?'var(--action-primary)':'var(--border-default)',
+                    background:sel?'var(--action-primary)':'var(--surface-card)',
+                    color:sel?'#fff':'var(--text-body)',cursor:'pointer',textAlign:'left',
+                    fontFamily:'inherit'}}>
+                  <div style={{fontSize:'var(--text-2xs)',fontWeight:'var(--weight-bold)',
+                    opacity:sel?.9:.7}}>{rotuloDia(d.dia,hojeLocal)}</div>
+                  <div className="tab" style={{fontSize:'var(--text-sm)',
+                    fontWeight:'var(--weight-bold)',marginTop:2}}>
+                    {mostra?BRL(mostra.faturamento):'—'}</div>
+                  {mostra&&<div className="tab" style={{fontSize:'var(--text-2xs)',
+                    opacity:sel?.85:.6,marginTop:1}}>{NUM(mostra.unidades)} un</div>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
+
+      {erro&&<Note tone="danger" icon="circle-alert">{erro}</Note>}
+
+      {carregando&&!dados&&(
+        <Card><div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {[0,1,2].map(i=><Skel key={i} h={48}/>)}</div></Card>
+      )}
+
+      {dados&&t&&(<>
+        <section className="dashboard-overview" aria-label={`Resumo de ${fmtData(dia)}`}>
+          <div>
+            <Overline>Faturamento {dados.ehHoje?'de hoje':`de ${fmtData(dia)}`}</Overline>
+            <div className="metric-value">{BRL(t.faturamento)}</div>
+            <div className="metric-caption">
+              <Delta atual={t.faturamento} anterior={ta?.faturamento} moeda/>
+              {ta&&' vs '}{ta?rotuloDia(dados.diaAnterior,dados.hoje).toLowerCase():''}
+            </div>
+          </div>
+          <div>
+            <Overline>Unidades</Overline>
+            <div className="metric-value">{NUM(t.unidades)}</div>
+            <div className="metric-caption">
+              <Delta atual={t.unidades} anterior={ta?.unidades} sufixo=" un"/>
+              {' · '}{NUM(t.pedidos)} {t.pedidos===1?'pedido':'pedidos'} · {NUM(t.produtos)} produtos
+            </div>
+          </div>
+          <div>
+            <Overline>Lucro</Overline>
+            <div className="metric-value" style={{color:t.lucro<0?'var(--status-danger-fg)':'var(--purple-500)'}}>
+              {BRL(t.lucro)}</div>
+            <div className="metric-caption">
+              <Delta atual={t.lucro} anterior={ta?.lucro} moeda/>
+              {' · '}margem {PCT(t.margem)}
+            </div>
+          </div>
+        </section>
+
+        {t.semCusto>0&&(
+          <Note tone="warning" icon="triangle-alert">
+            <strong>{NUM(t.semCusto)} {t.semCusto===1?'produto vendido hoje está':'produtos vendidos hoje estão'} sem custo cadastrado.</strong>{' '}
+            O lucro deles aparece inflado — está descontando tarifa e frete, mas não a mercadoria.
+          </Note>
+        )}
+
+        {multiConta&&(
+          <Card title="Por conta" icon="store" subtitle={`${dados.porConta.length} contas venderam neste dia`}>
+            <div className="tabela-lista">
+              {dados.porConta.map(c=>(
+                <div key={c.id} style={{display:'flex',alignItems:'center',gap:'var(--space-3)',
+                  padding:'10px 2px',borderBottom:'1px solid var(--border-subtle)',flexWrap:'wrap'}}>
+                  <div style={{flex:'1 1 140px',minWidth:0,fontSize:'var(--text-sm)',
+                    fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{c.nickname}</div>
+                  <div className="tab" style={{fontSize:'var(--text-sm)',
+                    fontWeight:'var(--weight-semibold)',whiteSpace:'nowrap'}}>{BRL(c.faturamento)}</div>
+                  <div className="tab" style={{fontSize:'var(--text-sm)',whiteSpace:'nowrap',
+                    color:'var(--text-muted)'}}>{NUM(c.unidades)} un · {NUM(c.pedidos)} ped</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        <Card title="Unidades por produto" icon="package"
+          subtitle={`${NUM(lista.length)} ${lista.length===1?'produto':'produtos'} · comparado com ${rotuloDia(dados.diaAnterior,dados.hoje).toLowerCase()}`}
+          action={
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar produto"
+              style={{height:34,padding:'0 11px',border:'1px solid var(--border-default)',
+                borderRadius:'var(--radius-md)',fontSize:'var(--text-xs)',width:170,
+                background:'var(--surface-card)',color:'var(--text-body)'}}/>
+          }>
+          {!lista.length
+            ? <Empty compact icon="moon" title={busca?'Nenhum produto com esse nome':'Nenhuma venda neste dia'}
+                description={busca?'Mude a busca.':'Não há pedido registrado para esta data nas contas selecionadas.'}/>
+            : <div className="data-scroll">
+              <div className="data-grid" style={{minWidth:multiConta?880:740}}>
+                <div className="data-head" style={{display:'grid',gridTemplateColumns:GRID_DIA,
+                  gap:'var(--space-3)',padding:'11px var(--layout-card-pad)',
+                  background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',
+                  position:'sticky',top:0,zIndex:2}}>
+                  <span/>
+                  <THead>Produto</THead>
+                  <THead align="right">Unidades</THead>
+                  <THead align="right">{`vs ${rotuloDia(dados.diaAnterior,dados.hoje).toLowerCase()}`}</THead>
+                  <THead align="right">Faturamento</THead>
+                  {multiConta&&<THead align="right">Contas</THead>}
+                </div>
+                {lista.map(x=>(
+                  <div key={x.sku} className="data-row" style={{display:'grid',
+                    gridTemplateColumns:GRID_DIA,gap:'var(--space-3)',alignItems:'center',
+                    padding:'12px var(--layout-card-pad)',borderBottom:'1px solid var(--border-subtle)'}}>
+                    <div><Thumb src={x.foto} alt={x.titulo} size={40}/></div>
+                    <div style={{minWidth:0}}>
+                      <div className="ell" style={{fontSize:'var(--text-sm)',
+                        fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{x.titulo}</div>
+                      <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',
+                        marginTop:2,display:'flex',gap:8,flexWrap:'wrap'}}>
+                        <span>{x.sku}</span>
+                        {x.novoNoDia&&<span style={{color:'var(--status-info-fg)'}}>não vendeu ontem</span>}
+                        {!x.temCusto&&<span style={{color:'var(--status-warning-fg)'}}>sem custo</span>}
+                      </div>
+                    </div>
+                    <div data-label="Unidades" style={{textAlign:'right'}}>
+                      <span className="tab" style={{fontSize:'var(--text-xl)',
+                        fontWeight:'var(--weight-extrabold)',color:'var(--text-strong)',lineHeight:1.1}}>
+                        {NUM(x.unidades)}</span>
+                      <span className="tab mobile-secondary" style={{fontSize:'var(--text-2xs)',
+                        color:'var(--text-muted)',display:'block'}}>
+                        {NUM(x.pedidos)} {x.pedidos===1?'pedido':'pedidos'}</span>
+                    </div>
+                    <div data-label={`vs ${rotuloDia(dados.diaAnterior,dados.hoje).toLowerCase()}`}
+                      style={{textAlign:'right'}}>
+                      {x.anterior
+                        ? <span style={{display:'inline-flex',flexDirection:'column',alignItems:'flex-end',gap:2}}>
+                          <span className="tab" style={{fontSize:'var(--text-sm)',color:'var(--text-muted)'}}>
+                            {NUM(x.anterior.unidades)} un</span>
+                          <Delta atual={x.unidades} anterior={x.anterior.unidades} sufixo=" un"/>
+                        </span>
+                        : <span style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)'}}>não vendeu</span>}
+                    </div>
+                    <div data-label="Faturamento" style={{textAlign:'right'}}>
+                      <span className="tab" style={{fontSize:'var(--text-sm)',
+                        fontWeight:'var(--weight-semibold)',display:'block'}}>{BRL(x.faturamento)}</span>
+                      <span className="tab mobile-secondary" style={{fontSize:'var(--text-2xs)',
+                        color:x.lucro<0?'var(--status-danger-fg)':'var(--purple-500)',display:'block'}}>
+                        {BRL(x.lucro)} · {PCT(x.margem)}</span>
+                    </div>
+                    {multiConta&&(
+                      <div data-label="Contas" style={{textAlign:'right',display:'flex',
+                        flexDirection:'column',gap:1,alignItems:'flex-end'}}>
+                        {(dados.porConta||[]).map(c=>{
+                          const v=x.porConta?.[c.id];
+                          if(!v||!v.unidades)return null;
+                          return <span key={c.id} className="tab" style={{fontSize:'var(--text-2xs)',
+                            color:'var(--text-muted)',whiteSpace:'nowrap'}}>
+                            {c.nickname}: <strong style={{color:'var(--text-body)'}}>{NUM(v.unidades)}</strong></span>;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>}
+        </Card>
+
+        {Boolean(dados.sumiram?.length)&&(
+          <Card title="Vendeu ontem e não vendeu hoje" icon="moon-star"
+            subtitle={`${NUM(dados.sumiram.length)} ${dados.sumiram.length===1?'produto':'produtos'}`}
+            action={<Btn variant="neutral" size="sm" icon={verSumiram?'chevron-up':'chevron-down'}
+              onClick={()=>setVerSumiram(!verSumiram)}>{verSumiram?'Ocultar':'Ver quais'}</Btn>}>
+            {verSumiram
+              ? <div className="tabela-lista">
+                {dados.sumiram.map(x=>(
+                  <div key={x.sku} style={{display:'flex',alignItems:'center',gap:'var(--space-3)',
+                    padding:'10px 2px',borderBottom:'1px solid var(--border-subtle)'}}>
+                    <Thumb src={x.foto} alt={x.titulo} size={34}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div className="ell" style={{fontSize:'var(--text-sm)',
+                        fontWeight:'var(--weight-medium)'}}>{x.titulo}</div>
+                      <div className="mono" style={{fontSize:'var(--text-2xs)',
+                        color:'var(--text-muted)'}}>{x.sku}</div>
+                    </div>
+                    <span className="tab" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',
+                      whiteSpace:'nowrap'}}>
+                      {NUM(x.anterior.unidades)} un ontem · {BRL(x.anterior.faturamento)}</span>
+                  </div>
+                ))}
+              </div>
+              : <p style={{fontSize:'var(--text-sm)',color:'var(--text-muted)'}}>
+                  Produtos que tiveram venda no dia anterior e zeraram neste. Pode ser ruptura de
+                  estoque, anúncio pausado ou só oscilação.</p>}
+          </Card>
+        )}
+
+        <Note tone="neutral" icon="zap">
+          Carregado em {dados.ms<1000?`${dados.ms} ms`:`${(dados.ms/1000).toFixed(1)}s`}
+          {dados.origem==='foto'
+            ? ' — dia fechado, lido da foto guardada.'
+            : dados.origem==='indice'
+              ? ' — primeira abertura deste dia; da próxima vez vem da foto, instantâneo.'
+              : ' — hoje é recalculado a cada abertura, porque ainda está mudando.'}
+          {t.cancelados>0&&<> {NUM(t.cancelados)} {t.cancelados===1?'pedido cancelado':'pedidos cancelados'} ({BRL(t.valorCancelado)}) ficaram fora das somas.</>}
+        </Note>
+      </>)}
+    </div>
+  );
+}
+
+
 function ViewIA({dados,periodo,rotuloPeriodo}){
   const [analises,setAnalises]=useState(null);
   const [carregandoLista,setCarregandoLista]=useState(true);
@@ -5409,12 +6513,14 @@ function ViewHub({perfil,mentoradoAtivo,onAbrir,onVoltarParaMim}){
 
 const NAV=[
   {id:'dashboard',icon:'layout-dashboard',label:'Visão geral',curto:'Início'},
+  {id:'dia',soAdmin:true,icon:'calendar-days',label:'Dia a dia',curto:'Dia'},
   {id:'pedidos',icon:'shopping-cart',label:'Pedidos',curto:'Pedidos'},
   {id:'skus',icon:'boxes',label:'Por produto',curto:'Produtos'},
   {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
   {id:'curva',soAdmin:true,icon:'git-compare',label:'Curva ABC',curto:'ABC'},
   {id:'full',soAdmin:true,icon:'warehouse',label:'Estoque Full',curto:'Full'},
   {id:'coletas',soAdmin:true,icon:'calendar-clock',label:'Coletas Full',curto:'Coletas'},
+  {id:'reposicao',soAdmin:true,icon:'shopping-cart',label:'Reposição',curto:'Repor'},
   {id:'trafego',soAdmin:true,icon:'mouse-pointer-click',label:'Tráfego',curto:'Tráfego'},
   {id:'concorrentes',soAdmin:true,icon:'crosshair',label:'Concorrentes',curto:'Rivais'},
   {id:'consulta',icon:'terminal',label:'Consulta livre',curto:'Consulta',soAdmin:true},
@@ -5661,6 +6767,7 @@ function AppLogado({user,erroConexao}){
           </div>}
           {!dados&&!loading&&err?null:<>
           {view==='dashboard'&&<ViewDashboard dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} onIrParaAnuncios={revisarCustos} onIrParaPrejuizos={revisarPrejuizos} onIrParaSkus={()=>navegar('skus')} onIrParaContas={perfil?.admin?()=>navegar('contas'):null} somenteLeitura={Boolean(mentorado)}/>}
+          {view==='dia'&&perfil?.admin&&<ViewDiaADia comoUid={mentorado?.uid||null} contasAtivas={contasAtivas}/>}
           {view==='pedidos'&&(
             <div>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'var(--space-3)',
@@ -5683,6 +6790,7 @@ function AppLogado({user,erroConexao}){
           {view==='curva'&&perfil?.admin&&<ViewCurvaABC dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} admin={Boolean(perfil?.admin)&&!mentorado}/>}
           {view==='full'&&perfil?.admin&&<ViewEstoqueFull admin={Boolean(perfil?.admin)&&!mentorado} rotuloPeriodo={rotuloPeriodo} dadosGerais={dados} comoUid={mentorado?.uid||null}/>}
           {view==='coletas'&&perfil?.admin&&<ViewColetas admin={Boolean(perfil?.admin)&&!mentorado} comoUid={mentorado?.uid||null} contasAtivas={contasAtivas}/>}
+          {view==='reposicao'&&perfil?.admin&&!mentorado&&<ViewReposicao contasAtivas={contasAtivas}/>}
           {view==='consulta'&&perfil?.admin&&<ViewConsulta contasAtivas={contasAtivas} periodo={periodo} intervalo={intervalo} rotuloPeriodo={rotuloPeriodo} contas={dados?.contas} comoUid={mentorado?.uid||null}/>}
           {view==='trafego'&&perfil?.admin&&<ViewTrafego dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta}/>}
           {view==='concorrentes'&&perfil?.admin&&<ViewConcorrentes/>}
