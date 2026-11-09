@@ -179,7 +179,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .tela-cheia .g{font-size:clamp(32px,9vw,60px);font-weight:800;line-height:1.05}
 .tela-cheia .m{font-size:clamp(17px,4.5vw,24px);font-weight:700;max-width:640px}
 .tela-cheia .btn{margin-top:8px;min-height:56px;font-size:18px;min-width:220px}
-#zoom-bts button[aria-pressed="true"]{background:var(--orange-d);color:#fff;border-color:transparent}
+#zoom-bts button[aria-pressed="true"],.zoom-foto button[aria-pressed="true"]{background:var(--orange-d);color:#fff;border-color:transparent}
 .foto-grande{max-width:100%;max-height:70vh;border-radius:8px}
 
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--nav)}
@@ -271,7 +271,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
       <div class="hist-filtros">
         <select id="h-cliente" aria-label="Cliente"><option value="">Todos os clientes</option></select>
         <select id="h-mod" aria-label="Logística"><option value="">Todas as logísticas</option></select>
-        <input type="search" id="h-busca" placeholder="Buscar nº do envio, pedido ou produto" aria-label="Buscar">
+        <input type="search" id="h-busca" placeholder="Buscar nº do envio, rastreio, pedido ou produto" aria-label="Buscar">
       </div>
       <div class="resumo" id="h-resumo"></div>
       <div class="hist" id="h-lista"></div>
@@ -658,7 +658,7 @@ function situacao(e){
 function desenharHistorico(){
   const c=$('h-cliente').value,m=$('h-mod').value,q=$('h-busca').value.trim().toLowerCase();
   const lista=hist.envios.filter(e=>(!c||(e.clienteNome||e.contaId)===c)&&(!m||e.modalidade===m)&&
-    (!q||[e.shipmentId,...(e.pedidos||[]),...(e.itens||[]).map(i=>i.titulo+' '+(i.sku||''))].join(' ').toLowerCase().includes(q)));
+    (!q||[e.shipmentId,e.rastreio||'',...(e.pedidos||[]),...(e.itens||[]).map(i=>i.titulo+' '+(i.sku||''))].join(' ').toLowerCase().includes(q)));
   $('h-resumo').innerHTML=`<span class="tab">${lista.length} envio(s)</span>`+
     MODS.map(x=>{const n=lista.filter(e=>e.modalidade===x.id).length;return n?`<span class="tab"><i style="background:${x.cor}"></i>${x.nome} ${n}</span>`:'';}).join('');
   if(!lista.length){$('h-lista').innerHTML='<div class="vazio">Nenhum envio nesse período.</div>';return;}
@@ -965,6 +965,11 @@ async function acao(tipo,id,btn){
 // Uma leitura de etiqueta. O sistema sabe o momento do pacote:
 // etiqueta recem-impressa -> confere; pacote pronto -> despacha.
 async function registrar(id){
+  if(String(id).startsWith('R:')){
+    const pr=acharPedido(id);
+    if(!pr){som(false);erro('Pacote não encontrado',`O rastreio ${esc(String(id).slice(2))} não está na fila. Tente bipar o outro código da etiqueta.`);return;}
+    id=String(pr.shipmentId);
+  }
   const p=pedidos.find(x=>String(x.shipmentId)===String(id));
   let etapa;
   if(!p){som(false);erro('Pacote não está na fila',`O envio ${esc(id)} não é de um cliente do prep, ou já saiu da fila.`);return;}
@@ -1006,10 +1011,18 @@ $('form-leitura').addEventListener('submit',e=>{
 $('b-camera').onclick=()=>abrirCamera('Bipe a etiqueta',lido=>registrar(lido));
 
 // Aceita o numero do envio puro ou o QR da etiqueta (que traz {"id":"..."})
+// Le o codigo da etiqueta e devolve o n do envio, ou "R:<rastreio>" na etiqueta dos Correios
+// (ML: numero do envio ou QR {"id":..}; Correios: rastreio AB123456789BR no codigo de barras e no DataMatrix)
 function idDaEtiqueta(t){
   t=String(t||'').trim();
   try{const j=JSON.parse(t);if(j&&j.id)return String(j.id);}catch{}
+  const r=t.toUpperCase().match(/[A-Z]{2}\d{9}[A-Z]{2}/);if(r)return 'R:'+r[0];
   const m=t.match(/\d{10,}/g);return m?m.sort((a,b)=>b.length-a.length)[0]:'';
+}
+function acharPedido(cod){
+  cod=String(cod||'');
+  if(cod.startsWith('R:')){const r=cod.slice(2);return pedidos.find(p=>String(p.rastreio||'').toUpperCase()===r);}
+  return pedidos.find(p=>String(p.shipmentId)===cod);
 }
 
 /* ── Foto (reduzida no celular antes de enviar) ────────── */
@@ -1060,9 +1073,16 @@ function desenharExec(){
   }
 }
 // A etiqueta bipada tem que ser exatamente a do pedido em execucao
-function conferirEtiqueta(lido){
+async function conferirEtiqueta(lido){
   if(!exec)return;
   if(!lido){som(false);erro('Código não reconhecido','Bipe o código de barras ou o QR da etiqueta do Mercado Livre.');return;}
+  if(lido.startsWith('R:')){
+    // Etiqueta dos Correios: compara pelo rastreio (busca no ML se ainda nao temos)
+    const pe=pedidos.find(x=>String(x.shipmentId)===exec.id);
+    if(pe&&!pe.rastreio){try{const r=await chamar('prepRastreio',{shipmentId:exec.id});pe.rastreio=r.rastreio;}catch{}}
+    const outro=acharPedido(lido);
+    lido=pe&&String(pe.rastreio||'').toUpperCase()===lido.slice(2)?exec.id:(outro?String(outro.shipmentId):lido.slice(2));
+  }
   if(lido!==exec.id){
     const outro=pedidos.find(x=>String(x.shipmentId)===lido);
     som(false);
@@ -1084,12 +1104,13 @@ function capturarFoto(instrucao){
       inp.click();};
     if(!navigator.mediaDevices?.getUserMedia)return porArquivo();
     const o=$('overlay');o.style.background='#100D14';o.classList.remove('oculto');
-    o.innerHTML=`<div class="m">${esc(instrucao)}</div><video id="cap-v" autoplay playsinline muted style="width:100%;max-width:640px;max-height:60vh;border-radius:8px;background:#000"></video>
+    o.innerHTML=`<div class="m">${esc(instrucao)}</div><video id="cap-v" autoplay playsinline muted style="width:100%;max-width:640px;max-height:58vh;border-radius:8px;background:#000"></video>
+      <div id="cap-zoom" class="zoom-foto" style="display:none;gap:8px" role="group" aria-label="Aproximar"></div>
       <button class="btn pri" type="button" id="cap-ok" style="min-width:240px">Tirar foto</button>
       <button class="btn" type="button" id="cap-x" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">Cancelar</button>`;
     let st=null;const parar=()=>{try{st?.getTracks().forEach(t=>t.stop());}catch{}};
     $('cap-x').onclick=()=>{parar();o.classList.add('oculto');o.innerHTML='';resolve(null);};
-    try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});$('cap-v').srcObject=st;}
+    try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});$('cap-v').srcObject=st;zoomNaCamera(st,'cap-zoom');}
     catch{parar();o.classList.add('oculto');o.innerHTML='';return porArquivo();}
     $('cap-ok').onclick=()=>{const v=$('cap-v');if(!v.videoWidth)return;const c=canvasDe(v,v.videoWidth,v.videoHeight);parar();o.classList.add('oculto');o.innerHTML='';resolve(reduzir(c));};
   });
@@ -1097,19 +1118,34 @@ function capturarFoto(instrucao){
 
 // Foto pela camera ao vivo (celular e computador). Sem camera: escolhe arquivo.
 let camStream=null;
+// Zoom da camera da foto (comeca em 2x quando o aparelho deixa): imagem mais fechada e legivel
+function zoomNaCamera(stream,alvoId){
+  try{
+    const tr=stream.getVideoTracks()[0];const cap=tr.getCapabilities?.()||{};
+    try{tr.applyConstraints({advanced:[{focusMode:'continuous'}]});}catch{}
+    if(!cap.zoom||cap.zoom.max<=1)return;
+    const max=Math.min(cap.zoom.max,4),niveis=[1,2,3,4].filter(z=>z<=max),alvo=$(alvoId);
+    const aplicar=async z=>{try{await tr.applyConstraints({advanced:[{zoom:z}]});}catch{}alvo.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',Number(x.dataset.z)===z));};
+    alvo.innerHTML=niveis.map(z=>`<button class="btn" type="button" data-z="${z}" style="min-width:60px;min-height:44px">${z}×</button>`).join('');
+    alvo.querySelectorAll('button').forEach(x=>x.onclick=()=>aplicar(Number(x.dataset.z)));
+    alvo.style.display='flex';aplicar(Math.min(2,max));
+  }catch{}
+}
+
 async function pedirFoto(id){
   fotoPara=id;
   if(!navigator.mediaDevices?.getUserMedia){$('foto-input').value='';$('foto-input').click();return;}
   const o=$('overlay');o.style.background='#100D14';o.classList.remove('oculto');
   o.innerHTML=`<div class="m">Caixa aberta, com o produto e a etiqueta aparecendo</div>
-    <video id="cam-v" autoplay playsinline muted style="width:100%;max-width:640px;max-height:60vh;border-radius:8px;background:#000"></video>
+    <video id="cam-v" autoplay playsinline muted style="width:100%;max-width:640px;max-height:58vh;border-radius:8px;background:#000"></video>
+    <div id="cam-zoom" class="zoom-foto" style="display:none;gap:8px" role="group" aria-label="Aproximar"></div>
     <button class="btn pri" type="button" id="cam-tirar" style="min-width:240px">Tirar foto</button>
     <button class="btn" type="button" id="cam-fechar" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">Cancelar</button>`;
   const parar=()=>{try{camStream?.getTracks().forEach(t=>t.stop());}catch{}camStream=null;};
   $('cam-fechar').onclick=()=>{parar();o.classList.add('oculto');o.innerHTML='';fotoPara=null;};
   try{
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:960}},audio:false});
-    $('cam-v').srcObject=camStream;
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    $('cam-v').srcObject=camStream;zoomNaCamera(camStream,'cam-zoom');
   }catch(e){
     parar();o.classList.add('oculto');o.innerHTML='';
     // Sem permissao ou sem camera: cai para escolher/tirar foto pelo sistema
@@ -1117,7 +1153,7 @@ async function pedirFoto(id){
   }
   $('cam-tirar').onclick=()=>{
     const v=$('cam-v');if(!v.videoWidth)return;
-    const k=Math.min(1,1024/Math.max(v.videoWidth,v.videoHeight));
+    const k=Math.min(1,1400/Math.max(v.videoWidth,v.videoHeight));
     const c=document.createElement('canvas');c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
     c.getContext('2d').drawImage(v,0,0,c.width,c.height);
     parar();
@@ -1139,8 +1175,8 @@ async function enviarFoto(c,_){
   if(!fotoPara)return;
   telaCheia('#100D14','<div class="g">Enviando foto…</div>');
   try{
-    let b64=c.toDataURL('image/jpeg',0.7).split(',')[1];
-    if(b64.length>850000)b64=c.toDataURL('image/jpeg',0.5).split(',')[1];
+    let b64=c.toDataURL('image/jpeg',0.75).split(',')[1];
+    if(b64.length>850000)b64=c.toDataURL('image/jpeg',0.55).split(',')[1];
     const r=await chamar('prepMudarEtapa',{shipmentId:fotoPara,etapa:'pronto',fotoBase64:b64},60);
     som(true);
     const m=modDe(r.modalidade);
@@ -1160,7 +1196,7 @@ async function abrirCamera(titulo,aoLer,cru){
   try{
     const F=window.Html5QrcodeSupportedFormats;
     // So os formatos que importam: menos formatos = leitura mais rapida
-    const formatos=cru?[F.EAN_13,F.EAN_8,F.UPC_A,F.CODE_128]:[F.CODE_128,F.QR_CODE];
+    const formatos=cru?[F.EAN_13,F.EAN_8,F.UPC_A,F.CODE_128]:[F.CODE_128,F.QR_CODE,F.DATA_MATRIX];
     leitor=new Html5Qrcode('leitor',{verbose:false,formatsToSupport:formatos,experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
     let lido=false;
     await leitor.start({facingMode:'environment'},{
