@@ -603,7 +603,7 @@ async function abrirFatura(){
       <label>Cliente<select id="ft-cli"></select></label>
       <label style="flex:0 1 180px">Mês<input id="ft-mes" type="month" value="${esc(ftEstado.mes)}"></label>
     </div>
-    <span style="font-size:13px;color:var(--muted)">É a mesma conta que o cliente vê na página dele, atualizada a cada pacote finalizado.</span></div>
+    <span style="font-size:13px;color:var(--muted)">É a mesma conta que o cliente vê na página dele, atualizada a cada pacote finalizado. <a href="cliente.html" target="_blank" rel="noopener" style="color:var(--orange-d);font-weight:800">Abrir a página do cliente ↗</a></span></div>
     <div id="ft-res"><div class="vazio">Calculando…</div></div>`;
   opcoesClientes($('ft-cli'),ftEstado.contaId);
   $('ft-cli').onchange=e=>{ftEstado.contaId=e.target.value;carregarFatura();};
