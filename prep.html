@@ -1178,10 +1178,12 @@ async function acao(tipo,id,btn){
       carregar();return;
     }
     if(tipo==='folha'){folhaControle(id.split(','));return;}
-    if(tipo==='bipar-lote'){const lista=id.split(',');abrirCamera(lista.length>1?`Bipe uma das ${lista.length} etiquetas deste lote`:'Bipe a etiqueta colada nesta caixa',lido=>{
+    if(tipo==='bipar-lote'){const lista=id.split(',');abrirCamera(lista.length>1?`Bipe uma das ${lista.length} etiquetas deste lote`:'Bipe a etiqueta colada nesta caixa',async cod=>{
+      const lido=await paraEnvio(cod);if(!lido){erroLeitura(cod);return;}
       if(!lista.includes(lido)){som(false);erro('Etiqueta de outro pedido',`O envio ${esc(lido)} não é deste lote. Confira se colou a etiqueta certa.`);return;}
       registrar(lido);});return;}
-    if(tipo==='bipar'){abrirCamera('Bipe a etiqueta colada nesta caixa',lido=>{
+    if(tipo==='bipar'){abrirCamera('Bipe a etiqueta colada nesta caixa',async cod=>{
+      const lido=await paraEnvio(cod);if(!lido){erroLeitura(cod);return;}
       if(lido!==String(id)){som(false);erro('Etiqueta de outro pedido',`Você bipou o envio ${esc(lido)}, mas esta caixa é do envio ${esc(id)}. Confira se colou a etiqueta certa.`);return;}
       registrar(lido);});return;}
     if(tipo==='despachar'){abrirCamera('Bipe a etiqueta do pacote para finalizar',lido=>registrar(lido));return;}
@@ -1203,15 +1205,12 @@ async function acao(tipo,id,btn){
 
 // Uma leitura de etiqueta. O sistema sabe o momento do pacote:
 // etiqueta recem-impressa -> confere; pacote pronto -> despacha.
-async function registrar(id){
-  if(String(id).startsWith('R:')){
-    const pr=acharPedido(id);
-    if(!pr){som(false);erro('Pacote não encontrado',`O rastreio ${esc(String(id).slice(2))} não está na fila. Tente bipar o outro código da etiqueta.`);return;}
-    id=String(pr.shipmentId);
-  }
+async function registrar(lido){
+  const id=await paraEnvio(lido);
+  if(!id){erroLeitura(lido);return;}
   const p=pedidos.find(x=>String(x.shipmentId)===String(id));
   let etapa;
-  if(!p){som(false);erro('Pacote não está na fila',`O envio ${esc(id)} não é de um cliente do prep, ou já saiu da fila.`);return;}
+  if(!p){erroLeitura(id);return;}
   if(p.momento==='pronto')etapa='despachado';
   else if(p.momento==='bipar'&&exec&&exec.id===String(id))etapa='etiquetado';
   else if(p.momento==='bipar'){
@@ -1244,7 +1243,6 @@ async function registrar(id){
 $('form-leitura').addEventListener('submit',e=>{
   e.preventDefault();
   const id=idDaEtiqueta($('bip').value);$('bip').value='';
-  if(!id){som(false);erro('Código não reconhecido','Bipe o código de barras ou o QR da etiqueta do Mercado Livre.');return;}
   registrar(id);
 });
 $('b-camera').onclick=()=>abrirCamera('Bipe a etiqueta',lido=>registrar(lido));
@@ -1252,11 +1250,33 @@ $('b-camera').onclick=()=>abrirCamera('Bipe a etiqueta',lido=>registrar(lido));
 // Aceita o numero do envio puro ou o QR da etiqueta (que traz {"id":"..."})
 // Le o codigo da etiqueta e devolve o n do envio, ou "R:<rastreio>" na etiqueta dos Correios
 // (ML: numero do envio ou QR {"id":..}; Correios: rastreio AB123456789BR no codigo de barras e no DataMatrix)
+let ultimoLido='';
 function idDaEtiqueta(t){
-  t=String(t||'').trim();
+  t=String(t||'').trim();ultimoLido=t;
   try{const j=JSON.parse(t);if(j&&j.id)return String(j.id);}catch{}
-  const r=t.toUpperCase().match(/[A-Z]{2}\d{9}[A-Z]{2}/);if(r)return 'R:'+r[0];
+  const r=t.toUpperCase().replace(/\s/g,'').match(/[A-Z]{2}\d{9}[A-Z]{2}/);if(r)return 'R:'+r[0];
+  // Codigo de barras do CEP na etiqueta dos Correios (8 ou 9 digitos): nao identifica o pacote
+  if(/^\d{8,9}$/.test(t.replace(/[\s-]/g,'')))return 'CEP:'+t;
   const m=t.match(/\d{10,}/g);return m?m.sort((a,b)=>b.length-a.length)[0]:'';
+}
+const lidoInfo=()=>ultimoLido?`<br><br><span class="mono" style="font-size:12px;opacity:.85">Código lido: ${esc(ultimoLido.replace(/[\x00-\x1f]/g,' ').slice(0,90))}</span>`:'';
+// Transforma o que foi lido no n do envio. Rastreio dos Correios: procura na fila e, se preciso, no ML.
+async function paraEnvio(lido){
+  if(!lido||lido.startsWith('CEP:'))return null;
+  if(!lido.startsWith('R:'))return lido;
+  const p=acharPedido(lido);if(p)return String(p.shipmentId);
+  try{
+    const x=await chamar('prepAcharRastreio',{rastreio:lido.slice(2)},60);
+    if(x.shipmentId){const pe=pedidos.find(q=>String(q.shipmentId)===String(x.shipmentId));if(pe)pe.rastreio=lido.slice(2);return String(x.shipmentId);}
+  }catch(e){console.warn('prepAcharRastreio',e);}
+  return null;
+}
+function erroLeitura(lido){
+  som(false);
+  if(!lido)return erro('Código não reconhecido','Bipe o código de barras ou o QR da etiqueta.'+lidoInfo());
+  if(lido.startsWith('CEP:'))return erro('Esse é o código do CEP','Na etiqueta dos Correios, bipe o código de barras do <b>rastreio</b> (letras e números, ex.: AB123456789BR) ou o quadradinho (DataMatrix).'+lidoInfo());
+  if(lido.startsWith('R:'))return erro('Rastreio não encontrado',`Nenhum pacote da fila tem o rastreio <b>${esc(lido.slice(2))}</b>. O Mercado Livre pode ainda não ter liberado o rastreio: tente de novo em 1 minuto.`+lidoInfo());
+  return erro('Pacote não está na fila',`O envio ${esc(lido)} não é de um cliente do prep, ou já saiu da fila.`+lidoInfo());
 }
 function acharPedido(cod){
   cod=String(cod||'');
@@ -1314,18 +1334,24 @@ function desenharExec(){
 // A etiqueta bipada tem que ser exatamente a do pedido em execucao
 async function conferirEtiqueta(lido){
   if(!exec)return;
-  if(!lido){som(false);erro('Código não reconhecido','Bipe o código de barras ou o QR da etiqueta do Mercado Livre.');return;}
+  if(!lido||lido.startsWith('CEP:')){erroLeitura(lido);return;}
   if(lido.startsWith('R:')){
     // Etiqueta dos Correios: compara pelo rastreio (busca no ML se ainda nao temos)
+    const r=lido.slice(2);
     const pe=pedidos.find(x=>String(x.shipmentId)===exec.id);
-    if(pe&&!pe.rastreio){try{const r=await chamar('prepRastreio',{shipmentId:exec.id});pe.rastreio=r.rastreio;}catch{}}
-    const outro=acharPedido(lido);
-    lido=pe&&String(pe.rastreio||'').toUpperCase()===lido.slice(2)?exec.id:(outro?String(outro.shipmentId):lido.slice(2));
+    if(pe&&!pe.rastreio){try{const x=await chamar('prepRastreio',{shipmentId:exec.id});pe.rastreio=x.rastreio;}catch{}}
+    if(pe&&String(pe.rastreio||'').toUpperCase()===r)lido=exec.id;
+    else{
+      const env=await paraEnvio(lido);
+      if(env)lido=env;
+      else if(pe&&!pe.rastreio){som(false);erro('Rastreio ainda não liberado','O Mercado Livre ainda não informou o rastreio deste envio, então não dá para conferir pelo código dos Correios. Tente de novo em 1 minuto.'+lidoInfo());return;}
+      else lido='com rastreio '+r;
+    }
   }
   if(lido!==exec.id){
     const outro=pedidos.find(x=>String(x.shipmentId)===lido);
     som(false);
-    erro('ETIQUETA ERRADA',`Essa etiqueta é do envio ${esc(lido)}${outro?` (${esc(outro.clienteNome||'')} · ${esc((outro.itens||[]).map(i=>i.titulo).join(', '))})`:''}.<br><br>Esta caixa é de <b>${esc((pedidos.find(x=>String(x.shipmentId)===exec.id)||{}).clienteNome||'')}</b>. Tire a etiqueta errada e cole a certa.`);
+    erro('ETIQUETA ERRADA',`Essa etiqueta é do envio ${esc(lido)}${outro?` (${esc(outro.clienteNome||'')} · ${esc((outro.itens||[]).map(i=>i.titulo).join(', '))})`:''}.<br><br>Esta caixa é de <b>${esc((pedidos.find(x=>String(x.shipmentId)===exec.id)||{}).clienteNome||'')}</b>. Tire a etiqueta errada e cole a certa.`+lidoInfo());
     return;
   }
   registrar(lido);
@@ -1449,6 +1475,7 @@ async function abrirCamera(titulo,aoLer,cru){
         if(lido)return;
         const id=cru?String(texto).trim():idDaEtiqueta(texto);
         if(!id){$('scanner-msg').textContent='Esse código não é de etiqueta do ML. Tente o outro código da etiqueta.';return;}
+        if(id.startsWith('CEP:')){$('scanner-msg').textContent='Esse é o código do CEP. Mire no código de barras do rastreio (letras e números) ou no quadradinho.';return;}
         lido=true;await fecharCamera();aoLer(id);
       });
     $('scanner-msg').textContent='Aproxime até o código ocupar a faixa.';
