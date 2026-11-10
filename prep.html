@@ -894,7 +894,49 @@ function formProduto(p){
 }
 
 // Entrada, saida ou correcao de estoque de um produto (sempre com motivo)
+function formEntrada(p){
+  const alvo=document.getElementById('mv-'+p.sku);
+  alvo.innerHTML=`<form class="cad" style="margin-top:6px" autocomplete="off"><h2>Entrada de estoque</h2>
+    <div class="lin">
+      <label style="flex:1 1 130px">Quantidade informada<input name="inf" inputmode="numeric" placeholder="o que disseram que vinha" required><span style="font-weight:600;font-size:12px">Nota, aviso ou mensagem do cliente</span></label>
+      <label style="flex:1 1 130px">Quantidade recebida<input name="rec" inputmode="numeric" placeholder="o que vocês contaram" required><span style="font-weight:600;font-size:12px">Tudo que chegou, boas e avariadas</span></label>
+      <label style="flex:1 1 130px">Avariadas<input name="ava" inputmode="numeric" placeholder="0"><span style="font-weight:600;font-size:12px">Das recebidas, quantas vieram com defeito</span></label>
+    </div>
+    <div id="en-res-${esc(p.sku)}"></div>
+    <label id="en-exp-l-${esc(p.sku)}" class="oculto">Explique a diferença<input name="exp" maxlength="200" placeholder="Ex.: caixa amassada, 2 frascos vazando; faltou 1 caixa na entrega">
+      <span style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${['Faltou na entrega','Veio a mais','Embalagem rasgada','Produto quebrado','Cliente informou errado'].map(t=>`<button type="button" class="btn" style="min-height:34px;padding:0 10px;font-size:13px" data-chip="${esc(t)}">${esc(t)}</button>`).join('')}</span></label>
+    <span style="font-size:12px;color:var(--muted)">Hoje na prateleira: <b>${p.estoque}</b>. Só as boas entram no estoque. Fica registrado quem fez e quando.</span>
+    <div class="lin"><button class="btn pri" type="submit">Salvar entrada</button><button class="btn" type="button" data-x>Cancelar</button></div></form>`;
+  const f=alvo.querySelector('form');f.inf.focus();
+  const n=v=>{const t=String(v||'').trim();return t===''?null:Math.round(Number(t.replace(',','.')));};
+  const res=document.getElementById('en-res-'+p.sku), expL=document.getElementById('en-exp-l-'+p.sku);
+  const calc=()=>{
+    const inf=n(f.inf.value),rec=n(f.rec.value),ava=n(f.ava.value)||0;
+    if(rec===null||!Number.isFinite(rec)){res.innerHTML='';expL.classList.add('oculto');return null;}
+    const i=inf===null?rec:inf, boas=Math.max(0,rec-ava), dif=rec-i;
+    const partes=[];
+    if(dif<0)partes.push(`<b>faltaram ${-dif}</b>`);if(dif>0)partes.push(`<b>vieram ${dif} a mais</b>`);if(ava)partes.push(`<b>${ava} avariada${ava>1?'s':''}</b>`);
+    const ruim=ava>rec;
+    res.innerHTML=`<div class="alerta ${ruim?'bad':partes.length?'':'ok'}" style="${partes.length&&!ruim?'background:var(--warn-bg);color:var(--warn-fg)':''}">${ruim?'Avariadas não pode ser maior que o recebido.':`Entram no estoque: <b class="tab" style="font-size:18px">${boas}</b> boa${boas===1?'':'s'} · prateleira vai de ${p.estoque} para ${p.estoque+boas}.${partes.length?`<br>Diferença: ${partes.join(' e ')}. Explique abaixo.`:' Bateu com o informado.'}`}</div>`;
+    expL.classList.toggle('oculto',!partes.length);
+    return{inf:i,rec,ava,boas,precisa:partes.length>0,ruim};
+  };
+  ['inf','rec','ava'].forEach(k=>f[k].addEventListener('input',calc));
+  alvo.querySelectorAll('[data-chip]').forEach(b=>b.onclick=()=>{f.exp.value=f.exp.value?`${f.exp.value}; ${b.dataset.chip}`:b.dataset.chip;f.exp.focus();});
+  alvo.querySelector('[data-x]').onclick=()=>{alvo.innerHTML='';};
+  f.onsubmit=async e=>{e.preventDefault();
+    const c=calc();
+    if(!c||!c.rec){erro('Falta a quantidade','Coloque quantas unidades chegaram.');return;}
+    if(c.ruim){erro('Confira as avariadas','Avariadas não pode ser maior que o recebido.');return;}
+    if(c.precisa&&!f.exp.value.trim()){erro('Explique a diferença','Diga o que faltou, sobrou ou veio avariado.');f.exp.focus();return;}
+    const bt=f.querySelector('[type=submit]');bt.disabled=true;
+    try{const r=await chamar('prepEstoqueAjustar',{sku:p.sku,tipo:'entrada',informada:c.inf,recebida:c.rec,avariadas:c.ava,explicacao:f.exp.value});som(true);
+      telaCheia('#0E9F6E',`<div class="m">ENTRADA SALVA</div><div class="g">${esc(p.sku)}</div><div class="m">+${c.boas} boas${c.ava?` · ${c.ava} avariada${c.ava>1?'s':''}`:''} · ${r.antes} → ${r.depois}</div><button class="btn" type="button" id="ov-ok">OK</button>`,2200);
+      desenharProdutos();}
+    catch(err){bt.disabled=false;som(false);erro('Não salvou',esc(err.message));}};
+}
 function formMovimento(p,tipo){
+  if(tipo==='entrada')return formEntrada(p);
   const alvo=document.getElementById('mv-'+p.sku);
   const tit={entrada:'Entrada de estoque',saida:'Saída de estoque',ajuste:'Corrigir estoque para o valor certo'}[tipo];
   const dica={entrada:'Ex.: chegou sem aviso, devolução de comprador',saida:'Ex.: avaria no galpão, cliente retirou',ajuste:'Ex.: contagem rápida, erro de lançamento'}[tipo];
