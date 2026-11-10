@@ -6518,7 +6518,7 @@ const NAV=[
   {id:'skus',icon:'boxes',label:'Por produto',curto:'Produtos'},
   {id:'anuncios',icon:'package',label:'Anúncios',curto:'Anúncios'},
   {id:'curva',soAdmin:true,icon:'git-compare',label:'Curva ABC',curto:'ABC'},
-  {id:'full',soAdmin:true,icon:'warehouse',label:'Estoque Full',curto:'Full'},
+  {id:'full',icon:'warehouse',label:'Estoque Full',curto:'Full'},
   {id:'coletas',soAdmin:true,icon:'calendar-clock',label:'Coletas Full',curto:'Coletas'},
   {id:'reposicao',soAdmin:true,icon:'shopping-cart',label:'Reposição',curto:'Repor'},
   {id:'trafego',soAdmin:true,icon:'mouse-pointer-click',label:'Tráfego',curto:'Tráfego'},
@@ -6789,7 +6789,7 @@ function AppLogado({user,erroConexao}){
           {view==='skus'&&<ViewSkus dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} onRefresh={carregar} somenteLeitura={Boolean(mentorado)}/>}
           {view==='anuncios'&&<ViewAnuncios dados={dados} loading={loading} onRefresh={carregar} onDirty={setDirty} initialSemCusto={filtroCustos} somenteLeitura={Boolean(mentorado)}/>}
           {view==='curva'&&perfil?.admin&&<ViewCurvaABC dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta} admin={Boolean(perfil?.admin)&&!mentorado}/>}
-          {view==='full'&&perfil?.admin&&<ViewEstoqueFull admin={Boolean(perfil?.admin)&&!mentorado} rotuloPeriodo={rotuloPeriodo} dadosGerais={dados} comoUid={mentorado?.uid||null}/>}
+          {view==='full'&&<ViewEstoqueFull admin={Boolean(perfil?.admin)&&!mentorado} rotuloPeriodo={rotuloPeriodo} dadosGerais={dados} comoUid={mentorado?.uid||null}/>}
           {view==='coletas'&&perfil?.admin&&<ViewColetas admin={Boolean(perfil?.admin)&&!mentorado} comoUid={mentorado?.uid||null} contasAtivas={contasAtivas}/>}
           {view==='reposicao'&&perfil?.admin&&!mentorado&&<ViewReposicao contasAtivas={contasAtivas}/>}
           {view==='consulta'&&perfil?.admin&&<ViewConsulta contasAtivas={contasAtivas} periodo={periodo} intervalo={intervalo} rotuloPeriodo={rotuloPeriodo} contas={dados?.contas} comoUid={mentorado?.uid||null}/>}
