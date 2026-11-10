@@ -229,10 +229,15 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
       <button type="button" id="m-fila" aria-current="page">Fila do dia</button>
       <button type="button" id="m-receber">Receber</button>
       <button type="button" id="m-produtos">Produtos</button>
+      <button type="button" id="m-full">Full</button>
       <button type="button" id="m-hist">Histórico</button>
       <button type="button" id="m-fatura" class="oculto">Fatura</button>
       <button type="button" id="m-equipe" class="oculto">Equipe</button>
     </nav>
+
+    <section id="v-full" class="oculto" style="display:flex;flex-direction:column;gap:12px">
+      <div id="full-corpo" style="display:flex;flex-direction:column;gap:12px"></div>
+    </section>
 
     <section id="v-fatura" class="oculto" style="display:flex;flex-direction:column;gap:12px">
       <div class="dias" role="group" aria-label="Fatura"><button type="button" id="ft-t-cli" aria-pressed="true">Fatura por cliente</button><button type="button" id="ft-t-tab" aria-pressed="false">Tabela de preços</button></div>
@@ -570,10 +575,11 @@ $('m-fila').onclick=()=>trocarVista('fila');
 $('m-hist').onclick=()=>trocarVista('hist');
 $('m-equipe').onclick=()=>trocarVista('equipe');
 $('m-fatura').onclick=()=>trocarVista('fatura');
+$('m-full').onclick=()=>trocarVista('full');
 $('m-produtos').onclick=()=>trocarVista('produtos');
 $('m-receber').onclick=()=>trocarVista('receber');
 function trocarVista(v){
-  [['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
+  [['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
     $(vis).classList.toggle('oculto',v!==id);
     if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
   });
@@ -582,6 +588,7 @@ function trocarVista(v){
   if(v==='produtos')abrirProdutos();
   if(v==='receber')abrirReceber();
   if(v==='fatura')abrirFatura();
+  if(v==='full')abrirFull();
 }
 
 /* ── Faturador (so admin) ──────────────────────────────── */
@@ -614,33 +621,52 @@ async function carregarFatura(){
   const alvo=$('ft-res');if(!alvo)return;alvo.innerHTML='<div class="vazio">Calculando…</div>';
   try{
     const f=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes},120);
-    alvo.innerHTML=htmlFatura(f,true);
+    alvo.innerHTML=htmlVencimento(f)+htmlFatura(f,true);
     const b=alvo.querySelector('[data-ir-tabela]');if(b)b.onclick=()=>{ftAba='tab';abrirFatura();};
+    ligarVencimento(alvo);
   }catch(e){alvo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+}
+function htmlVencimento(f){
+  return `<form class="cad" id="ft-venc" style="margin-bottom:12px" autocomplete="off"><div class="lin" style="align-items:flex-end">
+    <label style="flex:0 1 200px">Vencimento da mensalidade<input id="ft-venc-dia" type="number" min="1" max="31" inputmode="numeric" placeholder="dia" value="${f.vencimentoDia||''}"></label>
+    <button class="btn" type="submit" id="ft-venc-btn">Salvar vencimento</button>
+    <span style="font-size:13px;color:var(--muted);flex:1 1 220px">Dia do mês em que este cliente paga. Aparece para ele na fatura.</span></div></form>`;
+}
+function ligarVencimento(alvo){
+  const f=alvo.querySelector('#ft-venc');if(!f)return;
+  f.onsubmit=async e=>{e.preventDefault();const b=$('ft-venc-btn');const dia=Number($('ft-venc-dia').value);
+    if(!(dia>=1&&dia<=31)){erro('Dia inválido','Coloque um dia entre 1 e 31.');return;}
+    b.disabled=true;b.textContent='Salvando…';
+    try{const r=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes,vencimentoDia:dia},120);
+      alvo.innerHTML=htmlVencimento(r)+htmlFatura(r,true);ligarVencimento(alvo);som(true);}
+    catch(err){b.disabled=false;b.textContent='Salvar vencimento';erro('Não salvou',esc(err.message));}};
 }
 // Usada aqui e na pagina do cliente (mesmo desenho)
 function htmlFatura(f,admin){
   const fechado=f.mes<mesAtual();
   const avisos=[];
-  if(!f.valoresDefinidos)avisos.push(`A tabela de preços ainda não foi preenchida: tudo sai como R$ 0,00.${admin?' <button class="link" type="button" data-ir-tabela style="color:var(--warn-fg)">Preencher agora</button>':''}`);
-  if(f.semMedida)avisos.push(`${f.semMedida} pacote${f.semMedida>1?'s':''} sem medidas no cadastro do produto: ${f.semMedida>1?'foram cobrados':'foi cobrado'} na faixa padrão. Cadastre as medidas em Produtos para cobrar certo.`);
+  if(!f.valoresDefinidos)avisos.push(`A tabela de preços está com os valores iniciais (mensalidade R$ 300, Flex R$ 1,20, Coleta/Agência/Correios R$ 1,50, Full R$ 0,90). Confira e salve a tabela.${admin?' <button class="link" type="button" data-ir-tabela style="color:var(--warn-fg)">Abrir tabela</button>':''}`);
+  if(f.semMedida)avisos.push(`${f.semMedida} pacote${f.semMedida>1?'s':''} sem medidas no cadastro do produto: ${f.semMedida>1?'foram cobrados':'foi cobrado'} no tamanho padrão. Cadastre as medidas em Produtos para cobrar certo.`);
   const linhas=f.linhas.length?f.linhas.map(l=>`<tr><td style="padding:10px 12px;text-align:left">${esc(l.nome)}</td><td class="tab" style="padding:10px 8px;text-align:right">${l.qtd}</td><td class="tab" style="padding:10px 8px;text-align:right;color:var(--muted)">${brl(l.unit)}</td><td class="tab" style="padding:10px 12px;text-align:right;font-weight:800;color:var(--ink)">${brl(l.total)}</td></tr>`).join('')
     :`<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--subtle)">Nada cobrado neste mês ainda.</td></tr>`;
   const porFaixa={};(f.detalhes||[]).forEach(d=>{porFaixa[d.faixa]=(porFaixa[d.faixa]||0)+1;});
   const porLog={};(f.detalhes||[]).forEach(d=>{porLog[d.modalidade]=(porLog[d.modalidade]||0)+1;});
-  return `${avisos.map(a=>`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">${a}</div>`).join('')}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
-    <div class="cad" style="gap:2px"><span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${fechado?'Total do mês':'Até agora'}</span><b class="tab" style="font-size:28px;color:var(--ink)">${brl(f.total)}</b></div>
-    ${fechado?'':`<div class="cad" style="gap:2px"><span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Previsão do mês</span><b class="tab" style="font-size:28px;color:var(--ink)">${brl(f.projecao)}</b><span style="font-size:12px;color:var(--muted)">no ritmo atual</span></div>`}
-    <div class="cad" style="gap:2px"><span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Pacotes finalizados</span><b class="tab" style="font-size:28px;color:var(--ink)">${f.pacotes}</b><span style="font-size:12px;color:var(--muted)">${Object.entries(porLog).map(([k,n])=>`${LOG_NOMES[k]||k} ${n}`).join(' · ')||'—'}</span></div>
-    <div class="cad" style="gap:2px"><span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Estoque no galpão</span><b class="tab" style="font-size:28px;color:var(--ink)">${f.emEstoque}</b><span style="font-size:12px;color:var(--muted)">unidades · ${f.recebidas} recebidas no mês</span></div>
+  const kpi=(t,v,s)=>`<div class="cad" style="gap:2px"><span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${t}</span><b class="tab" style="font-size:28px;color:var(--ink)">${v}</b>${s?`<span style="font-size:12px;color:var(--muted)">${s}</span>`:''}</div>`;
+  return `${avisos.map(a=>`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:8px">${a}</div>`).join('')}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
+    ${kpi(fechado?'Total do mês':'Até agora',brl(f.total),f.vencimentoDia?`mensalidade vence dia ${f.vencimentoDia}`:'')}
+    ${fechado?'':kpi('Previsão do mês',brl(f.projecao),'no ritmo atual')}
+    ${kpi('Pacotes finalizados',f.pacotes,Object.entries(porLog).map(([k,n])=>`${LOG_NOMES[k]||k} ${n}`).join(' · ')||'—')}
+    ${kpi('Etiquetas Full',f.etiquetasFull||0,`${(f.full||[]).length} envio${(f.full||[]).length===1?'':'s'} Full no mês`)}
   </div>
   <div class="quadro-wrap"><table class="quadro" style="min-width:0">
     <thead><tr><th style="text-align:left;padding-left:12px">Item</th><th style="text-align:right">Qtd</th><th style="text-align:right">Valor un.</th><th style="text-align:right;padding-right:12px">Total</th></tr></thead>
     <tbody>${linhas}</tbody>
     <tfoot><tr><td colspan="3" style="text-align:left;padding:10px 12px;font-size:14px;color:var(--ink)">TOTAL</td><td class="tab" style="text-align:right;padding:10px 12px;font-size:16px;color:var(--ink)">${brl(f.total)}</td></tr></tfoot>
   </table></div>
-  ${f.pacotes?`<details class="cad"><summary style="font-weight:800;cursor:pointer;min-height:28px">Ver os ${f.pacotes} pacotes (${Object.entries(porFaixa).map(([k,n])=>`${n} ${k}`).join(', ')})</summary>
+  ${(f.full||[]).length?`<details class="cad" style="margin-top:12px"><summary style="font-weight:800;cursor:pointer;min-height:28px">Ver os envios Full do mês (${f.etiquetasFull} etiquetas)</summary>
+    <div style="margin-top:8px">${f.full.map(x=>`<div style="border-bottom:1px solid var(--line-soft);padding:8px 0;font-size:13px"><b>Full ${x.dataFull.split('-').reverse().slice(0,2).join('/')}</b>${x.inboundId?` · <span class="mono">${esc(x.inboundId)}</span>`:''} · ${x.etiquetas} etiquetas<div style="color:var(--muted)">${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(' · ')}</div></div>`).join('')}</div></details>`:''}
+  ${f.pacotes?`<details class="cad" style="margin-top:12px"><summary style="font-weight:800;cursor:pointer;min-height:28px">Ver os ${f.pacotes} pacotes (${Object.entries(porFaixa).map(([k,n])=>`${n} ${k}`).join(', ')})</summary>
     <div class="hist" style="margin-top:8px">${(f.detalhes||[]).slice().sort((a,b)=>String(b.em).localeCompare(String(a.em))).map(d=>`<div style="display:flex;gap:10px;align-items:center;font-size:13px;border-bottom:1px solid var(--line-soft);padding:6px 0;flex-wrap:wrap"><span class="mono" style="color:var(--subtle)">${esc(d.shipmentId)}</span><span>${esc(LOG_NOMES[d.modalidade]||d.modalidade)}</span><span class="st neu">${esc(d.faixa)}</span>${d.semMedida?'<span class="st warn">sem medida</span>':''}<span style="margin-left:auto;color:var(--muted)">${d.em?diaMes(new Date(d.em))+' '+hora(new Date(d.em)):''}</span></div>`).join('')}</div></details>`:''}`;
 }
 async function desenharTabela(){
@@ -648,37 +674,124 @@ async function desenharTabela(){
   let c;try{c=await chamar('prepFaturaConfig');}catch(e){corpo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
   const v=x=>String(x??0).replace('.',',');
   const campo=(id,rot,val,dica)=>`<label>${rot}<input id="${id}" inputmode="decimal" value="${esc(v(val))}">${dica?`<span style="font-weight:600;font-size:12px">${dica}</span>`:''}</label>`;
+  const mods=Object.keys(LOG_NOMES);
+  const matriz=fx=>`<div class="quadro-wrap"><table class="quadro" style="min-width:0">
+    <thead><tr><th style="text-align:left;padding-left:12px">Logística</th>${fx.map(f=>`<th style="text-align:center">Tamanho ${esc(f.nome)}</th>`).join('')}</tr></thead>
+    <tbody>${mods.map(m=>`<tr><td style="text-align:left;padding:8px 12px;font-weight:800;color:var(--ink)">${LOG_NOMES[m]}</td>${fx.map(f=>`<td style="padding:6px"><input data-preco="${m}|${esc(f.nome)}" inputmode="decimal" aria-label="${LOG_NOMES[m]} tamanho ${esc(f.nome)} (R$)" value="${esc(v(c.precos?.[m]?.[f.nome]))}" style="width:100%;min-width:64px;height:44px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font:inherit;font-size:15px;text-align:right"></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   corpo.innerHTML=`<form id="ft-form" class="cad" autocomplete="off">
     <h2>Tabela de preços do prep</h2>
     <span style="font-size:13px;color:var(--muted)">Vale para todos os clientes. Ao salvar, as faturas do mês são recalculadas na hora (o cliente vê na página dele).</span>
-    ${c.valoresDefinidos?'':'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Ainda sem valores: todas as faturas estão em R$ 0,00.</div>'}
+    ${c.valoresDefinidos?'':'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Já preenchi com os valores que você passou. Confira e toque em <b>Salvar tabela</b>.</div>'}
     <h2 style="margin-top:6px">Mensalidade</h2>
-    <div class="lin">${campo('ft-mensal','Mensalidade (R$)',c.mensalidade)}${campo('ft-incl','Pacotes inclusos na mensalidade',c.pacotesInclusos,'Os mais baratos entram primeiro')}</div>
-    <h2 style="margin-top:6px">Preço por pacote, pelo tamanho</h2>
-    <span style="font-size:13px;color:var(--muted)">O sistema soma os produtos do pacote (pela receita do anúncio) e usa a primeira faixa em que couber: maior lado e peso total.</span>
+    <div class="lin">${campo('ft-mensal','Mensalidade (R$)',c.mensalidade,'O dia do vencimento é de cada cliente, em Fatura por cliente')}</div>
+    <h2 style="margin-top:6px">Preço por envio: logística × tamanho (R$)</h2>
+    <span style="font-size:13px;color:var(--muted)">Cada pacote finalizado é cobrado pela logística dele e pelo tamanho (das medidas dos produtos).</span>
+    <div id="ft-matriz">${matriz(c.faixas)}</div>
+    <h2 style="margin-top:6px">Tamanhos</h2>
+    <span style="font-size:13px;color:var(--muted)">O sistema soma os produtos do pacote (pela receita do anúncio) e usa o primeiro tamanho em que couber: maior lado e peso total.</span>
     <div id="ft-faixas" style="display:flex;flex-direction:column;gap:8px">${(c.faixas||[]).map((f,i)=>`<div class="lin" data-faixa="${i}" style="background:var(--sunken);padding:8px;border-radius:8px">
-      <label style="flex:0 1 80px">Faixa<input data-k="nome" value="${esc(f.nome)}"></label>
+      <label style="flex:0 1 80px">Tamanho<input data-k="nome" value="${esc(f.nome)}" readonly style="background:var(--sunken)"></label>
       <label style="flex:1 1 110px">Maior lado até (cm)<input data-k="maxLado" inputmode="decimal" value="${esc(v(f.maxLado))}"></label>
-      <label style="flex:1 1 110px">Peso até (g)<input data-k="maxPeso" inputmode="decimal" value="${esc(v(f.maxPeso))}"></label>
-      <label style="flex:1 1 110px">Preço (R$)<input data-k="preco" inputmode="decimal" value="${esc(v(f.preco))}"></label></div>`).join('')}</div>
+      <label style="flex:1 1 110px">Peso até (g)<input data-k="maxPeso" inputmode="decimal" value="${esc(v(f.maxPeso))}"></label></div>`).join('')}</div>
     <div class="lin"><label>Produto sem medidas cobra como<select id="ft-sem">${(c.faixas||[]).map(f=>`<option ${f.nome===c.semMedida?'selected':''}>${esc(f.nome)}</option>`).join('')}</select></label></div>
-    <h2 style="margin-top:6px">Adicional por logística (por pacote)</h2>
-    <div class="lin">${Object.keys(LOG_NOMES).map(k=>campo('ft-log-'+k,LOG_NOMES[k]+' (R$)',c.adicionalLogistica?.[k])).join('')}</div>
-    <h2 style="margin-top:6px">Recebimento e armazenagem</h2>
-    <div class="lin">${campo('ft-receb','Por unidade recebida (R$)',c.porUnidadeRecebida)}${campo('ft-armaz','Armazenagem por unidade/mês (R$)',c.armazenagemPorUnidadeMes,'Cobra pelo estoque de hoje')}</div>
+    <h2 style="margin-top:6px">Etiquetagem Full</h2>
+    <div class="lin">${campo('ft-full','Por etiqueta colada (R$)',c.etiquetagemFull,'Conta pelos envios Full lançados no menu Full, no mês da data do Full')}</div>
+    <details><summary style="font-weight:800;cursor:pointer;min-height:32px;color:var(--body)">Outras cobranças (opcional)</summary>
+      <div class="lin" style="margin-top:8px">${campo('ft-receb','Por unidade recebida (R$)',c.porUnidadeRecebida)}${campo('ft-armaz','Armazenagem por unidade/mês (R$)',c.armazenagemPorUnidadeMes,'Cobra pelo estoque de hoje')}</div></details>
     <div id="ft-msg"></div>
     <div class="lin"><button class="btn pri" type="submit" id="ft-salvar">Salvar tabela</button></div>
   </form>`;
   $('ft-form').onsubmit=async e=>{
     e.preventDefault();const b=$('ft-salvar');b.disabled=true;b.textContent='Salvando…';
     const faixas=[...corpo.querySelectorAll('[data-faixa]')].map(l=>{const o={};l.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.dataset.k==='nome'?i.value.trim():numBR(i.value);});return o;});
-    const salvar={mensalidade:numBR($('ft-mensal').value),pacotesInclusos:numBR($('ft-incl').value),faixas,semMedida:$('ft-sem').value,
-      adicionalLogistica:Object.fromEntries(Object.keys(LOG_NOMES).map(k=>[k,numBR($('ft-log-'+k).value)])),
+    const precos={};corpo.querySelectorAll('[data-preco]').forEach(i=>{const [m,f]=i.dataset.preco.split('|');(precos[m]=precos[m]||{})[f]=numBR(i.value);});
+    const salvar={mensalidade:numBR($('ft-mensal').value),faixas,precos,semMedida:$('ft-sem').value,etiquetagemFull:numBR($('ft-full').value),
       porUnidadeRecebida:numBR($('ft-receb').value),armazenagemPorUnidadeMes:numBR($('ft-armaz').value)};
-    try{await chamar('prepFaturaConfig',{salvar});$('ft-msg').innerHTML='<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Tabela salva. As faturas já usam os novos valores.</div>';}
+    try{await chamar('prepFaturaConfig',{salvar});$('ft-msg').innerHTML='<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Tabela salva. As faturas já usam os novos valores.</div>';som(true);}
     catch(err){$('ft-msg').innerHTML=`<div class="alerta bad">${esc(err.message)}</div>`;}
     finally{b.disabled=false;b.textContent='Salvar tabela';}
   };
+}
+
+/* ── Etiquetagem Full: o que foi etiquetado em cada envio Full ── */
+let fullCli='', fullLista=[];
+async function abrirFull(){
+  const corpo=$('full-corpo');
+  try{await garantirClientes();}catch(e){corpo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  if(!clientesPrep.length){corpo.innerHTML='<div class="vazio">Nenhum cliente no prep ainda.</div>';return;}
+  fullCli=fullCli||clientesPrep[0].contaId;
+  corpo.innerHTML=`<div class="cad"><div class="lin" style="align-items:flex-end">
+      <label>Cliente<select id="full-cli"></select></label>
+      <button class="btn pri" type="button" id="full-novo">+ Novo envio Full</button></div>
+    <span style="font-size:13px;color:var(--muted)">Lance cada envio Full que vocês etiquetaram: a data marcada do Full e quantas etiquetas de cada produto. Entra na fatura do cliente pela data do Full.</span></div>
+    <div id="full-form"></div><div id="full-lista" style="display:flex;flex-direction:column;gap:10px"><div class="vazio">Carregando…</div></div>`;
+  opcoesClientes($('full-cli'),fullCli);
+  $('full-cli').onchange=e=>{fullCli=e.target.value;$('full-form').innerHTML='';listarFull();};
+  $('full-novo').onclick=()=>formFull(null);
+  listarFull();
+}
+async function listarFull(){
+  const alvo=$('full-lista');if(!alvo)return;alvo.innerHTML='<div class="vazio">Carregando…</div>';
+  try{fullLista=await chamar('prepFullListar',{contaId:fullCli});}catch(e){alvo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  if(!fullLista.length){alvo.innerHTML='<div class="vazio">Nenhum envio Full lançado para este cliente.</div>';return;}
+  const hoje=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+  const dataBR=d=>{const [a,m,dd]=d.split('-');const sem=new Date(`${d}T12:00:00-03:00`).toLocaleDateString('pt-BR',{weekday:'short',timeZone:'America/Sao_Paulo'});return `${sem} ${dd}/${m}/${a}`;};
+  alvo.innerHTML=fullLista.map(x=>`<article class="cad" style="gap:6px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--ink)">Full ${dataBR(x.dataFull)}</b>
+      <span class="st ${x.dataFull>hoje?'warn':x.dataFull===hoje?'ok':'neu'}">${x.dataFull>hoje?'marcado':x.dataFull===hoje?'hoje':'já foi'}</span>
+      ${x.inboundId?`<span class="mono" style="font-size:12px;color:var(--muted)">${esc(x.inboundId)}</span>`:''}
+      <b class="tab" style="margin-left:auto;font-size:20px;color:var(--ink)">${x.etiquetas}<span style="font-size:12px;color:var(--muted);font-weight:700"> etiquetas</span></b></div>
+    <div style="font-size:13px;color:var(--body)">${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}${i.sku?` <span class="mono" style="color:var(--muted)">${esc(i.sku)}</span>`:''}`).join('<br>')}</div>
+    ${x.obs?`<div style="font-size:12px;color:var(--muted)">${esc(x.obs)}</div>`:''}
+    <div class="lin"><button class="btn" type="button" data-fe="${esc(x.id)}">Editar</button><button class="btn" type="button" data-fd="${esc(x.id)}">Apagar</button>
+      <span style="font-size:12px;color:var(--muted);margin-left:auto">${esc(String(x.criadoPor||'').split('@')[0])}</span></div>
+  </article>`).join('');
+  alvo.querySelectorAll('[data-fe]').forEach(b=>b.onclick=()=>formFull(fullLista.find(x=>x.id===b.dataset.fe)));
+  alvo.querySelectorAll('[data-fd]').forEach(b=>b.onclick=async()=>{
+    if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmar: apagar';b.style.color='var(--bad-fg)';return;}
+    b.disabled=true;try{await chamar('prepFullRemover',{id:b.dataset.fd});listarFull();}catch(e){b.disabled=false;erro('Não apagou',esc(e.message));}
+  });
+}
+async function formFull(x){
+  const alvo=$('full-form');
+  let prods=[];try{prods=await produtosDe(fullCli);}catch{}
+  let itens=x?x.itens.map(i=>({...i})):[{nome:'',sku:null,qtd:''}];
+  const rotulo=p=>`${p.sku} · ${p.nome}`;
+  const desenhar=()=>{
+    const total=itens.reduce((s,i)=>s+(Math.round(Number(i.qtd))||0),0);
+    alvo.innerHTML=`<form class="cad" id="full-f" autocomplete="off" style="border:2px solid var(--orange)">
+      <h2>${x?'Editar envio Full':'Novo envio Full'}</h2>
+      <div class="lin"><label style="flex:0 1 200px">Data marcada do Full<input type="date" id="full-data" value="${esc(x?.dataFull||'')}" required></label>
+        <label>Nº do envio Full no ML (opcional)<input id="full-inb" value="${esc(x?.inboundId||'')}" maxlength="40" placeholder="Ex.: 51234567"></label></div>
+      <datalist id="full-prods">${prods.map(p=>`<option value="${esc(rotulo(p))}">`).join('')}</datalist>
+      <div style="display:flex;flex-direction:column;gap:6px">${itens.map((i,k)=>`<div class="lin" style="background:var(--sunken);padding:8px;border-radius:8px;align-items:flex-end">
+        <label style="flex:1 1 240px">Produto<input list="full-prods" data-i="${k}" data-k="nome" value="${esc(i.sku?`${i.sku} · ${i.nome}`:i.nome)}" placeholder="Escolha ou escreva o produto"></label>
+        <label style="flex:0 1 130px">Etiquetas<input data-i="${k}" data-k="qtd" type="number" min="1" inputmode="numeric" value="${esc(i.qtd)}"></label>
+        <button class="btn" type="button" data-rm="${k}" ${itens.length===1?'disabled':''}>Tirar</button></div>`).join('')}</div>
+      <div class="lin"><button class="btn" type="button" id="full-add">+ Outro produto</button><b class="tab" id="full-total" style="margin-left:auto;font-size:16px;color:var(--ink)">Total: ${total} etiquetas</b></div>
+      <label>Observação (opcional)<input id="full-obs" value="${esc(x?.obs||'')}" maxlength="300"></label>
+      <div class="lin"><button class="btn pri" type="submit" id="full-salvar">Salvar envio Full</button><button class="btn" type="button" id="full-x">Cancelar</button></div>
+    </form>`;
+    const ler=()=>{x={...(x||{}),dataFull:$('full-data').value,inboundId:$('full-inb').value,obs:$('full-obs').value,id:x?.id};};
+    alvo.querySelectorAll('[data-i]').forEach(inp=>inp.oninput=()=>{
+      const it=itens[inp.dataset.i];
+      if(inp.dataset.k==='qtd'){it.qtd=inp.value;$('full-total').textContent=`Total: ${itens.reduce((s,i)=>s+(Math.round(Number(i.qtd))||0),0)} etiquetas`;}
+      else{const p=prods.find(q=>rotulo(q)===inp.value.trim());it.sku=p?p.sku:null;it.nome=p?p.nome:inp.value;}
+    });
+    $('full-add').onclick=()=>{ler();itens.push({nome:'',sku:null,qtd:''});desenhar();const l=alvo.querySelectorAll('[data-k="nome"]');l[l.length-1].focus();};
+    alvo.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ler();itens.splice(Number(b.dataset.rm),1);desenhar();});
+    $('full-x').onclick=()=>{alvo.innerHTML='';};
+    $('full-f').onsubmit=async e=>{e.preventDefault();ler();
+      const lista=itens.map(i=>({nome:String(i.nome||'').trim(),sku:i.sku||null,qtd:Math.round(Number(i.qtd))||0})).filter(i=>i.nome||i.qtd);
+      if(!x.dataFull){erro('Falta a data','Coloque a data marcada do Full.');return;}
+      if(!lista.length||lista.some(i=>!i.nome||i.qtd<1)){erro('Confira os produtos','Cada linha precisa do produto e de quantas etiquetas.');return;}
+      const b=$('full-salvar');b.disabled=true;b.textContent='Salvando…';
+      try{await chamar('prepFullSalvar',{id:x.id||null,contaId:fullCli,dataFull:x.dataFull,inboundId:x.inboundId,itens:lista,obs:x.obs});
+        som(true);alvo.innerHTML='';listarFull();}
+      catch(err){b.disabled=false;b.textContent='Salvar envio Full';erro('Não salvou',esc(err.message));}};
+  };
+  desenhar();
+  alvo.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 /* ── Equipe do galpao (so admin) ───────────────────────── */

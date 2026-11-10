@@ -565,21 +565,22 @@ async function verFatura(){
   $('fat-mes').onchange=e=>{fatMes=e.target.value||mesAtual();verFatura();};
   let f;try{f=await chamar('clienteFatura',{mes:fatMes},120);}catch(e){$('fat-res').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
   const fechado=fatMes<mesAtual();
-  const semValores=f.porConta.some(c=>!c.valoresDefinidos);
   let h='';
-  if(semValores)h+='<div class="alerta warn">Os preços do serviço ainda estão sendo configurados pela RealEcom. Abaixo você já vê o uso do mês (pacotes, unidades); os valores aparecem assim que a tabela for definida.</div>';
-  const pac=f.porConta.reduce((s,c)=>s+c.pacotes,0);
+  const pac=f.porConta.reduce((s,c)=>s+c.pacotes,0), etq=f.porConta.reduce((s,c)=>s+(c.etiquetasFull||0),0);
+  const venc=[...new Set(f.porConta.map(c=>c.vencimentoDia).filter(Boolean))];
   h+=`<div class="kpis">
-    <div class="kpi"><span>${fechado?'Total do mês':'Até agora'}</span><b class="tab">${brl(f.total)}</b></div>
+    <div class="kpi"><span>${fechado?'Total do mês':'Até agora'}</span><b class="tab">${brl(f.total)}</b>${venc.length?`<small>mensalidade vence dia ${venc.join(' e ')}</small>`:''}</div>
     ${fechado?'':`<div class="kpi"><span>Previsão do mês</span><b class="tab">${brl(f.projecao)}</b><small>no ritmo atual</small></div>`}
     <div class="kpi"><span>Pacotes enviados</span><b class="tab">${pac}</b></div>
+    ${etq?`<div class="kpi"><span>Etiquetas Full</span><b class="tab">${etq}</b></div>`:''}
   </div>`;
   f.porConta.forEach(c=>{
     h+=`${f.porConta.length>1?`<h2>${esc(c.conta)} · ${brl(c.total)}</h2>`:''}
     <div class="tabela"><table><thead><tr><th>Serviço</th><th>Qtd</th><th>Valor un.</th><th>Total</th></tr></thead>
     <tbody>${c.linhas.length?c.linhas.map(l=>`<tr><td>${esc(l.nome)}</td><td class="tab">${l.qtd}</td><td class="tab" style="color:var(--muted)">${brl(l.unit)}</td><td class="tab" style="font-weight:800;color:var(--ink)">${brl(l.total)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--subtle)">Nada cobrado neste mês ainda.</td></tr>'}</tbody>
     <tfoot><tr><td colspan="3">Total</td><td class="tab">${brl(c.total)}</td></tr></tfoot></table></div>
-    <div style="font-size:12px;color:var(--muted)">${c.pacotes} pacotes finalizados · ${c.recebidas} unidades recebidas no mês · ${c.emEstoque} unidades em estoque hoje</div>`;
+    <div style="font-size:12px;color:var(--muted)">${c.pacotes} pacotes finalizados · ${c.recebidas} unidades recebidas no mês · ${c.emEstoque} unidades em estoque hoje</div>
+    ${(c.full||[]).length?`<details class="card"><summary style="font-weight:800;cursor:pointer;min-height:28px;color:var(--ink)">Envios Full etiquetados no mês (${c.etiquetasFull} etiquetas)</summary>${c.full.map(x=>`<div style="border-top:1px solid var(--line-soft);padding-top:8px;font-size:14px"><b>Full ${x.dataFull.split('-').reverse().join('/')}</b>${x.inboundId?` · <span class="mono">${esc(x.inboundId)}</span>`:''} · ${x.etiquetas} etiquetas<div style="color:var(--muted);font-size:13px;margin-top:2px">${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(' · ')}</div></div>`).join('')}</details>`:''}`;
   });
   $('fat-res').innerHTML=h;
 }
