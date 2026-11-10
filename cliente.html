@@ -407,13 +407,13 @@ async function verEstoque(){
     <div class="kpi ${criticos.length?'warn':''}"><span>Acabando ou zerados</span><b class="tab">${criticos.length}</b><small>de ${ps.length} produtos</small></div>
   </div>`;
   if(r.aReceber.length)h+=`<details class="card"><summary style="font-weight:800;cursor:pointer;min-height:28px;color:var(--ink)">A caminho do galpão (${r.aReceber.length} aviso${r.aReceber.length>1?'s':''})</summary>${r.aReceber.map(a=>`<div style="border-top:1px solid var(--line-soft);padding-top:8px;font-size:14px"><b>${a.previsto?'Previsto para '+a.previsto.split('-').reverse().join('/'):'Sem data prevista'}</b>${multi?` · ${esc(a.conta)}`:''}<div style="color:var(--muted);font-size:13px;margin-top:2px">${(a.itens||[]).map(i=>`${i.avisado}× ${esc(i.nome)} <span class="mono">${esc(i.sku)}</span>`).join(' · ')}</div></div>`).join('')}</details>`;
-  if(!ps.length){h+='<div class="vazio">Nenhum produto cadastrado ainda. A equipe RealEcom cadastra quando a primeira mercadoria chega.</div>';$('conteudo').innerHTML=h;$('e-avisar').onclick=()=>formAviso(r);return;}
+  if(!ps.length){h+='<div class="vazio">Nenhum produto no galpão ainda. Toque em <b>Avisar que vou mandar mercadoria</b> e escolha os produtos direto dos seus anúncios.</div>';$('conteudo').innerHTML=h;$('e-avisar').onclick=()=>formAviso(e);return;}
   h+=`<div class="filtros"><div class="periodos" role="group" aria-label="Filtro"><button type="button" data-ef="todos" aria-pressed="${est.filtro==='todos'}">Todos ${ps.length}</button><button type="button" data-ef="criticos" aria-pressed="${est.filtro==='criticos'}">Acabando ou zerados ${criticos.length}</button></div>
     <input type="search" id="e-busca" placeholder="Buscar SKU, produto ou anúncio" aria-label="Buscar produto" value="${esc(est.busca)}"></div>
     <div id="e-lista" class="lista"></div>
     <span style="font-size:12px;color:var(--muted)">Disponível para vender = unidades na prateleira menos as que já foram vendidas e ainda não saíram. Atualiza a cada venda e a cada pacote finalizado.</span>`;
   $('conteudo').innerHTML=h;
-  $('e-avisar').onclick=()=>formAviso(r);
+  $('e-avisar').onclick=()=>formAviso(e);
   document.querySelectorAll('[data-ef]').forEach(b=>b.onclick=()=>{est.filtro=b.dataset.ef;document.querySelectorAll('[data-ef]').forEach(x=>x.setAttribute('aria-pressed',x===b));listaEstoque(ps,multi);});
   $('e-busca').oninput=ev=>{est.busca=ev.target.value;listaEstoque(ps,multi);};
   listaEstoque(ps,multi);
@@ -443,36 +443,115 @@ function listaEstoque(ps,multi){
       :'<span style="font-size:12px;color:var(--warn-fg);font-weight:700">Nenhum anúncio ligado a este produto ainda: as vendas não baixam dele automaticamente.</span>'}
   </article>`).join(''):'<div class="vazio">Nenhum produto neste filtro.</div>';
 }
+const porVendaDoTitulo=t=>{const m=String(t||'').match(/\bkit\s*(?:c\/|com|de)?\s*(\d{1,2})\b/i)||String(t||'').match(/\b(\d{1,2})\s*(?:un|unid|unidades|p[çc]s|pe[çc]as)\b/i);const n=m?Number(m[1]):1;return n>=1&&n<=50?n:1;};
 function formAviso(r){
   const alvo=$('e-form');
-  const contaSel=r.contas[0]?.contaId;
-  const desenhar=contaId=>{
-    const conta=r.contas.find(c=>String(c.contaId)===String(contaId));
-    const prods=r.produtos.filter(p=>!conta||p.conta===conta.nome);
+  let contaId=r.contas[0]?.contaId, novos=[], anuncios=null, carregandoAn=false, buscaAn='';
+  const prodsDa=()=>{const c=r.contas.find(x=>String(x.contaId)===String(contaId));return r.produtos.filter(p=>!c||String(p.contaId||'')===String(contaId)||p.conta===c.nome);};
+  const desenhar=()=>{
+    const prods=prodsDa();
     alvo.innerHTML=`<form class="card" id="av-form" autocomplete="off">
       <h2>Aviso de chegada</h2>
-      <span style="font-size:13px;color:var(--muted)">Diga o que vai chegar e quando. A equipe confere na chegada e o estoque entra aqui.</span>
+      <span style="font-size:13px;color:var(--muted)">Diga o que vai chegar e quando. Produto novo você escolhe direto dos seus anúncios: o cadastro e a ligação com o anúncio são feitos na hora. A equipe confere na chegada e o estoque entra aqui.</span>
       <div class="lin">${r.contas.length>1?`<label>Conta<select id="av-conta">${r.contas.map(c=>`<option value="${esc(c.contaId)}" ${String(c.contaId)===String(contaId)?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></label>`:''}
         <label style="flex:0 1 200px">Chega em<input type="date" id="av-data" min="${diaISO(0)}"></label></div>
-      ${prods.length?`<div class="lista">${prods.map(p=>`<div class="prod"><span class="sku">${esc(p.sku)}</span><span class="n">${esc(p.nome)}</span><input type="number" min="0" step="1" inputmode="numeric" data-sku="${esc(p.sku)}" placeholder="qtd" aria-label="Quantidade de ${esc(p.nome)}"></div>`).join('')}</div>`
-        :'<div class="alerta warn">Esta conta ainda não tem produtos cadastrados. Mande uma mensagem para a equipe RealEcom com o que vai chegar, que eles cadastram.</div>'}
+      ${prods.length?`<h2 style="margin-top:4px">Produtos que você já tem no galpão</h2><div class="lista">${prods.map(p=>`<div class="prod"><span class="sku">${esc(p.sku)}</span><span class="n">${esc(p.nome)}</span><input type="number" min="0" step="1" inputmode="numeric" data-sku="${esc(p.sku)}" placeholder="qtd" aria-label="Quantidade de ${esc(p.nome)}"></div>`).join('')}</div>`:''}
+      <h2 style="margin-top:4px">${prods.length?'Produtos novos':'O que vai chegar'}</h2>
+      <div id="av-novos" class="lista"></div>
+      <div class="lin"><button class="btn" type="button" id="av-add-an">+ Escolher dos meus anúncios</button><button class="btn" type="button" id="av-add-livre">+ Produto que ainda não está anunciado</button></div>
+      <div id="av-picker"></div>
       <label>Observação (opcional)<input id="av-obs" maxlength="300" placeholder="Ex.: 2 caixas, vem pela transportadora X"></label>
       <div id="av-msg"></div>
-      <div class="lin"><button class="btn pri" type="submit" id="av-btn" ${prods.length?'':'disabled'}>Enviar aviso</button><button class="btn" type="button" id="av-x">Cancelar</button></div>
+      <div class="lin"><button class="btn pri" type="submit" id="av-btn">Enviar aviso</button><button class="btn" type="button" id="av-x">Cancelar</button></div>
     </form>`;
-    if($('av-conta'))$('av-conta').onchange=e=>desenhar(e.target.value);
+    if($('av-conta'))$('av-conta').onchange=e=>{contaId=e.target.value;novos=[];anuncios=null;desenhar();};
     $('av-x').onclick=()=>{alvo.innerHTML='';};
-    $('av-form').onsubmit=async e=>{
-      e.preventDefault();
-      const itens=[...alvo.querySelectorAll('[data-sku]')].map(i=>({sku:i.dataset.sku,avisado:Math.round(Number(i.value)||0)})).filter(i=>i.avisado>0);
-      if(!itens.length){$('av-msg').innerHTML='<div class="alerta bad">Coloque a quantidade de pelo menos um produto.</div>';return;}
-      $('av-btn').disabled=true;
-      try{await chamar('clienteAvisarChegada',{contaId,previsto:$('av-data').value,itens,obs:$('av-obs').value});
-        alvo.innerHTML='<div class="alerta ok">Aviso enviado. A equipe já vê no galpão e confere quando chegar.</div>';dados.resumo=null;setTimeout(()=>{if(vista==='estoque')verEstoque();},1600);}
-      catch(err){$('av-msg').innerHTML=`<div class="alerta bad">${esc(err.message)}</div>`;$('av-btn').disabled=false;}
-    };
+    $('av-add-an').onclick=abrirPicker;
+    $('av-add-livre').onclick=()=>{novos.push({tipo:'livre',nome:'',avisado:''});desenharNovos(true);};
+    $('av-form').onsubmit=enviar;
+    desenharNovos();
+    if(!prods.length)abrirPicker();
   };
-  desenhar(contaSel);
+  const desenharNovos=(focar)=>{
+    const box=$('av-novos');if(!box)return;
+    box.innerHTML=novos.map((n,i)=>n.tipo==='anuncio'?`<div class="prod" style="flex-wrap:wrap">
+        ${n.foto?`<img src="${esc(n.foto.replace(/^http:/,'https:'))}" alt="" width="44" height="44" style="border-radius:6px;object-fit:cover;flex:none">`:''}
+        <span class="n" style="flex:1 1 180px">${esc(n.titulo)}${n.variacaoTexto?`<br><span style="font-size:12px;color:var(--muted);font-weight:600">${esc(n.variacaoTexto)}</span>`:''}<br><span class="st neu" style="margin-top:4px">${n.jaSku?esc(n.jaSku):"Produto novo"}</span></span>
+        <label style="flex:0 0 auto;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:2px">Unidades chegando<input type="number" min="1" step="1" inputmode="numeric" data-n="${i}" data-k="avisado" value="${esc(n.avisado)}"></label>
+        <label style="flex:0 0 auto;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:2px">Unidades por venda<input type="number" min="1" max="50" step="1" inputmode="numeric" data-n="${i}" data-k="unidadesPorVenda" value="${esc(n.unidadesPorVenda)}"></label>
+        <button class="btn peq" type="button" data-rm="${i}" aria-label="Tirar ${esc(n.titulo)}">Tirar</button></div>`
+      :`<div class="prod" style="flex-wrap:wrap">
+        <label style="flex:1 1 200px;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:2px">Nome do produto<input data-n="${i}" data-k="nome" value="${esc(n.nome)}" maxlength="120" placeholder="Ex.: Garrafa térmica 500ml preta" style="width:100%"></label>
+        <label style="flex:0 0 auto;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:2px">Unidades chegando<input type="number" min="1" step="1" inputmode="numeric" data-n="${i}" data-k="avisado" value="${esc(n.avisado)}"></label>
+        <button class="btn peq" type="button" data-rm="${i}" aria-label="Tirar produto">Tirar</button></div>`).join('');
+    box.querySelectorAll('[data-n]').forEach(inp=>inp.oninput=()=>{novos[inp.dataset.n][inp.dataset.k]=inp.value;});
+    box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{novos.splice(Number(b.dataset.rm),1);desenharNovos();desenharPicker();});
+    if(focar){const l=box.querySelectorAll('[data-k="nome"]');if(l.length)l[l.length-1].focus();}
+    const qs=box.querySelectorAll('[data-k="avisado"]');if(focar===2&&qs.length)qs[qs.length-1].focus();
+  };
+  async function abrirPicker(){
+    const box=$('av-picker');
+    if(anuncios){desenharPicker(true);return;}
+    if(carregandoAn)return;carregandoAn=true;
+    box.innerHTML='<div class="vazio">Buscando os seus anúncios no Mercado Livre…</div>';
+    try{anuncios=(await chamar('clienteAnuncios',{contaId},120)).anuncios||[];desenharPicker(true);}
+    catch(e){box.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
+    finally{carregandoAn=false;}
+  }
+  function desenharPicker(abrir){
+    const box=$('av-picker');if(!box||!anuncios)return;
+    if(!abrir&&!box.innerHTML)return;
+    const q=buscaAn.trim().toLowerCase();
+    const escolhidos=new Set(novos.filter(n=>n.tipo==='anuncio').map(n=>n.itemId+'_'+(n.variacao||'')));
+    const l=anuncios.filter(a=>!q||String(a.titulo).toLowerCase().includes(q)||String(a.variacaoTexto).toLowerCase().includes(q)||String(a.itemId).toLowerCase().includes(q));
+    const linha=a=>{
+      const k=a.itemId+'_'+(a.variacao||'');
+      let acao,nota='';
+      if(a.receita.length>1){acao='';nota='Kit de produtos diferentes: avise cada produto separado';}
+      else if(a.receita.length===1){acao=`<button class="btn peq" type="button" data-ja="${esc(a.receita[0].sku)}">Usar ${esc(a.receita[0].sku)}</button>`;nota=`Já cadastrado como ${esc(a.receita[0].sku)}`;}
+      else if(escolhidos.has(k)){acao='<span class="st ok">Adicionado</span>';}
+      else acao=`<button class="btn peq pri" type="button" data-pk="${esc(k)}">Adicionar</button>`;
+      return `<div class="prod">${a.foto?`<img src="${esc(a.foto.replace(/^http:/,'https:'))}" alt="" width="44" height="44" loading="lazy" style="border-radius:6px;object-fit:cover;flex:none">`:''}
+        <span class="n">${esc(a.titulo)}${a.variacaoTexto?`<br><span style="font-size:12px;color:var(--muted);font-weight:600">${esc(a.variacaoTexto)}</span>`:''}${nota?`<br><span style="font-size:12px;color:var(--muted);font-weight:600">${nota}</span>`:''}</span>${acao}</div>`;
+    };
+    box.innerHTML=`<div class="card" style="background:var(--sunken);border-color:transparent">
+      <div class="lin"><label style="flex:1 1 220px">Seus anúncios (${anuncios.length})<input type="search" id="av-busca" placeholder="Buscar pelo título" value="${esc(buscaAn)}"></label><button class="btn peq" type="button" id="av-fechar-pk">Fechar lista</button></div>
+      <div class="lista" style="max-height:420px;overflow-y:auto">${l.length?l.slice(0,150).map(linha).join(''):`<div class="vazio">${anuncios.length?'Nenhum anúncio com esse nome.':'Nenhum anúncio ativo nesta conta (fora do Full). Use "Produto que ainda não está anunciado".'}</div>`}</div></div>`;
+    const b=$('av-busca');b.oninput=e=>{buscaAn=e.target.value;const pos=e.target.selectionStart;desenharPicker(true);const nb=$('av-busca');nb.focus();nb.setSelectionRange(pos,pos);};
+    $('av-fechar-pk').onclick=()=>{box.innerHTML='';};
+    box.querySelectorAll('[data-pk]').forEach(btn=>btn.onclick=()=>{
+      const a=anuncios.find(x=>x.itemId+'_'+(x.variacao||'')===btn.dataset.pk);
+      novos.push({tipo:'anuncio',itemId:a.itemId,variacao:a.variacao,titulo:a.titulo,variacaoTexto:a.variacaoTexto,foto:a.foto,avisado:'',unidadesPorVenda:porVendaDoTitulo(a.titulo)});
+      desenharNovos(2);desenharPicker(true);
+    });
+    box.querySelectorAll('[data-ja]').forEach(btn=>btn.onclick=()=>{
+      const i=alvo.querySelector(`[data-sku="${CSS.escape(btn.dataset.ja)}"]`);
+      if(i){i.scrollIntoView({block:'center'});i.focus();return;}
+      const a=anuncios.find(x=>x.receita.length===1&&x.receita[0].sku===btn.dataset.ja);
+      if(a&&!novos.some(n=>n.jaSku===btn.dataset.ja)){novos.push({tipo:'anuncio',itemId:a.itemId,variacao:a.variacao,titulo:a.titulo,variacaoTexto:a.variacaoTexto,foto:a.foto,avisado:'',unidadesPorVenda:a.receita[0].qtd,jaSku:btn.dataset.ja});desenharNovos(2);}
+    });
+  }
+  async function enviar(e){
+    e.preventDefault();
+    const msg=t=>{$('av-msg').innerHTML=`<div class="alerta bad">${t}</div>`;};
+    const itens=[...alvo.querySelectorAll('[data-sku]')].map(i=>({sku:i.dataset.sku,avisado:Math.round(Number(i.value)||0)})).filter(i=>i.avisado>0);
+    for(const n of novos){
+      const q=Math.round(Number(n.avisado)||0);
+      if(n.tipo==='livre'&&!String(n.nome).trim()&&!q)continue;
+      if(n.tipo==='livre'&&String(n.nome).trim().length<2)return msg('Escreva o nome do produto novo.');
+      if(q<1)return msg(`Coloque quantas unidades de "${esc(n.tipo==='anuncio'?n.titulo:n.nome)}" vão chegar.`);
+      itens.push(n.tipo==='anuncio'?{anuncio:{itemId:n.itemId,variacao:n.variacao},unidadesPorVenda:Math.max(1,Math.round(Number(n.unidadesPorVenda)||1)),avisado:q}:{nome:String(n.nome).trim(),avisado:q});
+    }
+    if(!itens.length)return msg('Coloque a quantidade de pelo menos um produto.');
+    $('av-btn').disabled=true;$('av-btn').textContent='Enviando…';
+    try{
+      const res=await chamar('clienteAvisarChegada',{contaId,previsto:$('av-data').value,itens,obs:$('av-obs').value},120);
+      const nv=res.novos||[];
+      alvo.innerHTML=`<div class="alerta ok">Aviso enviado. A equipe já vê no galpão e confere quando chegar.${nv.length?`<br>Produtos cadastrados agora: ${nv.map(p=>`<b class="mono">${esc(p.sku)}</b> ${esc(p.nome)}`).join(' · ')}`:''}</div>`;
+      dados.resumo=null;setTimeout(()=>{if(vista==='estoque')verEstoque();},nv.length?4000:1600);
+    }catch(err){msg(esc(err.message));$('av-btn').disabled=false;$('av-btn').textContent='Enviar aviso';}
+  }
+  desenhar();
   alvo.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
