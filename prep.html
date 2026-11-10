@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#100D14">
-<title>Prep Center</title>
+<title>PREP REAL</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -234,7 +234,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 <div id="tela-login" class="login oculto">
   <form id="form-login">
     <span class="logo" aria-hidden="true">P</span>
-    <h1 class="nome-sis">Prep Center</h1>
+    <h1 class="nome-sis">PREP REAL</h1>
     <label>E-mail<input id="l-email" type="email" autocomplete="username" required></label>
     <label>Senha<input id="l-senha" type="password" autocomplete="current-password" required></label>
     <div id="l-erro" class="erro oculto"></div>
@@ -256,7 +256,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 
 <div id="tela-app" class="oculto app">
   <aside class="lateral">
-    <div class="marca"><span class="logo" aria-hidden="true">P</span><span class="marca-txt"><b class="nome-sis">Prep Center</b><small>Galpão</small></span></div>
+    <div class="marca"><span class="logo" aria-hidden="true">P</span><span class="marca-txt"><b class="nome-sis">PREP REAL</b><small>Galpão</small></span></div>
     <nav class="menu" aria-label="Seções">
       <button type="button" id="m-fila" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z"/></svg><span class="lg">Fila do dia</span><span class="ct">Fila</span></button>
       <button type="button" id="m-receber"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span class="lg">Receber</span><span class="ct">Receber</span></button>
@@ -271,7 +271,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   </aside>
   <div class="conteudo">
   <header class="top">
-    <b class="marca-cel nome-sis">Prep Center</b>
+    <b class="marca-cel nome-sis">PREP REAL</b>
     <h1 id="t-titulo">Fila do dia</h1>
     <span class="agora" id="agora"></span>
     <button class="icone" id="b-atualizar" type="button" aria-label="Buscar vendas novas">
@@ -293,7 +293,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
     <section id="v-equipe" class="oculto" style="display:flex;flex-direction:column;gap:12px">
       <form id="form-func" style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px" autocomplete="off">
         <h2>Criar login de funcionário</h2>
-        <span style="font-size:13px;color:var(--muted)">O funcionário só entra no Prep Center. Não vê o ML Analyzer nem números de venda.</span>
+        <span style="font-size:13px;color:var(--muted)">O funcionário só entra no PREP REAL. Não vê o ML Analyzer nem números de venda.</span>
         <div class="hist-filtros">
           <input id="f-nome" placeholder="Nome" aria-label="Nome" style="flex:1 1 160px">
           <input id="f-email" type="email" placeholder="E-mail" aria-label="E-mail" style="flex:1 1 220px">
@@ -366,7 +366,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 
 <script>
 // Nome do sistema: troque aqui e muda em todas as telas
-const NOME_SISTEMA='Prep Center';
+const NOME_SISTEMA='PREP REAL';
 document.querySelectorAll('.nome-sis').forEach(e=>{e.textContent=NOME_SISTEMA;});
 document.querySelectorAll('.logo').forEach(e=>{e.textContent=NOME_SISTEMA.trim()[0].toUpperCase();});
 firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
