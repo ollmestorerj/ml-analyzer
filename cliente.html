@@ -51,7 +51,7 @@ main{max-width:960px;margin:0 auto;padding:12px 12px 48px;display:flex;flex-dire
 .marca-txt b{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .marca-txt small{font-size:12px;color:rgba(255,255,255,.55);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (min-width:1024px){
-  .app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+  .app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh;background:linear-gradient(to right,var(--nav) 232px,var(--page) 232px)}
   .lateral{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:16px 10px}
   .menu{flex-direction:column;gap:2px}
   .menu button{gap:12px;min-height:44px;padding:0 12px;border-radius:8px;font-size:15px;text-align:left}
@@ -482,12 +482,63 @@ function listaEstoque(ps,multi){
       ${p.aCaminho?`<span>A caminho <b class="tab" style="color:var(--ink)">${p.aCaminho}</b></span>`:''}
       <span>Vendeu em 30 dias <b class="tab" style="color:var(--ink)">${p.vendidos30}</b></span>
     </div>
-    ${p.anuncios.length?`<details><summary style="font-size:13px;font-weight:800;cursor:pointer;color:var(--body);min-height:28px">Anúncios que usam este produto (${p.anuncios.length})</summary>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${p.anuncios.map(a=>`<div style="display:flex;gap:10px;align-items:center;background:var(--sunken);border-radius:8px;padding:8px 10px;font-size:13px"><span style="flex:1 1 auto;min-width:0"><b style="color:var(--ink)">${esc(a.titulo)}</b><br><span style="color:var(--muted)">${a.qtdPorVenda} un por venda · <span class="mono">${esc(a.itemId)}</span></span></span><span style="text-align:right;flex:none"><b class="tab" style="font-size:18px;color:${a.vendasPossiveis?'var(--ink)':'var(--bad-fg)'}">${a.vendasPossiveis}</b><br><span style="font-size:11px;color:var(--muted);font-weight:700">vendas</span></span></div>`).join('')}</div></details>`
+    ${p.anuncios.length?`<details ${est.aberto===p.sku?'open':''}><summary style="font-size:13px;font-weight:800;cursor:pointer;color:var(--body);min-height:28px">Anúncios que usam este produto (${p.anuncios.length})</summary>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${p.anuncios.map(a=>`<div style="display:flex;gap:10px;align-items:center;background:var(--sunken);border-radius:8px;padding:8px 10px;font-size:13px;flex-wrap:wrap"><span style="flex:1 1 200px;min-width:0"><b style="color:var(--ink)">${esc(a.titulo)}</b><br><span style="color:var(--muted)">${a.qtdPorVenda} un por venda${a.kit?' · kit com outros produtos':''} · <span class="mono">${esc(a.itemId)}</span></span></span><span style="text-align:right;flex:none"><b class="tab" style="font-size:18px;color:${a.vendasPossiveis?'var(--ink)':'var(--bad-fg)'}">${a.vendasPossiveis}</b><br><span style="font-size:11px;color:var(--muted);font-weight:700">vendas</span></span><button class="btn peq" type="button" data-deslig="${esc(p.sku)}|${esc(a.itemId)}|${esc(a.variacao||'')}">Desligar</button></div>`).join('')}</div></details>`
       :'<span style="font-size:12px;color:var(--warn-fg);font-weight:700">Nenhum anúncio ligado a este produto ainda: as vendas não baixam dele automaticamente.</span>'}
+    <div class="lin"><button class="btn peq${p.anuncios.length?'':' pri'}" type="button" data-ligar="${esc(p.sku)}">+ Ligar a um anúncio</button></div>
+    <div id="lig-${esc(p.sku)}"></div>
   </article>`).join(''):'<div class="vazio">Nenhum produto neste filtro.</div>';
+  $('e-lista').querySelectorAll('[data-ligar]').forEach(b=>b.onclick=()=>abrirLigar(ps.find(p=>p.sku===b.dataset.ligar)));
+  $('e-lista').querySelectorAll('[data-deslig]').forEach(b=>b.onclick=async()=>{
+    if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmar';b.style.color='var(--bad-fg)';return;}
+    const [sku,itemId,variacao]=b.dataset.deslig.split('|');b.disabled=true;
+    try{await chamar('clienteVincular',{sku,itemId,variacao:variacao||null,modo:'remover'});est.aberto=sku;delete anunciosCache[ps.find(p=>p.sku===sku)?.contaId];verEstoque();}
+    catch(e){b.disabled=false;b.textContent=e.message;}
+  });
 }
-const porVendaDoTitulo=t=>{const m=String(t||'').match(/\bkit\s*(?:c\/|com|de)?\s*(\d{1,2})\b/i)||String(t||'').match(/\b(\d{1,2})\s*(?:un|unid|unidades|p[çc]s|pe[çc]as)\b/i);const n=m?Number(m[1]):1;return n>=1&&n<=50?n:1;};
+// Ligar um anuncio do cliente a um produto (cada venda baixa N unidades)
+const anunciosCache={};
+async function abrirLigar(p){
+  const box=$('lig-'+p.sku);if(!box)return;
+  if(box.innerHTML){box.innerHTML='';return;}
+  box.innerHTML='<div class="vazio">Buscando os seus anúncios no Mercado Livre…</div>';
+  let lista;
+  try{lista=anunciosCache[p.contaId]=anunciosCache[p.contaId]||(await chamar('clienteAnuncios',{contaId:p.contaId},120)).anuncios||[];}
+  catch(e){box.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  let busca='';
+  const desenhar=()=>{
+    const q=busca.trim().toLowerCase();
+    const l=lista.filter(a=>!q||String(a.titulo).toLowerCase().includes(q)||String(a.variacaoTexto).toLowerCase().includes(q)||String(a.itemId).toLowerCase().includes(q))
+      .sort((a,b)=>(a.receita.length?1:0)-(b.receita.length?1:0));
+    box.innerHTML=`<div class="card" style="background:var(--sunken);border-color:transparent;gap:8px">
+      <div class="lin"><label style="flex:1 1 220px">Escolha o anúncio de <b style="color:var(--ink)">${esc(p.nome)}</b><input type="search" data-busca placeholder="Buscar pelo título" value="${esc(busca)}"></label><button class="btn peq" type="button" data-fechar>Fechar</button></div>
+      <span style="font-size:12px;color:var(--muted)">"Un por venda": quantas unidades deste produto saem a cada venda do anúncio (kit 2 = 2).</span>
+      <div class="lista" style="max-height:420px;overflow-y:auto">${l.length?l.slice(0,150).map((a,k)=>{
+        const meu=a.receita.some(r=>r.sku===p.sku), outros=a.receita.filter(r=>r.sku!==p.sku);
+        const chave=a.itemId+'|'+(a.variacao||'');
+        return `<div class="prod" style="flex-wrap:wrap">${a.foto?`<img src="${esc(a.foto.replace(/^http:/,'https:'))}" alt="" width="44" height="44" loading="lazy" style="border-radius:6px;object-fit:cover;flex:none">`:''}
+          <span class="n" style="flex:1 1 200px">${esc(a.titulo)}${a.variacaoTexto?`<br><span style="font-size:12px;color:var(--muted);font-weight:600">${esc(a.variacaoTexto)}</span>`:''}${meu?'<br><span class="st ok" style="margin-top:4px">Já ligado a este produto</span>':outros.length?`<br><span style="font-size:12px;color:var(--warn-fg);font-weight:700">Já usa ${outros.map(r=>esc(r.sku)).join(', ')}</span>`:''}</span>
+          <label style="flex:0 0 auto;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:2px">Un por venda<input type="number" min="1" max="50" inputmode="numeric" data-q="${esc(chave)}" value="${meu?a.receita.find(r=>r.sku===p.sku).qtd:porVendaDoTitulo(a.titulo)}" style="width:80px"></label>
+          ${outros.length?`<button class="btn peq" type="button" data-lg="${esc(chave)}" data-modo="trocar">Trocar por este</button><button class="btn peq" type="button" data-lg="${esc(chave)}" data-modo="somar">Somar ao kit</button>`
+            :`<button class="btn peq pri" type="button" data-lg="${esc(chave)}" data-modo="trocar">${meu?'Salvar':'Ligar'}</button>`}</div>`;}).join('')
+        :`<div class="vazio">${lista.length?'Nenhum anúncio com esse nome.':'Nenhum anúncio ativo nesta conta (fora do Full).'}</div>`}</div></div>`;
+    const b=box.querySelector('[data-busca]');b.oninput=e=>{busca=e.target.value;const pos=e.target.selectionStart;desenhar();const nb=box.querySelector('[data-busca]');nb.focus();nb.setSelectionRange(pos,pos);};
+    box.querySelector('[data-fechar]').onclick=()=>{box.innerHTML='';};
+    box.querySelectorAll('[data-lg]').forEach(btn=>btn.onclick=async()=>{
+      const [itemId,variacao]=btn.dataset.lg.split('|');
+      const a=lista.find(x=>x.itemId===itemId&&String(x.variacao||'')===variacao);
+      const qtd=Number(box.querySelector(`[data-q="${CSS.escape(btn.dataset.lg)}"]`).value)||1;
+      btn.disabled=true;btn.textContent='Salvando…';
+      try{
+        const r=await chamar('clienteVincular',{sku:p.sku,itemId,variacao:variacao||null,qtd,modo:btn.dataset.modo,titulo:a?.variacaoTexto?`${a.titulo} (${a.variacaoTexto})`:a?.titulo});
+        if(a)a.receita=r.itens||[];
+        est.aberto=p.sku;verEstoque();
+      }catch(e){btn.disabled=false;btn.textContent=e.message;}
+    });
+  };
+  desenhar();
+}
+const porVendaDoTitulo=t=>{const m=String(t||'').match(/\bkit\s*(?:c\/|com|de)?\s*(\d{1,2})\b/i)||String(t||'').match(/\b(\d{1,2})\s*(?:un|unid|unidades)\b/i);const n=m?Number(m[1]):1;return n>=1&&n<=50?n:1;};
 function formAviso(r){
   const alvo=$('e-form');
   let contaId=r.contas[0]?.contaId, novos=[], anuncios=null, carregandoAn=false, buscaAn='';
