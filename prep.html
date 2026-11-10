@@ -1014,16 +1014,9 @@ async function desenharProdutos(){
       const [r,ps]=await Promise.all([chamar('prepAnunciosConta',{contaId},120),produtosDe(contaId)]);
       const an=r.anuncios||[];
       if(!an.length){$('pr-lista').innerHTML='<div class="vazio">Nenhum anúncio ativo fora do Full nessa conta.</div>';return;}
-      $('pr-lista').innerHTML=(r.semVinculo?`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)"><b>${r.semVinculo} anúncio(s) sem vínculo.</b> Venda deles entra na fila, mas não dá baixa no estoque até vincular.</div>`:'<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Todos os anúncios estão vinculados.</div>')+
-        an.sort((a,b)=>(a.receita.length?1:0)-(b.receita.length?1:0)).map(a=>`<div class="prow" style="${a.receita.length?'':'border-color:#F0A500'}">
-          ${a.foto?`<img src="${esc(a.foto)}" alt="" width="44" height="44" style="border-radius:6px;object-fit:cover">`:''}
-          <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 200px"><b style="font-size:14px;color:var(--ink)">${esc(a.titulo)}</b>
-            <span style="font-size:12px;color:var(--muted)">${a.variacaoTexto?esc(a.variacaoTexto)+' · ':''}<span class="mono">${esc(a.itemId)}</span></span>
-            <span style="display:flex;flex-wrap:wrap;gap:4px">${a.receita.length?a.receita.map(x=>`<span class="chip-sku">${x.qtd}× ${esc(x.sku)}</span>`).join(''):'<span class="tag warn">Sem vínculo</span>'}</span></div>
-          <button class="btn ${a.receita.length?'':'pri'}" type="button" style="min-height:40px" data-vc="${esc(a.chave)}">${a.receita.length?'Alterar':'Vincular'}</button>
-          <div id="vc-${esc(a.chave)}" style="width:100%"></div>
-        </div>`).join('');
-      $('pr-lista').querySelectorAll('[data-vc]').forEach(b=>b.onclick=()=>editorVinculo(an.find(a=>a.chave===b.dataset.vc),ps));
+      vinc={an:an.sort((a,b)=>(a.receita.length?1:0)-(b.receita.length?1:0)),ps,abertos:new Map(),sel:new Set()};
+      $('pr-lista').innerHTML=`<div id="vc-aviso"></div><div id="vc-barra" class="cad oculto" style="position:sticky;top:76px;z-index:15;border:2px solid var(--orange);box-shadow:0 8px 20px -14px rgba(17,17,17,.5)"></div>`+vinc.an.map(linhaAnuncio).join('');
+      ligarLinhasVinc();atualizarAvisoVinc();desenharBarraVinc();
     }
   }catch(e){$('pr-lista').innerHTML=`<div class="alerta bad"><b>Não consegui carregar.</b> ${esc(e.message)}</div>`;}
 }
@@ -1196,27 +1189,111 @@ function etiquetaSku(p){
   w.document.close();
 }
 
-// Vinculo: anuncio/variacao -> quais produtos e quantos
-function editorVinculo(a,ps){
-  const alvo=document.getElementById('vc-'+a.chave);
+// Vinculo: anuncio/variacao -> quais produtos e quantos.
+// Varios de uma vez: marque os anuncios e aplique o mesmo produto, ou abra varios editores e salve todos.
+let vinc=null;
+const chipsReceita=a=>a.receita.length?a.receita.map(x=>`<span class="chip-sku">${x.qtd}× ${esc(x.sku)}</span>`).join(''):'<span class="tag warn">Sem vínculo</span>';
+const sugestaoQtd=a=>{const t=(a.titulo+' '+(a.variacaoTexto||'')).toLowerCase();const m=t.match(/kit\s*(?:com\s*|c\/\s*)?(\d{1,2})\b|\b(\d{1,2})\s*(?:un|unid|unidades)\b/);const n=m?Number(m[1]||m[2]):1;return n>=1&&n<=50?n:1;};
+function linhaAnuncio(a){
+  return `<div class="prow" id="vr-${esc(a.chave)}" style="${a.receita.length?'':'border-color:#F0A500'}">
+    <input type="checkbox" data-sel="${esc(a.chave)}" aria-label="Selecionar ${esc(a.titulo)}" style="width:22px;height:22px;flex:none;accent-color:var(--orange-d);cursor:pointer">
+    ${a.foto?`<img src="${esc(a.foto)}" alt="" width="44" height="44" style="border-radius:6px;object-fit:cover">`:''}
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 200px"><b style="font-size:14px;color:var(--ink)">${esc(a.titulo)}</b>
+      <span style="font-size:12px;color:var(--muted)">${a.variacaoTexto?esc(a.variacaoTexto)+' · ':''}<span class="mono">${esc(a.itemId)}</span></span>
+      <span style="display:flex;flex-wrap:wrap;gap:4px" id="vchips-${esc(a.chave)}">${chipsReceita(a)}</span></div>
+    <button class="btn ${a.receita.length?'':'pri'}" type="button" style="min-height:40px" data-vc="${esc(a.chave)}">${a.receita.length?'Alterar':'Vincular'}</button>
+    <div id="vc-${esc(a.chave)}" style="width:100%"></div>
+  </div>`;
+}
+function ligarLinhasVinc(){
+  $('pr-lista').querySelectorAll('[data-vc]').forEach(b=>b.onclick=()=>editorVinculo(vinc.an.find(a=>a.chave===b.dataset.vc)));
+  $('pr-lista').querySelectorAll('[data-sel]').forEach(c=>c.onchange=()=>{c.checked?vinc.sel.add(c.dataset.sel):vinc.sel.delete(c.dataset.sel);desenharBarraVinc();});
+}
+function atualizarAvisoVinc(){
+  const sem=vinc.an.filter(a=>!a.receita.length).length;
+  $('vc-aviso').innerHTML=sem?`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span><b>${sem} anúncio(s) sem vínculo.</b> Venda deles entra na fila, mas não dá baixa no estoque até vincular. Dica: marque vários e vincule de uma vez.</span><button class="btn" type="button" id="vc-marcar" style="min-height:38px;margin-left:auto">Marcar os ${sem} sem vínculo</button></div>`
+    :'<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Todos os anúncios estão vinculados.</div>';
+  const m=$('vc-marcar');if(m)m.onclick=()=>{vinc.an.filter(a=>!a.receita.length).forEach(a=>vinc.sel.add(a.chave));$('pr-lista').querySelectorAll('[data-sel]').forEach(c=>{c.checked=vinc.sel.has(c.dataset.sel);});desenharBarraVinc();};
+}
+function atualizarLinhaVinc(a){
+  const row=$('vr-'+a.chave);if(!row)return;
+  row.style.borderColor=a.receita.length?'':'#F0A500';
+  $('vchips-'+a.chave).innerHTML=chipsReceita(a);
+  const b=row.querySelector('[data-vc]');b.textContent=a.receita.length?'Alterar':'Vincular';b.classList.toggle('pri',!a.receita.length);
+}
+function fecharEditorVinc(chave){vinc.abertos.delete(chave);const el=$('vc-'+chave);if(el)el.innerHTML='';}
+async function salvarVinc(a,itens){
+  const linhas=itens.map(l=>({sku:l.sku,qtd:Math.max(1,Math.round(Number(l.qtd)||1))}));
+  await chamar('prepVinculoSalvar',{contaId:$('pr-cli').value,itemId:a.itemId,variacao:a.variacao,titulo:a.titulo,itens:linhas});
+  a.receita=linhas;atualizarLinhaVinc(a);
+}
+function desenharBarraVinc(){
+  const bar=$('vc-barra');if(!bar||!vinc)return;
+  const nSel=vinc.sel.size,nAb=vinc.abertos.size;
+  if(!nSel&&nAb<2){bar.classList.add('oculto');bar.innerHTML='';return;}
+  bar.classList.remove('oculto');
+  const ultimo=bar.querySelector('#vb-sku')?.value;
+  bar.innerHTML=`${nSel?`<div class="lin" style="align-items:flex-end">
+      <span style="font-weight:800;color:var(--ink);align-self:center">${nSel} selecionado${nSel>1?'s':''}</span>
+      <label style="flex:1 1 240px">Vincular todos ao produto<select id="vb-sku">${vinc.ps.map(p=>`<option value="${esc(p.sku)}" ${p.sku===ultimo?'selected':''}>${esc(p.sku)} · ${esc(p.nome)}</option>`).join('')}</select></label>
+      <label style="flex:0 0 110px">Quantos por venda<input id="vb-q" inputmode="numeric" value="1"></label>
+      <button class="btn pri" type="button" id="vb-ok">Vincular ${nSel}</button>
+      <button class="btn" type="button" id="vb-limpar">Limpar seleção</button></div>
+    <span style="font-size:12px;color:var(--muted)">Troca o vínculo atual dos selecionados por este produto. Para kit misto, use Alterar no anúncio.</span>`:''}
+    ${nAb>=2?`<div class="lin"><span style="font-weight:800;color:var(--ink);align-self:center">${nAb} vínculos abertos para editar</span><button class="btn pri" type="button" id="vb-todos">Salvar os ${nAb} de uma vez</button></div>`:''}`;
+  if(nSel){
+    $('vb-limpar').onclick=()=>{vinc.sel.clear();$('pr-lista').querySelectorAll('[data-sel]').forEach(c=>{c.checked=false;});desenharBarraVinc();};
+    $('vb-ok').onclick=async e=>{
+      const b=e.currentTarget,sku=$('vb-sku').value,qtd=Math.max(1,Math.round(Number($('vb-q').value)||1));
+      if(!vinc.ps.length){erro('Sem produto','Cadastre o produto primeiro, na aba Produtos e estoque.');return;}
+      b.disabled=true;let ok=0;const falhas=[];
+      for(const chave of [...vinc.sel]){
+        const a=vinc.an.find(x=>x.chave===chave);if(!a)continue;
+        b.textContent=`Salvando ${ok+1} de ${vinc.sel.size}…`;
+        try{await salvarVinc(a,[{sku,qtd}]);ok++;vinc.sel.delete(chave);fecharEditorVinc(chave);const c=document.querySelector(`[data-sel="${CSS.escape(chave)}"]`);if(c)c.checked=false;}
+        catch(err){falhas.push(`${a.titulo}: ${err.message}`);}
+      }
+      atualizarAvisoVinc();desenharBarraVinc();
+      if(falhas.length){som(false);erro(`${ok} vinculado(s), ${falhas.length} com erro`,falhas.map(esc).join('<br>'));}
+      else{som(true);telaCheia('#0E9F6E',`<div class="m">VÍNCULOS SALVOS</div><div class="g">${ok}</div><div class="m">anúncio${ok>1?'s':''} → ${esc(sku)}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1600);}
+    };
+  }
+  if(nAb>=2)$('vb-todos').onclick=async e=>{
+    const b=e.currentTarget;b.disabled=true;let ok=0;const falhas=[];
+    for(const [chave,ed] of [...vinc.abertos]){
+      b.textContent=`Salvando ${ok+1} de ${vinc.abertos.size}…`;
+      try{await salvarVinc(ed.a,ed.linhas);ok++;fecharEditorVinc(chave);}
+      catch(err){falhas.push(`${ed.a.titulo}: ${err.message}`);}
+    }
+    atualizarAvisoVinc();desenharBarraVinc();
+    if(falhas.length){som(false);erro(`${ok} salvo(s), ${falhas.length} com erro`,falhas.map(esc).join('<br>'));}
+    else{som(true);telaCheia('#0E9F6E',`<div class="m">VÍNCULOS SALVOS</div><div class="g">${ok}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1400);}
+  };
+}
+function editorVinculo(a){
+  const alvo=document.getElementById('vc-'+a.chave),ps=vinc.ps;
+  if(vinc.abertos.has(a.chave)){fecharEditorVinc(a.chave);desenharBarraVinc();return;}
   if(!ps.length){alvo.innerHTML='<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Cadastre o produto primeiro, na aba Produtos e estoque.</div>';return;}
-  const sug=(()=>{const t=(a.titulo+' '+a.variacaoTexto).toLowerCase();const m=t.match(/kit\s*(?:com\s*)?(\d+)|(\d+)\s*(?:un|unid|unidades|peças|pecas|pçs|pcs)\b|\bc\/\s*(\d+)/);return m?Number(m[1]||m[2]||m[3]):1;})();
-  let linhas=a.receita.length?a.receita.map(x=>({...x})):[{sku:ps[0].sku,qtd:sug}];
+  const sug=sugestaoQtd(a);
+  const ed={a,linhas:a.receita.length?a.receita.map(x=>({...x})):[{sku:ps[0].sku,qtd:sug}]};
+  vinc.abertos.set(a.chave,ed);desenharBarraVinc();
   const desenhar_=()=>{
+    const linhas=ed.linhas;
     alvo.innerHTML=`<div class="cad" style="margin-top:8px">
       ${linhas.map((l,k)=>`<div class="lin"><label>Produto<select data-ls="${k}">${ps.map(p=>`<option value="${esc(p.sku)}" ${p.sku===l.sku?'selected':''}>${esc(p.sku)} · ${esc(p.nome)}</option>`).join('')}</select></label>
         <label style="flex:0 0 100px">Quantos<input data-lq="${k}" inputmode="numeric" value="${l.qtd}"></label>
         ${linhas.length>1?`<button class="btn" type="button" data-lr="${k}" style="min-height:44px">Tirar</button>`:''}</div>`).join('')}
-      <span style="font-size:12px;color:var(--muted)">Cada venda deste anúncio dá baixa nessas quantidades. ${sug>1&&!a.receita.length?`Sugeri ${sug} pelo título.`:''}</span>
-      <div class="lin"><button class="btn" type="button" id="vc-add">+ Outro produto (kit misto)</button><button class="btn pri" type="button" id="vc-ok">Salvar vínculo</button></div></div>`;
+      <span style="font-size:12px;color:var(--muted)">Cada venda deste anúncio dá baixa nessas quantidades. ${sug>1&&!a.receita.length?`Sugeri ${sug} pelo título (kit).`:''}</span>
+      <div class="lin"><button class="btn" type="button" data-add>+ Outro produto (kit misto)</button><button class="btn pri" type="button" data-ok>Salvar vínculo</button><button class="btn" type="button" data-x>Fechar</button></div></div>`;
     alvo.querySelectorAll('[data-ls]').forEach(x=>x.onchange=()=>{linhas[x.dataset.ls].sku=x.value;});
     alvo.querySelectorAll('[data-lq]').forEach(x=>x.oninput=()=>{linhas[x.dataset.lq].qtd=x.value;});
     alvo.querySelectorAll('[data-lr]').forEach(x=>x.onclick=()=>{linhas.splice(Number(x.dataset.lr),1);desenhar_();});
-    alvo.querySelector('#vc-add').onclick=()=>{linhas.push({sku:ps[0].sku,qtd:1});desenhar_();};
-    alvo.querySelector('#vc-ok').onclick=async e=>{
-      e.currentTarget.disabled=true;
-      try{await chamar('prepVinculoSalvar',{contaId:$('pr-cli').value,itemId:a.itemId,variacao:a.variacao,titulo:a.titulo,itens:linhas});som(true);desenharProdutos();}
-      catch(err){e.currentTarget.disabled=false;som(false);erro('Não salvou',esc(err.message));}
+    alvo.querySelector('[data-add]').onclick=()=>{linhas.push({sku:ps[0].sku,qtd:1});desenhar_();};
+    alvo.querySelector('[data-x]').onclick=()=>{fecharEditorVinc(a.chave);desenharBarraVinc();};
+    alvo.querySelector('[data-ok]').onclick=async e=>{
+      const b=e.currentTarget;b.disabled=true;b.textContent='Salvando…';
+      try{await salvarVinc(a,linhas);som(true);fecharEditorVinc(a.chave);atualizarAvisoVinc();desenharBarraVinc();}
+      catch(err){b.disabled=false;b.textContent='Salvar vínculo';som(false);erro('Não salvou',esc(err.message));}
     };
   };
   desenhar_();
