@@ -1224,9 +1224,12 @@ function atualizarLinhaVinc(a){
 function fecharEditorVinc(chave){vinc.abertos.delete(chave);const el=$('vc-'+chave);if(el)el.innerHTML='';}
 async function salvarVinc(a,itens){
   const linhas=itens.map(l=>({sku:l.sku,qtd:Math.max(1,Math.round(Number(l.qtd)||1))}));
-  await chamar('prepVinculoSalvar',{contaId:$('pr-cli').value,itemId:a.itemId,variacao:a.variacao,titulo:a.titulo,itens:linhas});
+  const r=await chamar('prepVinculoSalvar',{contaId:$('pr-cli').value,itemId:a.itemId,variacao:a.variacao,titulo:a.titulo,itens:linhas});
   a.receita=linhas;atualizarLinhaVinc(a);
+  if(r&&r.baixados)prodCache[$('pr-cli').value]=null;
+  return r?.baixados||0;
 }
+const avisoBaixados=n=>n?`<div class="m" style="font-size:16px">${n} venda${n>1?'s':''} que já tinha${n>1?'m':''} saído foi baixada${n>1?'s':''} do estoque agora</div>`:'';
 function desenharBarraVinc(){
   const bar=$('vc-barra');if(!bar||!vinc)return;
   const nSel=vinc.sel.size,nAb=vinc.abertos.size;
@@ -1246,28 +1249,28 @@ function desenharBarraVinc(){
     $('vb-ok').onclick=async e=>{
       const b=e.currentTarget,sku=$('vb-sku').value,qtd=Math.max(1,Math.round(Number($('vb-q').value)||1));
       if(!vinc.ps.length){erro('Sem produto','Cadastre o produto primeiro, na aba Produtos e estoque.');return;}
-      b.disabled=true;let ok=0;const falhas=[];
+      b.disabled=true;let ok=0,baix=0;const falhas=[];
       for(const chave of [...vinc.sel]){
         const a=vinc.an.find(x=>x.chave===chave);if(!a)continue;
         b.textContent=`Salvando ${ok+1} de ${vinc.sel.size}…`;
-        try{await salvarVinc(a,[{sku,qtd}]);ok++;vinc.sel.delete(chave);fecharEditorVinc(chave);const c=document.querySelector(`[data-sel="${CSS.escape(chave)}"]`);if(c)c.checked=false;}
+        try{baix+=await salvarVinc(a,[{sku,qtd}]);ok++;vinc.sel.delete(chave);fecharEditorVinc(chave);const c=document.querySelector(`[data-sel="${CSS.escape(chave)}"]`);if(c)c.checked=false;}
         catch(err){falhas.push(`${a.titulo}: ${err.message}`);}
       }
       atualizarAvisoVinc();desenharBarraVinc();
       if(falhas.length){som(false);erro(`${ok} vinculado(s), ${falhas.length} com erro`,falhas.map(esc).join('<br>'));}
-      else{som(true);telaCheia('#0E9F6E',`<div class="m">VÍNCULOS SALVOS</div><div class="g">${ok}</div><div class="m">anúncio${ok>1?'s':''} → ${esc(sku)}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1600);}
+      else{som(true);telaCheia('#0E9F6E',`<div class="m">VÍNCULOS SALVOS</div><div class="g">${ok}</div><div class="m">anúncio${ok>1?'s':''} → ${esc(sku)}</div>${avisoBaixados(baix)}<button class="btn" type="button" id="ov-ok">OK</button>`,1600);}
     };
   }
   if(nAb>=2)$('vb-todos').onclick=async e=>{
-    const b=e.currentTarget;b.disabled=true;let ok=0;const falhas=[];
+    const b=e.currentTarget;b.disabled=true;let ok=0,baix=0;const falhas=[];
     for(const [chave,ed] of [...vinc.abertos]){
       b.textContent=`Salvando ${ok+1} de ${vinc.abertos.size}…`;
-      try{await salvarVinc(ed.a,ed.linhas);ok++;fecharEditorVinc(chave);}
+      try{baix+=await salvarVinc(ed.a,ed.linhas);ok++;fecharEditorVinc(chave);}
       catch(err){falhas.push(`${ed.a.titulo}: ${err.message}`);}
     }
     atualizarAvisoVinc();desenharBarraVinc();
     if(falhas.length){som(false);erro(`${ok} salvo(s), ${falhas.length} com erro`,falhas.map(esc).join('<br>'));}
-    else{som(true);telaCheia('#0E9F6E',`<div class="m">VÍNCULOS SALVOS</div><div class="g">${ok}</div><button class="btn" type="button" id="ov-ok">OK</button>`,1400);}
+    else{som(true);telaCheia('#0E9F6E',`<div class="m">VÍNCULOS SALVOS</div><div class="g">${ok}</div>${avisoBaixados(baix)}<button class="btn" type="button" id="ov-ok">OK</button>`,baix?3000:1400);}
   };
 }
 function editorVinculo(a){
@@ -1292,7 +1295,8 @@ function editorVinculo(a){
     alvo.querySelector('[data-x]').onclick=()=>{fecharEditorVinc(a.chave);desenharBarraVinc();};
     alvo.querySelector('[data-ok]').onclick=async e=>{
       const b=e.currentTarget;b.disabled=true;b.textContent='Salvando…';
-      try{await salvarVinc(a,linhas);som(true);fecharEditorVinc(a.chave);atualizarAvisoVinc();desenharBarraVinc();}
+      try{const baix=await salvarVinc(a,linhas);som(true);fecharEditorVinc(a.chave);atualizarAvisoVinc();desenharBarraVinc();
+        if(baix)telaCheia('#0E9F6E',`<div class="m">VÍNCULO SALVO</div>${avisoBaixados(baix)}<button class="btn" type="button" id="ov-ok">OK</button>`,3000);}
       catch(err){b.disabled=false;b.textContent='Salvar vínculo';som(false);erro('Não salvou',esc(err.message));}
     };
   };

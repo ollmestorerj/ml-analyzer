@@ -357,7 +357,7 @@ async function verEnvios(silencioso){
     <div class="kpi ${nf.length?'warn':''}"><span>Esperando a sua NF</span><b class="tab">${nf.length}</b></div>
     <div class="kpi ${atr.length?'bad':''}"><span>Atrasados</span><b class="tab">${atr.length}</b></div>
   </div>`;
-  if(!env.length){h+='<div class="vazio">Nenhum envio para hoje. Assim que entrar uma venda de Flex, Coleta, Agência ou Correios, ela aparece aqui.</div>';$('conteudo').innerHTML=h;agendar();return;}
+  if(!env.length){h+='<div class="vazio">Nenhum envio para hoje. Assim que entrar uma venda de Flex, Coleta, Agência ou Correios, ela aparece aqui.<br><button class="btn peq" type="button" id="ir-ontem" style="margin-top:10px">Ver o que saiu ontem</button></div>';$('conteudo').innerHTML=h;$('ir-ontem').onclick=()=>{hist.periodo='ontem';abrir('hist');};agendar();return;}
   const ordem=e=>e.situacao==='Finalizado'?3:(classeSit(e)==='bad'?0:e.aguardandoNF?1:2);
   h+='<div class="secoes">'+MODS.concat(env.some(e=>!MODS.find(m=>m.id===e.modalidade))?[{id:'__outra'}]:[]).map(m=>{
     const lista=env.filter(e=>m.id==='__outra'?!MODS.find(x=>x.id===e.modalidade):e.modalidade===m.id).sort((a,b)=>ordem(a)-ordem(b)||String(a.limiteDespacho).localeCompare(String(b.limiteDespacho)));
@@ -532,7 +532,8 @@ async function abrirLigar(p){
       try{
         const r=await chamar('clienteVincular',{sku:p.sku,itemId,variacao:variacao||null,qtd,modo:btn.dataset.modo,titulo:a?.variacaoTexto?`${a.titulo} (${a.variacaoTexto})`:a?.titulo});
         if(a)a.receita=r.itens||[];
-        est.aberto=p.sku;verEstoque();
+        est.aberto=p.sku;await verEstoque();
+        if(r.baixados){const n=r.baixados;const box=$('e-lista');if(box)box.insertAdjacentHTML('beforebegin',`<div class="alerta ok">${n} venda${n>1?'s':''} desse anúncio que já tinha${n>1?'m':''} saído foi baixada${n>1?'s':''} do estoque agora.</div>`);}
       }catch(e){btn.disabled=false;btn.textContent=e.message;}
     });
   };
