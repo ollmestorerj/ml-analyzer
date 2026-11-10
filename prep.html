@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#100D14">
-<title>Prep Center · Fila do dia</title>
+<title>Prep Center</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -99,8 +99,47 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   .etapa-cab .dica{margin-left:0;text-align:left;width:100%}
 }
 
-.menu{display:flex;gap:4px;background:var(--line-soft);padding:4px;border-radius:10px;overflow-x:auto;scrollbar-width:none}
-.menu button{flex:1 0 auto;min-height:46px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:800;font-size:15px;white-space:nowrap}
+/* Navegacao: barra lateral no computador, barra fixa embaixo no celular */
+.lateral{background:var(--nav);color:#fff}
+.menu{display:flex}
+.menu button{border:0;background:transparent;color:rgba(255,255,255,.66);font-weight:700;display:flex;align-items:center}
+.menu button svg{flex:none}
+.menu button:hover{color:#fff}
+.menu .ct{display:none}
+.menu-sep{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4);padding:16px 12px 6px}
+.marca{display:flex;align-items:center;gap:10px;padding:4px 6px 18px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--orange);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none}
+.marca-txt{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.marca-txt b{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.marca-txt small{font-size:12px;color:rgba(255,255,255,.55);font-weight:600}
+.lateral-pe{margin-top:auto;font-size:12px;color:rgba(255,255,255,.5);padding:8px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top h1{margin:0;font-size:18px;font-weight:800;display:none}
+@media (min-width:1024px){
+  .app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+  .lateral{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:16px 10px;overflow-y:auto}
+  .menu{flex-direction:column;gap:2px}
+  .menu button{gap:12px;min-height:44px;padding:0 12px;border-radius:8px;font-size:15px;text-align:left}
+  .menu button:hover{background:rgba(255,255,255,.06)}
+  .menu button[aria-current="page"]{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 3px 0 0 var(--orange)}
+  .menu button[aria-current="page"] svg{color:var(--orange)}
+  .top{background:var(--card);color:var(--ink);border-bottom:1px solid var(--line);padding:12px 24px}
+  .top .marca-cel{display:none}
+  .top h1{display:block}
+  .top .agora{color:var(--muted)}
+  .top .icone{color:var(--body);border-color:var(--line)}
+  main{padding:20px 24px 48px}
+}
+@media (max-width:1023px){
+  .lateral{position:fixed;left:0;right:0;bottom:0;z-index:35;padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px -12px rgba(0,0,0,.5)}
+  .lateral .marca,.lateral-pe,.menu-sep{display:none!important}
+  .menu{gap:0}
+  .menu button{flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;gap:3px;min-height:58px;padding:6px 2px;font-size:11px;border-radius:8px}
+  .menu button .lg{display:none}
+  .menu button .ct{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .menu button[aria-current="page"]{color:#fff;background:rgba(255,255,255,.08)}
+  .menu button[aria-current="page"] svg{color:var(--orange)}
+  main{padding-bottom:100px}
+}
 .cad{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
 .cad label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--muted);flex:1 1 140px;min-width:0}
 .cad input,.cad select,.cad textarea{height:44px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font:inherit;font-size:15px;background:#fff;color:var(--body);min-width:0}
@@ -111,7 +150,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .prow .est b{font-size:22px;font-weight:800;color:var(--ink)}
 .prow .est span{display:block;font-size:11px;color:var(--muted);font-weight:700}
 .chip-sku{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:var(--ok-bg);color:var(--ok-fg);font-size:12px;font-weight:800}
-.menu button[aria-current="page"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,17,17,.12)}
+
 .hist-filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .hist-filtros select,.hist-filtros input{height:44px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font:inherit;font-size:15px;background:#fff;min-width:0}
 .hist-filtros input[type=search]{flex:1 1 200px}
@@ -194,8 +233,8 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 
 <div id="tela-login" class="login oculto">
   <form id="form-login">
-    <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7)">RealEcom</span>
-    <h1>Prep Center</h1>
+    <span class="logo" aria-hidden="true">P</span>
+    <h1 class="nome-sis">Prep Center</h1>
     <label>E-mail<input id="l-email" type="email" autocomplete="username" required></label>
     <label>Senha<input id="l-senha" type="password" autocomplete="current-password" required></label>
     <div id="l-erro" class="erro oculto"></div>
@@ -215,9 +254,25 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
   </form>
 </div>
 
-<div id="tela-app" class="oculto">
+<div id="tela-app" class="oculto app">
+  <aside class="lateral">
+    <div class="marca"><span class="logo" aria-hidden="true">P</span><span class="marca-txt"><b class="nome-sis">Prep Center</b><small>Galpão</small></span></div>
+    <nav class="menu" aria-label="Seções">
+      <button type="button" id="m-fila" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z"/></svg><span class="lg">Fila do dia</span><span class="ct">Fila</span></button>
+      <button type="button" id="m-receber"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span class="lg">Receber</span><span class="ct">Receber</span></button>
+      <button type="button" id="m-produtos"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span class="lg">Produtos e estoque</span><span class="ct">Produtos</span></button>
+      <button type="button" id="m-full"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lg">Etiquetagem Full</span><span class="ct">Full</span></button>
+      <button type="button" id="m-hist"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg><span class="lg">Histórico</span><span class="ct">Histórico</span></button>
+      <span class="menu-sep oculto" id="menu-sep">Administração</span>
+      <button type="button" id="m-fatura" class="oculto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h16v20l-3-2-2.5 2-2.5-2-2.5 2L7 20l-3 2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span class="lg">Fatura</span><span class="ct">Fatura</span></button>
+      <button type="button" id="m-equipe" class="oculto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg><span class="lg">Equipe</span><span class="ct">Equipe</span></button>
+    </nav>
+    <div class="lateral-pe"><span id="quem-sou"></span></div>
+  </aside>
+  <div class="conteudo">
   <header class="top">
-    <b>Prep Center</b>
+    <b class="marca-cel nome-sis">Prep Center</b>
+    <h1 id="t-titulo">Fila do dia</h1>
     <span class="agora" id="agora"></span>
     <button class="icone" id="b-atualizar" type="button" aria-label="Buscar vendas novas">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></button>
@@ -225,15 +280,6 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path></svg></button>
   </header>
   <main>
-    <nav class="menu" aria-label="Seções">
-      <button type="button" id="m-fila" aria-current="page">Fila do dia</button>
-      <button type="button" id="m-receber">Receber</button>
-      <button type="button" id="m-produtos">Produtos</button>
-      <button type="button" id="m-full">Full</button>
-      <button type="button" id="m-hist">Histórico</button>
-      <button type="button" id="m-fatura" class="oculto">Fatura</button>
-      <button type="button" id="m-equipe" class="oculto">Equipe</button>
-    </nav>
 
     <section id="v-full" class="oculto" style="display:flex;flex-direction:column;gap:12px">
       <div id="full-corpo" style="display:flex;flex-direction:column;gap:12px"></div>
@@ -304,6 +350,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
     <div class="secoes" id="secoes"></div>
     </div>
   </main>
+  </div>
 </div>
 
 <div id="exec" class="oculto" role="dialog" aria-modal="true" aria-labelledby="exec-cli"></div>
@@ -318,6 +365,10 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 <input type="file" id="foto-input" accept="image/*" capture="environment" class="oculto">
 
 <script>
+// Nome do sistema: troque aqui e muda em todas as telas
+const NOME_SISTEMA='Prep Center';
+document.querySelectorAll('.nome-sis').forEach(e=>{e.textContent=NOME_SISTEMA;});
+document.querySelectorAll('.logo').forEach(e=>{e.textContent=NOME_SISTEMA.trim()[0].toUpperCase();});
 firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
 const auth=firebase.auth();
 const fns=firebase.app().functions('southamerica-east1');
@@ -385,8 +436,10 @@ auth.onAuthStateChanged(async u=>{
   let perfil={};
   try{perfil=await chamar('mlMeuPerfil');}catch{}
   souAdmin=Boolean(perfil.admin);
+  $('quem-sou').textContent=u.email||'';
   $('m-equipe').classList.toggle('oculto',!souAdmin);
   $('m-fatura').classList.toggle('oculto',!souAdmin);
+  $('menu-sep').classList.toggle('oculto',!souAdmin);
   if(perfil.trocarSenha){mostrar('senha');return;}
   mostrar('app');carregar();
   timer=setInterval(carregar,60000);
@@ -578,7 +631,10 @@ $('m-fatura').onclick=()=>trocarVista('fatura');
 $('m-full').onclick=()=>trocarVista('full');
 $('m-produtos').onclick=()=>trocarVista('produtos');
 $('m-receber').onclick=()=>trocarVista('receber');
+const TITULOS={fila:'Fila do dia',receber:'Receber mercadoria',produtos:'Produtos e estoque',full:'Etiquetagem Full',hist:'Histórico',fatura:'Fatura',equipe:'Equipe do galpão'};
 function trocarVista(v){
+  $('t-titulo').textContent=TITULOS[v]||'';document.title=`${NOME_SISTEMA} · ${TITULOS[v]||''}`;
+  window.scrollTo(0,0);
   [['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
     $(vis).classList.toggle('oculto',v!==id);
     if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
@@ -796,7 +852,7 @@ async function formFull(x){
 
 /* ── Equipe do galpao (so admin) ───────────────────────── */
 const LINK_PREP='https://ollmestorerj.github.io/ml-analyzer/prep.html';
-const msgFunc=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao Prep Center da RealEcom está pronto.\n\nLink: ${LINK_PREP}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso você cria a sua senha. Dica: salve o link na tela inicial do celular.`;
+const msgFunc=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso ao ${NOME_SISTEMA} está pronto.\n\nLink: ${LINK_PREP}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso você cria a sua senha. Dica: salve o link na tela inicial do celular.`;
 async function carregarEquipe(){
   $('equipe-lista').innerHTML='<div class="vazio">Carregando…</div>';
   try{

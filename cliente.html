@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#100D14">
-<title>Meu Prep · RealEcom</title>
+<title>Prep Center</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -38,9 +38,42 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .teste select{height:40px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font:inherit;font-size:14px;background:#fff;flex:1 1 200px;min-width:0}
 
 main{max-width:960px;margin:0 auto;padding:12px 12px 48px;display:flex;flex-direction:column;gap:12px}
-.menu{display:flex;gap:4px;background:var(--line-soft);padding:4px;border-radius:10px;overflow-x:auto;scrollbar-width:none}
-.menu button{flex:1 0 auto;min-height:46px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:800;font-size:15px;white-space:nowrap}
-.menu button[aria-current="page"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,17,17,.12)}
+/* Navegacao: barra lateral no computador, barra fixa embaixo no celular */
+.lateral{background:var(--nav);color:#fff}
+.menu{display:flex}
+.menu button{border:0;background:transparent;color:rgba(255,255,255,.66);font-weight:700;display:flex;align-items:center}
+.menu button svg{flex:none}
+.menu button:hover{color:#fff}
+.menu .ct{display:none}
+.marca-lat{display:flex;align-items:center;gap:10px;padding:4px 6px 18px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--orange);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none}
+.marca-txt{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.marca-txt b{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.marca-txt small{font-size:12px;color:rgba(255,255,255,.55);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (min-width:1024px){
+  .app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+  .lateral{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:16px 10px}
+  .menu{flex-direction:column;gap:2px}
+  .menu button{gap:12px;min-height:44px;padding:0 12px;border-radius:8px;font-size:15px;text-align:left}
+  .menu button:hover{background:rgba(255,255,255,.06)}
+  .menu button[aria-current="page"]{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 3px 0 0 var(--orange)}
+  .menu button[aria-current="page"] svg{color:var(--orange)}
+  .top{background:var(--card);color:var(--ink);border-bottom:1px solid var(--line);padding:12px 24px}
+  .top .marca small{color:var(--muted)}
+  .top .icone{color:var(--body);border-color:var(--line)}
+  main{padding:20px 24px 48px}
+}
+@media (max-width:1023px){
+  .lateral{position:fixed;left:0;right:0;bottom:0;z-index:35;padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px -12px rgba(0,0,0,.5)}
+  .marca-lat{display:none!important}
+  .menu{gap:0}
+  .menu button{flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;gap:3px;min-height:58px;padding:6px 2px;font-size:11px;border-radius:8px}
+  .menu button .lg{display:none}
+  .menu button .ct{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .menu button[aria-current="page"]{color:#fff;background:rgba(255,255,255,.08)}
+  .menu button[aria-current="page"] svg{color:var(--orange)}
+  main{padding-bottom:100px}
+}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--body);font-size:15px;font-weight:800}
 .btn.pri{background:var(--orange-d);border-color:transparent;color:#fff}
@@ -130,7 +163,8 @@ main{max-width:960px;margin:0 auto;padding:12px 12px 48px;display:flex;flex-dire
 
 <div id="tela-login" class="login oculto">
   <form id="form-login">
-    <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7)">RealEcom · Prep Center</span>
+    <span class="logo" aria-hidden="true">P</span>
+    <span class="nome-sis" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7)">Prep Center</span>
     <h1>Meus envios</h1>
     <label>E-mail<input id="l-email" type="email" autocomplete="username" required></label>
     <label>Senha<input id="l-senha" type="password" autocomplete="current-password" required></label>
@@ -153,9 +187,20 @@ main{max-width:960px;margin:0 auto;padding:12px 12px 48px;display:flex;flex-dire
   </form>
 </div>
 
-<div id="tela-app" class="oculto">
+<div id="tela-app" class="oculto app">
+  <aside class="lateral">
+    <div class="marca-lat"><span class="logo" aria-hidden="true">P</span><span class="marca-txt"><b class="nome-sis">Prep Center</b><small id="t-nome-lat">Meus envios</small></span></div>
+    <nav class="menu" aria-label="Seções">
+      <button type="button" data-v="envios" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z"/></svg><span class="lg">Envios do dia</span><span class="ct">Envios</span></button>
+      <button type="button" data-v="hist"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg><span class="lg">Histórico</span><span class="ct">Histórico</span></button>
+      <button type="button" data-v="estoque"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span class="lg">Estoque</span><span class="ct">Estoque</span></button>
+      <button type="button" data-v="fatura"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h16v20l-3-2-2.5 2-2.5-2-2.5 2L7 20l-3 2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span class="lg">Fatura</span><span class="ct">Fatura</span></button>
+      <button type="button" data-v="equipe"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg><span class="lg">Equipe</span><span class="ct">Equipe</span></button>
+    </nav>
+  </aside>
+  <div class="conteudo">
   <header class="top">
-    <div class="marca"><small>RealEcom · Prep Center</small><b id="t-nome">Meus envios</b></div>
+    <div class="marca"><small class="nome-sis">Prep Center</small><b id="t-nome">Meus envios</b></div>
     <button class="icone" id="b-sair" type="button" aria-label="Sair">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path></svg></button>
   </header>
@@ -164,20 +209,19 @@ main{max-width:960px;margin:0 auto;padding:12px 12px 48px;display:flex;flex-dire
     <select id="como" aria-label="Ver como cliente"></select>
   </div>
   <main>
-    <nav class="menu" aria-label="Seções">
-      <button type="button" data-v="envios" aria-current="page">Envios do dia</button>
-      <button type="button" data-v="hist">Histórico</button>
-      <button type="button" data-v="estoque">Estoque</button>
-      <button type="button" data-v="fatura">Fatura</button>
-      <button type="button" data-v="equipe">Equipe</button>
-    </nav>
     <div id="conteudo" style="display:flex;flex-direction:column;gap:12px"></div>
   </main>
+  </div>
 </div>
 
 <div id="foto" class="oculto" role="dialog" aria-modal="true" aria-label="Foto do pacote"></div>
 
 <script>
+// Nome do sistema: troque aqui e muda em todas as telas
+const NOME_SISTEMA='Prep Center';
+document.querySelectorAll('.nome-sis').forEach(e=>{e.textContent=NOME_SISTEMA;});
+document.querySelectorAll('.logo').forEach(e=>{e.textContent=NOME_SISTEMA.trim()[0].toUpperCase();});
+document.title=NOME_SISTEMA;
 firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
 const auth=firebase.auth();
 const fns=firebase.app().functions('southamerica-east1');
@@ -281,7 +325,7 @@ function falhou(e){
 async function resumo(forcar){
   if(forcar||!dados.resumo){dados.resumo=await chamar('clienteResumo');}
   const r=dados.resumo;
-  $('t-nome').textContent=r.contas.map(c=>c.nome).join(' + ')||'Meus envios';
+  $('t-nome').textContent=r.contas.map(c=>c.nome).join(' + ')||'Meus envios';$('t-nome-lat').textContent=$('t-nome').textContent;
   return r;
 }
 
@@ -587,7 +631,7 @@ async function verFatura(){
 
 /* ── Equipe do cliente ─────────────────────────────────── */
 const LINK_CLIENTE='https://ollmestorerj.github.io/ml-analyzer/cliente.html';
-const msgPessoa=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso para acompanhar os envios no Prep Center da RealEcom está pronto.\n\nLink: ${LINK_CLIENTE}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso você cria a sua senha.`;
+const msgPessoa=c=>`Oi${c.nome?' '+c.nome.split(' ')[0]:''}! Seu acesso para acompanhar os envios no ${NOME_SISTEMA} está pronto.\n\nLink: ${LINK_CLIENTE}\nE-mail: ${c.email}\nSenha provisória: ${c.senha}\n\nNo primeiro acesso você cria a sua senha.`;
 async function verEquipe(){
   carregando();
   let r;try{r=await chamar('clienteEquipe');}catch(e){return falhou(e);}
@@ -610,7 +654,7 @@ async function verEquipe(){
     const nome=$('eq-nome').value.trim(),email=$('eq-email').value.trim();
     try{
       const c=await chamar('clienteEquipe',{criar:{nome,email}});
-      if(c.jaTinhaLogin){$('eq-msg').innerHTML=`<div class="alerta ok">${esc(email)} já tinha login na RealEcom e agora também vê esta página. Mande o link: ${LINK_CLIENTE}</div>`;}
+      if(c.jaTinhaLogin){$('eq-msg').innerHTML=`<div class="alerta ok">${esc(email)} já tinha login e agora também vê esta página. Mande o link: ${LINK_CLIENTE}</div>`;}
       else{
         const txt=msgPessoa({...c,nome});
         $('eq-msg').innerHTML=`<div class="alerta ok" style="white-space:pre-wrap">${esc(txt)}</div><div class="lin"><button class="btn" type="button" id="eq-copiar">Copiar mensagem</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(txt)}">Mandar no WhatsApp</a></div>`;
