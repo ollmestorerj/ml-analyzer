@@ -5656,6 +5656,188 @@ function Delta({atual,anterior,sufixo='',moeda=false}){
   );
 }
 
+// Comparacao lado a lado: cada coluna e um dia (do mais antigo para hoje).
+// Em cima os totais do dia; embaixo as unidades de cada produto em cada dia.
+function CompararDias({tira,janela,setJanela,hoje,diaAberto,onAbrirDia,faltam,buscando}){
+  const [busca,setBusca]=useState('');
+  const [ordem,setOrdem]=useState('total');
+  const dias=tira.slice(0,janela).slice().reverse();
+  const prontos=dias.filter(d=>d.pronto);
+  const linhasResumo=[
+    {k:'faturamento',rot:'Faturamento',fmt:BRL,melhor:'max'},
+    {k:'pedidos',rot:'Pedidos',fmt:NUM,melhor:'max'},
+    {k:'unidades',rot:'Unidades',fmt:NUM,melhor:'max'},
+    {k:'ticketMedio',rot:'Ticket médio',fmt:BRL},
+    {k:'lucro',rot:'Lucro',fmt:BRL,melhor:'max'},
+    {k:'margem',rot:'Margem',fmt:PCT},
+  ];
+  const melhorDe=k=>prontos.length?Math.max(...prontos.map(d=>Number(d[k])||0)):null;
+  const somaPeriodo=k=>prontos.reduce((a,d)=>a+(Number(d[k])||0),0);
+  const totalPeriodo={faturamento:somaPeriodo('faturamento'),pedidos:somaPeriodo('pedidos'),
+    unidades:somaPeriodo('unidades'),lucro:somaPeriodo('lucro')};
+  totalPeriodo.ticketMedio=totalPeriodo.pedidos?totalPeriodo.faturamento/totalPeriodo.pedidos:0;
+  totalPeriodo.margem=totalPeriodo.faturamento?totalPeriodo.lucro/totalPeriodo.faturamento*100:null;
+
+  // Matriz produto x dia
+  const mapa={};
+  prontos.forEach(d=>(d.skus||[]).forEach(s=>{
+    const m=mapa[s.sku]||(mapa[s.sku]={sku:s.sku,titulo:s.titulo,foto:s.foto,porDia:{},total:0,fat:0});
+    m.porDia[d.dia]=s.unidades;m.total+=Number(s.unidades)||0;m.fat+=Number(s.faturamento)||0;
+    if(!m.foto&&s.foto)m.foto=s.foto;
+  }));
+  const ultimo=prontos.length?prontos[prontos.length-1].dia:null;
+  const penultimo=prontos.length>1?prontos[prontos.length-2].dia:null;
+  let produtos=Object.values(mapa).filter(p=>!busca||`${p.sku} ${p.titulo||''}`.toLowerCase().includes(busca.toLowerCase()));
+  produtos.sort(ordem==='fat'?(a,b)=>b.fat-a.fat:ordem==='ultimo'?(a,b)=>(b.porDia[ultimo]||0)-(a.porDia[ultimo]||0)||b.total-a.total:(a,b)=>b.total-a.total);
+  const nDias=Math.max(1,prontos.length);
+
+  const cab=(d)=>{
+    const sel=d.dia===diaAberto;
+    return <th key={d.dia} scope="col" style={{padding:0,minWidth:84,background:'var(--surface-sunken)',
+      borderBottom:'1px solid var(--border-default)'}}>
+      <button onClick={()=>onAbrirDia(d.dia)} title="Abrir este dia"
+        style={{width:'100%',padding:'9px 8px',border:0,background:sel?'var(--action-primary)':'transparent',
+          color:sel?'#fff':'var(--text-muted)',fontFamily:'inherit',fontSize:'var(--text-2xs)',
+          fontWeight:'var(--weight-bold)',cursor:'pointer',textAlign:'right',whiteSpace:'nowrap'}}>
+        {rotuloDia(d.dia,hoje)}</button></th>;
+  };
+  const celNum={padding:'9px 8px',textAlign:'right',whiteSpace:'nowrap',borderBottom:'1px solid var(--border-subtle)'};
+  const colFixa={position:'sticky',left:0,zIndex:1,background:'var(--surface-card)',
+    borderBottom:'1px solid var(--border-subtle)',padding:'9px 12px',textAlign:'left'};
+
+  return (
+    <Card title="Comparar dias" icon="columns-3"
+      subtitle={`${prontos.length} de ${dias.length} dias carregados · clique num dia para abrir o detalhe`}
+      action={
+        <div style={{display:'flex',gap:4,background:'var(--surface-sunken)',padding:3,borderRadius:'var(--radius-md)'}}>
+          {[7,14,30].map(n=>(
+            <button key={n} onClick={()=>setJanela(n)}
+              style={{border:0,borderRadius:'var(--radius-sm)',padding:'6px 10px',cursor:'pointer',
+                fontFamily:'inherit',fontSize:'var(--text-xs)',fontWeight:'var(--weight-bold)',
+                background:janela===n?'var(--surface-card)':'transparent',
+                color:janela===n?'var(--text-strong)':'var(--text-muted)',
+                boxShadow:janela===n?'0 1px 2px rgba(0,0,0,.12)':'none'}}>{n} dias</button>
+          ))}
+        </div>
+      }>
+      {faltam>0&&(
+        <div style={{marginBottom:'var(--space-3)'}}>
+          <Note tone="info" icon={buscando?'loader':'clock'}>
+            {buscando?`Buscando no Mercado Livre ${faltam} ${faltam===1?'dia que ainda não estava guardado':'dias que ainda não estavam guardados'}… Cada dia fica salvo: da próxima vez abre na hora.`
+              :`Faltam ${faltam} ${faltam===1?'dia':'dias'} para carregar. Abra esta tela de novo para continuar.`}
+          </Note>
+        </div>
+      )}
+
+      <div style={{overflowX:'auto',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)'}}>
+        <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',fontSize:'var(--text-sm)'}}>
+          <thead><tr>
+            <th scope="col" style={{...colFixa,background:'var(--surface-sunken)',zIndex:2,minWidth:120,
+              borderBottom:'1px solid var(--border-default)',fontSize:'var(--text-2xs)',color:'var(--text-muted)',
+              textTransform:'uppercase',letterSpacing:'.04em'}}>Dia</th>
+            {dias.map(cab)}
+            <th scope="col" style={{minWidth:104,padding:'9px 12px',textAlign:'right',background:'var(--surface-sunken)',
+              borderBottom:'1px solid var(--border-default)',borderLeft:'1px solid var(--border-default)',
+              fontSize:'var(--text-2xs)',color:'var(--text-muted)',whiteSpace:'nowrap'}}>No período</th>
+          </tr></thead>
+          <tbody>
+            {linhasResumo.map(l=>{
+              const melhor=l.melhor?melhorDe(l.k):null;
+              return <tr key={l.k}>
+                <th scope="row" style={{...colFixa,fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{l.rot}</th>
+                {dias.map(d=>{
+                  const v=d.pronto?d[l.k]:null;
+                  const top=melhor!=null&&melhor>0&&d.pronto&&Number(v)===melhor;
+                  return <td key={d.dia} className="tab" style={{...celNum,
+                    fontWeight:top?'var(--weight-extrabold)':'var(--weight-medium)',
+                    color:!d.pronto?'var(--text-subtle)':l.k==='lucro'&&v<0?'var(--status-danger-fg)':top?'var(--status-success-fg)':'var(--text-body)',
+                    background:top?'var(--status-success-bg)':'transparent'}}>
+                    {d.pronto?l.fmt(v):'…'}</td>;
+                })}
+                <td className="tab" style={{...celNum,padding:'9px 12px',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',
+                  borderLeft:'1px solid var(--border-default)'}}>{l.fmt(totalPeriodo[l.k])}</td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:6}}>
+        Em verde, o melhor dia do período. Lucro e margem usam o custo cadastrado de cada produto naquele dia.</div>
+
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',
+        margin:'var(--space-5) 0 var(--space-3)'}}>
+        <div>
+          <div style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)'}}>Unidades por produto, dia a dia</div>
+          <div style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{NUM(produtos.length)} produtos venderam no período · quanto mais forte a cor, mais vendeu naquele dia</div>
+        </div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <select value={ordem} onChange={e=>setOrdem(e.target.value)} aria-label="Ordenar"
+            style={{height:34,padding:'0 8px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+              fontSize:'var(--text-xs)',background:'var(--surface-card)',color:'var(--text-body)',fontFamily:'inherit'}}>
+            <option value="total">Mais unidades no período</option>
+            <option value="ultimo">Mais unidades no último dia</option>
+            <option value="fat">Maior faturamento no período</option>
+          </select>
+          <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar produto"
+            style={{height:34,padding:'0 11px',border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)',
+              fontSize:'var(--text-xs)',width:170,background:'var(--surface-card)',color:'var(--text-body)'}}/>
+        </div>
+      </div>
+      {!produtos.length
+        ? <Empty compact icon="package" title={busca?'Nenhum produto com esse nome':'Sem vendas nos dias carregados'}
+            description={busca?'Mude a busca.':'Assim que os dias carregarem, os produtos aparecem aqui.'}/>
+        : <div style={{overflow:'auto',maxHeight:620,border:'1px solid var(--border-default)',borderRadius:'var(--radius-md)'}}>
+          <table style={{borderCollapse:'separate',borderSpacing:0,width:'100%',fontSize:'var(--text-sm)'}}>
+            <thead><tr>
+              <th scope="col" style={{...colFixa,position:'sticky',top:0,left:0,zIndex:3,background:'var(--surface-sunken)',
+                minWidth:240,borderBottom:'1px solid var(--border-default)',fontSize:'var(--text-2xs)',color:'var(--text-muted)',
+                textTransform:'uppercase',letterSpacing:'.04em'}}>Produto</th>
+              {dias.map(d=>{const c=cab(d);return React.cloneElement(c,{style:{...c.props.style,position:'sticky',top:0,zIndex:2}});})}
+              <th scope="col" style={{position:'sticky',top:0,zIndex:2,minWidth:76,padding:'9px 10px',textAlign:'right',
+                background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',borderLeft:'1px solid var(--border-default)',
+                fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>Total</th>
+              <th scope="col" style={{position:'sticky',top:0,zIndex:2,minWidth:76,padding:'9px 10px',textAlign:'right',
+                background:'var(--surface-sunken)',borderBottom:'1px solid var(--border-default)',
+                fontSize:'var(--text-2xs)',color:'var(--text-muted)',whiteSpace:'nowrap'}}>Média/dia</th>
+            </tr></thead>
+            <tbody>
+              {produtos.slice(0,300).map(p=>{
+                const max=Math.max(1,...Object.values(p.porDia).map(Number));
+                const u=p.porDia[ultimo]||0,pu=p.porDia[penultimo]||0;
+                return <tr key={p.sku}>
+                  <th scope="row" style={{...colFixa,fontWeight:'normal'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
+                      <Thumb src={p.foto} alt={p.titulo} size={32}/>
+                      <div style={{minWidth:0,maxWidth:260}}>
+                        <div className="ell" style={{fontSize:'var(--text-xs)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{p.titulo}</div>
+                        <div className="mono" style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.sku}
+                          {ultimo&&penultimo&&u!==pu&&<span style={{marginLeft:6,color:u>pu?'var(--status-success-fg)':'var(--status-danger-fg)'}}>
+                            {u>pu?'▲':'▼'} {Math.abs(u-pu)} no último dia</span>}</div>
+                      </div>
+                    </div>
+                  </th>
+                  {dias.map(d=>{
+                    const v=d.pronto?(p.porDia[d.dia]||0):null;
+                    const a=v?0.12+0.55*(v/max):0;
+                    return <td key={d.dia} className="tab" style={{...celNum,
+                      background:v?`rgba(255,89,14,${a.toFixed(2)})`:'transparent',
+                      color:v==null?'var(--text-subtle)':v?(a>0.45?'#fff':'var(--text-strong)'):'var(--text-subtle)',
+                      fontWeight:v?'var(--weight-bold)':'var(--weight-medium)'}}>
+                      {v==null?'…':v?NUM(v):'·'}</td>;
+                  })}
+                  <td className="tab" style={{...celNum,padding:'9px 10px',fontWeight:'var(--weight-extrabold)',color:'var(--text-strong)',
+                    borderLeft:'1px solid var(--border-default)'}}>{NUM(p.total)}</td>
+                  <td className="tab" style={{...celNum,padding:'9px 10px',color:'var(--text-muted)'}}>
+                    {(p.total/nDias).toLocaleString('pt-BR',{maximumFractionDigits:1})}</td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>}
+    </Card>
+  );
+}
+
 function ViewDiaADia({comoUid,contasAtivas}){
   const hojeLocal=new Date(Date.now()-3*3600000).toISOString().slice(0,10);
   const [dia,setDia]=useState(hojeLocal);
@@ -5665,23 +5847,36 @@ function ViewDiaADia({comoUid,contasAtivas}){
   const [erro,setErro]=useState('');
   const [verSumiram,setVerSumiram]=useState(false);
   const [busca,setBusca]=useState('');
+  const [janela,setJanela]=useState(()=>{try{return Number(localStorage.getItem('diaJanela'))||7;}catch{return 7;}});
+  const [faltam,setFaltam]=useState(0);
+  const [buscandoDias,setBuscandoDias]=useState(false);
+  const rodadaTira=useRef(0);
 
   useEffect(()=>{carregar(dia);},[dia,comoUid,JSON.stringify(contasAtivas)]);
-  useEffect(()=>{carregarTira();},[comoUid,JSON.stringify(contasAtivas)]);
+  useEffect(()=>{rodadaTira.current++;carregarTira(rodadaTira.current,0);},[comoUid,JSON.stringify(contasAtivas),janela]);
+  useEffect(()=>{try{localStorage.setItem('diaJanela',String(janela));}catch{}},[janela]);
 
   async function carregar(d){
     setCarregando(true);setErro('');
     try{
-      const r=await call('mlDia',{dia:d,contas:contasAtivas,comoUid:comoUid||null});
+      const r=await callLongo('mlDia',{dia:d,contas:contasAtivas,comoUid:comoUid||null},200);
       setDados(r);
     }catch(e){setErro(e.message||'Não consegui carregar esse dia.');setDados(null);}
     finally{setCarregando(false);}
   }
-  async function carregarTira(){
+  // Dias que ainda nao estavam guardados vem do Mercado Livre aos poucos:
+  // cada chamada preenche o que couber e a tela pede de novo ate completar.
+  async function carregarTira(rodada,volta){
+    if(rodada!==rodadaTira.current)return;
+    setBuscandoDias(true);
     try{
-      const r=await call('mlUltimosDias',{dias:14,contas:contasAtivas,comoUid:comoUid||null});
-      setTira(r.dias||[]);
-    }catch{}
+      const r=await callLongo('mlUltimosDias',{dias:Math.max(14,janela),comSkus:true,segundos:50,
+        contas:contasAtivas,comoUid:comoUid||null},150);
+      if(rodada!==rodadaTira.current)return;
+      setTira(r.dias||[]);setFaltam(r.faltam||0);
+      if(r.faltam>0&&volta<12){setTimeout(()=>carregarTira(rodada,volta+1),400);return;}
+    }catch(e){console.warn('Tira de dias:',e);}
+    if(rodada===rodadaTira.current)setBuscandoDias(false);
   }
 
   const t=dados?.totais, ta=dados?.totaisAnterior;
@@ -5714,7 +5909,7 @@ function ViewDiaADia({comoUid,contasAtivas}){
             </div>
           </div>
           <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:4}}>
-            {tira.map(d=>{
+            {tira.slice(0,14).map(d=>{
               const sel=d.dia===dia;
               // O dia aberto já tem o número carregado: mostra em vez de "—",
               // inclusive hoje, que nunca tem foto guardada.
@@ -5743,6 +5938,10 @@ function ViewDiaADia({comoUid,contasAtivas}){
         </div>
       </Card>
 
+      <CompararDias tira={tira} janela={janela} setJanela={setJanela}
+        hoje={dados?.hoje||hojeLocal} diaAberto={dia} faltam={faltam} buscando={buscandoDias}
+        onAbrirDia={d=>{setDia(d);setTimeout(()=>{const el=document.getElementById('detalhe-dia');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},50);}}/>
+
       {erro&&<Note tone="danger" icon="circle-alert">{erro}</Note>}
 
       {carregando&&!dados&&(
@@ -5751,7 +5950,7 @@ function ViewDiaADia({comoUid,contasAtivas}){
       )}
 
       {dados&&t&&(<>
-        <section className="dashboard-overview" aria-label={`Resumo de ${fmtData(dia)}`}>
+        <section id="detalhe-dia" className="dashboard-overview" aria-label={`Resumo de ${fmtData(dia)}`}>
           <div>
             <Overline>Faturamento {dados.ehHoje?'de hoje':`de ${fmtData(dia)}`}</Overline>
             <div className="metric-value">{BRL(t.faturamento)}</div>
