@@ -810,7 +810,7 @@ async function listarFull(){
 }
 async function formFull(x){
   const alvo=$('full-form');
-  let prods=[];try{prods=await produtosDe(fullCli);}catch{}
+  let prods=[];try{prods=await produtosLeve(fullCli);}catch{}
   let itens=x?x.itens.map(i=>({...i})):[{nome:'',sku:null,qtd:''}];
   const rotulo=p=>`${p.sku} · ${p.nome}`;
   const desenhar=()=>{
@@ -963,8 +963,19 @@ function opcoesClientes(sel,id){
   sel.innerHTML=clientesPrep.map(c=>`<option value="${esc(c.contaId)}" ${c.contaId===id?'selected':''}>${esc(c.nome)}${c.prefixo?' ('+esc(c.prefixo)+')':''}</option>`).join('');
 }
 async function produtosDe(contaId,forcar){
+  if(forcar)delete prodLeve[contaId];
   if(forcar||!prodCache[contaId])prodCache[contaId]=await chamar('prepProdutosListar',{contaId});
   return prodCache[contaId];
+}
+// Lista leve (so SKU e nome): abre na hora. Guardada por 2 minutos e buscada antes de precisar.
+const prodLeve={};
+function produtosLeve(contaId,forcar){
+  const c=prodLeve[contaId];
+  if(!forcar&&c&&Date.now()-c.em<120000)return c.p;
+  const ent={em:Date.now(),v:null};
+  ent.p=chamar('prepProdutosListar',{contaId,leve:true}).then(v=>{ent.v=v;return v;}).catch(e=>{delete prodLeve[contaId];throw e;});
+  prodLeve[contaId]=ent;
+  return ent.p;
 }
 async function abrirProdutos(){
   try{await garantirClientes();}catch(e){$('pr-lista').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
@@ -1305,7 +1316,8 @@ function editorVinculo(a){
 
 /* ── Recebimento ───────────────────────────────────────── */
 let rcAba='aguardando';
-async function abrirReceber(){try{await garantirClientes();}catch{} desenharReceber();}
+async function abrirReceber(){try{await garantirClientes();}catch{} desenharReceber();
+  clientesPrep.slice(0,4).forEach(c=>produtosLeve(c.contaId).catch(()=>{}));}
 $('rc-t-ag').onclick=()=>{rcAba='aguardando';desenharReceber();};
 $('rc-t-ok').onclick=()=>{rcAba='conferido';desenharReceber();};
 $('rc-novo').onclick=()=>formAviso();
@@ -1329,28 +1341,42 @@ async function desenharReceber(){
 }
 
 async function formAviso(){
-  await garantirClientes();
-  if(!clientesPrep.length){erro('Sem clientes','Ligue um cliente ao prep primeiro.');return;}
-  let contaId=clientesPrep[0].contaId, linhas=[];
+  $('rc-form').innerHTML='<div class="cad"><h2>Aviso de chegada</h2><div class="vazio">Abrindo…</div></div>';
+  try{await garantirClientes();}catch(e){$('rc-form').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  if(!clientesPrep.length){$('rc-form').innerHTML='';erro('Sem clientes','Ligue um cliente ao prep primeiro.');return;}
+  let contaId=clientesPrep[0].contaId, linhas=[], dataPrev='', vez=0;
   const desenhar_=async()=>{
-    const ps=await produtosDe(contaId);
-    if(!linhas.length&&ps.length)linhas=[{sku:ps[0].sku,avisado:''}];
-    $('rc-form').innerHTML=`<form class="cad" id="fa" autocomplete="off"><h2>Aviso de chegada</h2>
-      <div class="lin"><label>Cliente<select id="fa-cli"></select></label><label>Chega em<input id="fa-data" type="date"></label></div>
-      ${ps.length?linhas.map((l,k)=>`<div class="lin"><label>Produto<select data-as="${k}">${ps.map(p=>`<option value="${esc(p.sku)}" ${p.sku===l.sku?'selected':''}>${esc(p.sku)} · ${esc(p.nome)}</option>`).join('')}</select></label>
-        <label style="flex:0 0 110px">Quantidade<input data-aq="${k}" inputmode="numeric" value="${esc(l.avisado)}"></label>${linhas.length>1?`<button class="btn" type="button" data-ar="${k}" style="min-height:44px">Tirar</button>`:''}</div>`).join('')
-        :'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Esse cliente ainda não tem produtos. Cadastre em <b>Produtos</b> primeiro.</div>'}
-      <div class="lin">${ps.length?'<button class="btn" type="button" id="fa-add">+ Outro produto</button><button class="btn pri" type="submit" id="fa-ok">Salvar aviso</button>':''}<button class="btn" type="button" id="fa-x">Cancelar</button></div></form>`;
-    opcoesClientes($('fa-cli'),contaId);
-    $('fa-cli').onchange=()=>{contaId=$('fa-cli').value;linhas=[];desenhar_();};
-    $('fa-x').onclick=()=>{$('rc-form').innerHTML='';};
-    $('rc-form').querySelectorAll('[data-as]').forEach(x=>x.onchange=()=>{linhas[x.dataset.as].sku=x.value;});
-    $('rc-form').querySelectorAll('[data-aq]').forEach(x=>x.oninput=()=>{linhas[x.dataset.aq].avisado=x.value;});
-    $('rc-form').querySelectorAll('[data-ar]').forEach(x=>x.onclick=()=>{linhas.splice(Number(x.dataset.ar),1);desenhar_();});
-    if($('fa-add'))$('fa-add').onclick=()=>{linhas.push({sku:ps[0].sku,avisado:''});desenhar_();};
-    $('fa').onsubmit=async e=>{e.preventDefault();$('fa-ok').disabled=true;
-      try{await chamar('prepRecebimentoCriar',{contaId,previsto:$('fa-data').value,itens:linhas});som(true);$('rc-form').innerHTML='';rcAba='aguardando';desenharReceber();}
-      catch(err){$('fa-ok').disabled=false;som(false);erro('Não salvou',esc(err.message));}};
+    const minha=++vez;
+    let ps=null;
+    // Desenha o formulario na hora; os produtos entram assim que chegarem
+    const c=prodLeve[contaId];
+    if(c&&c.v&&Date.now()-c.em<120000)ps=c.v;
+    const pintar=()=>{
+      if(ps&&!linhas.length&&ps.length)linhas=[{sku:ps[0].sku,avisado:''}];
+      $('rc-form').innerHTML=`<form class="cad" id="fa" autocomplete="off"><h2>Aviso de chegada</h2>
+        <div class="lin"><label>Cliente<select id="fa-cli"></select></label><label>Chega em<input id="fa-data" type="date" value="${esc(dataPrev)}"></label></div>
+        ${ps===null?'<div class="vazio">Carregando os produtos…</div>'
+        :ps.length?linhas.map((l,k)=>`<div class="lin"><label>Produto<select data-as="${k}">${ps.map(p=>`<option value="${esc(p.sku)}" ${p.sku===l.sku?'selected':''}>${esc(p.sku)} · ${esc(p.nome)}</option>`).join('')}</select></label>
+          <label style="flex:0 0 110px">Quantidade<input data-aq="${k}" inputmode="numeric" value="${esc(l.avisado)}"></label>${linhas.length>1?`<button class="btn" type="button" data-ar="${k}" style="min-height:44px">Tirar</button>`:''}</div>`).join('')
+          :'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Esse cliente ainda não tem produtos. Cadastre em <b>Produtos</b> primeiro.</div>'}
+        <div class="lin">${ps&&ps.length?'<button class="btn" type="button" id="fa-add">+ Outro produto</button><button class="btn pri" type="submit" id="fa-ok">Salvar aviso</button>':''}<button class="btn" type="button" id="fa-x">Cancelar</button></div></form>`;
+      opcoesClientes($('fa-cli'),contaId);
+      $('fa-data').oninput=e=>{dataPrev=e.target.value;};
+      $('fa-cli').onchange=()=>{contaId=$('fa-cli').value;linhas=[];desenhar_();};
+      $('fa-x').onclick=()=>{vez++;$('rc-form').innerHTML='';};
+      $('rc-form').querySelectorAll('[data-as]').forEach(x=>x.onchange=()=>{linhas[x.dataset.as].sku=x.value;});
+      $('rc-form').querySelectorAll('[data-aq]').forEach(x=>x.oninput=()=>{linhas[x.dataset.aq].avisado=x.value;});
+      $('rc-form').querySelectorAll('[data-ar]').forEach(x=>x.onclick=()=>{linhas.splice(Number(x.dataset.ar),1);desenhar_();});
+      if($('fa-add'))$('fa-add').onclick=()=>{linhas.push({sku:ps[0].sku,avisado:''});desenhar_();};
+      $('fa').onsubmit=async e=>{e.preventDefault();if(!$('fa-ok'))return;$('fa-ok').disabled=true;
+        try{await chamar('prepRecebimentoCriar',{contaId,previsto:$('fa-data').value,itens:linhas});som(true);$('rc-form').innerHTML='';rcAba='aguardando';desenharReceber();}
+        catch(err){$('fa-ok').disabled=false;som(false);erro('Não salvou',esc(err.message));}};
+    };
+    pintar();
+    if(ps===null){
+      try{ps=await produtosLeve(contaId);}catch(e){if(minha===vez)$('rc-form').querySelector('.vazio').outerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+      if(minha===vez&&$('fa'))pintar();
+    }
   };
   desenhar_();
 }
@@ -1383,7 +1409,7 @@ function formConferir(r){
     e.currentTarget.disabled=true;
     try{await chamar('prepRecebimentoConferir',{id:r.id,itens,fotoBase64:fotoRc},60);som(true);
       telaCheia('#0E9F6E',`<div class="m">ESTOQUE ATUALIZADO</div><div class="g">${esc(r.clienteNome).toUpperCase()}</div><div class="m">${total} unidade(s) entraram</div><button class="btn" type="button" id="ov-ok">OK</button>`);
-      prodCache={};desenharReceber();}
+      prodCache={};Object.keys(prodLeve).forEach(k=>delete prodLeve[k]);desenharReceber();}
     catch(err){e.currentTarget.disabled=false;som(false);erro('Não conferiu',esc(err.message));}
   };
 }
