@@ -349,6 +349,14 @@ async function verEnvios(silencioso){
   const atr=env.filter(e=>e.atrasado);
   const agora=new Date().toLocaleString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',...TZ});
   let h=`<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2>Hoje</h2><span style="font-size:12px;color:var(--muted)">Atualizado ${esc(agora)} · atualiza sozinho</span></div>`;
+  const pend=env.filter(e=>e.pendencia);
+  const PEDIR={sem_nf:'Emita a nota fiscal no Mercado Livre: a etiqueta aparece sozinha e a gente despacha.',sem_produto:'Mande o produto para o galpão: sem ele o pacote não sai.',sem_estoque:'Mande mais unidades para o galpão.',segurar:'Nos avise quando podemos enviar.',outro:'Fale com a equipe do galpão.'};
+  if(pend.length)h+=`<section class="card" style="border:2px solid var(--bad);gap:8px"><h2 style="color:var(--bad-fg)">Você precisa agir · ${pend.length} ${pend.length===1?'envio parado':'envios parados'}</h2>
+    <span style="font-size:13px;color:var(--muted)">Estes envios já passaram do prazo do Mercado Livre e só saem quando você resolver. O atraso conta na sua reputação.</span>
+    ${pend.map(e=>`<div class="env bad"><div class="l1"><span class="st bad">${esc(e.pendencia.rotulo)}</span><span class="mono" style="font-size:12px;color:var(--muted)">Envio ${esc(e.shipmentId)}</span></div>
+      <div class="itens">${itensTxt(e.itens)}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">${esc(PEDIR[e.pendencia.motivo]||PEDIR.outro)}</div>
+      ${e.pendencia.obs?`<div class="meta">Recado da equipe: ${esc(e.pendencia.obs)}</div>`:''}</div>`).join('')}</section>`;
   if(nf.length)h+=`<div class="alerta warn"><b>${nf.length} envio${nf.length>1?'s':''} esperando a sua nota fiscal.</b> Sem a NF o Mercado Livre não libera a etiqueta e o pacote não sai. Emita no Mercado Livre e a etiqueta aparece aqui sozinha.</div>`;
   if(prob.length)h+=`<div class="alerta bad"><b>${prob.length} envio${prob.length>1?'s':''} com problema.</b> A equipe do galpão vai falar com você. Motivo: ${prob.map(p=>esc(p.problema||'não informado')).join('; ')}</div>`;
   h+=`<div class="kpis">

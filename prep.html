@@ -106,6 +106,9 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .menu button svg{flex:none}
 .menu button:hover{color:#fff}
 .menu .ct{display:none}
+.menu button{position:relative}
+.menu .badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--orange);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-left:auto}
+@media (max-width:1023px){.menu .badge{position:absolute;top:4px;right:calc(50% - 22px);margin:0}}
 .menu-sep{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4);padding:16px 12px 6px}
 .marca{display:flex;align-items:center;gap:10px;padding:4px 6px 18px}
 .logo{width:36px;height:36px;border-radius:10px;background:var(--orange);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none}
@@ -259,6 +262,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
     <div class="marca"><span class="logo" aria-hidden="true">P</span><span class="marca-txt"><b class="nome-sis">PREP REAL</b><small>Galpão</small></span></div>
     <nav class="menu" aria-label="Seções">
       <button type="button" id="m-fila" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z"/></svg><span class="lg">Fila do dia</span><span class="ct">Fila</span></button>
+      <button type="button" id="m-pend"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><span class="lg">Pendências do cliente</span><span class="ct">Pendências</span><span class="badge oculto" id="pend-n">0</span></button>
       <button type="button" id="m-receber"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span class="lg">Receber</span><span class="ct">Receber</span></button>
       <button type="button" id="m-produtos"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span class="lg">Produtos e estoque</span><span class="ct">Produtos</span></button>
       <button type="button" id="m-full"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lg">Etiquetagem Full</span><span class="ct">Full</span></button>
@@ -315,6 +319,11 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
       <div id="pr-lista" class="hist"></div>
     </section>
 
+    <section id="v-pend" class="oculto" style="display:flex;flex-direction:column;gap:12px">
+      <div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg)">Atrasos que dependem do cliente (sem NF, sem produto, pediu para segurar). Ficam fora da fila do dia. <b>Olhe esta lista todo dia</b> e dê um destino para cada envio.</div>
+      <div id="pend-lista" style="display:flex;flex-direction:column;gap:12px"></div>
+    </section>
+
     <section id="v-receber" class="oculto" style="display:flex;flex-direction:column;gap:12px">
       <div class="lin" style="display:flex;gap:8px;flex-wrap:wrap">
         <div class="dias" role="group" aria-label="Recebimentos" style="flex:1 1 260px"><button type="button" id="rc-t-ag" aria-pressed="true">A receber</button><button type="button" id="rc-t-ok" aria-pressed="false">Conferidos</button></div>
@@ -355,6 +364,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 
 <div id="exec" class="oculto" role="dialog" aria-modal="true" aria-labelledby="exec-cli"></div>
 <div id="overlay" class="tela-cheia oculto" role="alertdialog" aria-live="assertive"></div>
+<div id="pend-dlg" class="oculto" role="dialog" aria-modal="true" aria-label="Atribuir atraso ao cliente" style="position:fixed;inset:0;z-index:45;background:rgba(16,13,20,.55);display:flex;align-items:center;justify-content:center;padding:16px"></div>
 <div id="scanner" class="tela-cheia oculto" style="background:#100D14;justify-content:flex-start;padding-top:28px">
   <div class="m" id="scanner-titulo">Aponte para o código da etiqueta</div>
   <div id="leitor" style="width:100%;max-width:520px;border-radius:8px;overflow:hidden;background:#000"></div>
@@ -417,7 +427,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const hora=d=>d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
 const diaMes=d=>d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
 
-let pedidos=[], filtro={mod:null,mom:null}, timer=null;
+let pedidos=[], pendencias=[], filtro={mod:null,mom:null}, timer=null;
 
 /* ── Login ─────────────────────────────────────────────── */
 function mostrar(t){$('tela-login').classList.toggle('oculto',t!=='login');$('tela-senha').classList.toggle('oculto',t!=='senha');$('tela-app').classList.toggle('oculto',t!=='app');}
@@ -464,8 +474,13 @@ $('s-sair').onclick=()=>auth.signOut();
 async function carregar(){
   try{
     const r=await chamar('prepFila');
-    pedidos=(r.pedidos||[]).filter(p=>p.etapa!=='cancelado').map(p=>({...p,momento:momentoDe(p)}));
+    const todos=(r.pedidos||[]).filter(p=>p.etapa!=='cancelado').map(p=>({...p,momento:momentoDe(p)}));
+    // Atraso do cliente sai da fila do dia e vai para Pendencias
+    pendencias=todos.filter(p=>p.pendencia&&p.momento!=='despachado');
+    pedidos=todos.filter(p=>!(p.pendencia&&p.momento!=='despachado'));
+    const n=$('pend-n');n.textContent=pendencias.length;n.classList.toggle('oculto',!pendencias.length);
     desenhar();
+    if(!$('v-pend').classList.contains('oculto'))desenharPendencias();
   }catch(e){
     $('secoes').innerHTML='';
     $('alertas').innerHTML=`<div class="alerta bad">${e.code==='functions/permission-denied'?'Este login não tem acesso ao prep. Fale com o Filipe.':'Não consegui carregar a fila: '+esc(e.message)}</div>`;
@@ -512,6 +527,7 @@ function desenhar(){
   // Alertas (so do dia de hoje)
   const al=[];
   if(dia==='hoje'){
+    if(pendencias.length)al.push(`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span><b>${pendencias.length} ${pendencias.length===1?'envio atrasado':'envios atrasados'} por conta do cliente</b> · fora da fila, em Pendências. Dê um destino hoje.</span><button class="btn" type="button" id="ir-pend" style="min-height:38px;margin-left:auto">Ver pendências</button></div>`);
     const atrasados=deHoje.filter(p=>p.atrasado);
     if(atrasados.length)al.push(`<div class="alerta bad"><b>${atrasados.length} atrasado(s)</b> · o prazo do Mercado Livre já passou. Fazer primeiro.</div>`);
     const h=Number(agora.toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'America/Sao_Paulo'}));
@@ -519,6 +535,7 @@ function desenhar(){
     if(coleta&&h<14)al.push(`<div class="alerta bad"><b>COLETA passa entre 13h e 14h</b> · ${coleta} pacote(s) ainda não estão prontos.</div>`);
   }
   $('alertas').innerHTML=al.join('');
+  if($('ir-pend'))$('ir-pend').onclick=()=>trocarVista('pend');
 
   const mods=MODS.slice();
   if(base.some(p=>!MODS.some(m=>m.id===p.modalidade)))mods.push(modDe('verificar'));
@@ -591,6 +608,7 @@ function loteHtml(L){
       ${x.momento==='pronto'?`<button type="button" data-acao="verfoto" data-id="${id}">Ver foto</button>`:''}
       ${x.momento==='foto'?`<button type="button" data-acao="foto" data-id="${id}">Foto</button>`:''}
       ${x.momento!=='problema'?`<button type="button" data-acao="problema" data-id="${id}" style="color:var(--bad-fg)">Problema</button>`:''}
+      <button type="button" data-acao="pendencia" data-id="${id}" style="color:var(--warn-fg)">Atraso do cliente</button>
       </div>`;}).join('')}
       ${n>1&&L.momento!=='imprimir'?`<button type="button" class="btn" data-acao="folha" data-id="${ids}" style="min-height:40px">Folha de controle</button>`:''}
     </div>`:''}
@@ -619,23 +637,100 @@ function folhaControle(ids){
   w.document.close();
 }
 
+/* ── Pendencias do cliente ─────────────────────────────── */
+const PEND_MOTIVOS={sem_nf:'Sem nota fiscal',sem_produto:'Produto não chegou ao galpão',sem_estoque:'Sem estoque no galpão',segurar:'Cliente pediu para segurar',outro:'Outro motivo'};
+const PEND_DESTINOS={avisado:'Cliente avisado',vai_emitir_nf:'Vai emitir a NF',vai_mandar:'Vai mandar o produto',vai_cancelar:'Vai cancelar a venda',aguardando:'Aguardando o cliente'};
+const PEND_PEDIDO={sem_nf:'emitir a nota fiscal no Mercado Livre',sem_produto:'mandar o produto para o galpão',sem_estoque:'mandar mais unidades para o galpão',segurar:'confirmar quando podemos enviar',outro:'resolver a pendência'};
+const diasDesde=iso=>iso?Math.max(0,Math.floor((Date.now()-new Date(iso))/864e5)):null;
+function dlgPendencia(id){
+  const p=pedidos.concat(pendencias).find(x=>String(x.shipmentId)===String(id));if(!p)return;
+  const d=$('pend-dlg');d.classList.remove('oculto');
+  d.innerHTML=`<form class="cad" style="width:100%;max-width:440px" autocomplete="off"><h2>Atraso do cliente</h2>
+    <span style="font-size:14px;color:var(--ink)"><b>${esc(p.clienteNome||p.contaId)}</b> · envio <span class="mono">${esc(p.shipmentId)}</span></span>
+    <span style="font-size:13px;color:var(--muted)">O envio sai da fila do dia e vai para Pendências, onde a equipe acompanha até resolver.</span>
+    <label>Motivo<select name="motivo">${Object.entries(PEND_MOTIVOS).map(([k,v])=>`<option value="${k}" ${(p.aguardandoNF?'sem_nf':'sem_produto')===k?'selected':''}>${v}</option>`).join('')}</select></label>
+    <label>Observação<input name="obs" maxlength="300" placeholder="Ex.: falei com ele no WhatsApp, manda amanhã"></label>
+    <div class="lin"><button class="btn pri" type="submit">Mover para Pendências</button><button class="btn" type="button" data-x>Cancelar</button></div></form>`;
+  const f=d.querySelector('form');f.motivo.focus();
+  d.querySelector('[data-x]').onclick=()=>d.classList.add('oculto');
+  d.onclick=e=>{if(e.target===d)d.classList.add('oculto');};
+  f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('[type=submit]');b.disabled=true;
+    try{await chamar('prepPendencia',{shipmentId:p.shipmentId,acao:'atribuir',motivo:f.motivo.value,obs:f.obs.value});
+      d.classList.add('oculto');som(true);carregar();}
+    catch(err){b.disabled=false;som(false);erro('Não salvou',esc(err.message));}};
+}
+function msgCliente(p){
+  const pe=p.pendencia||{};const it=(p.itens||[]).map(i=>`${i.qtd}× ${i.titulo}`).join(', ');
+  const lim=p.limiteDespacho?new Date(p.limiteDespacho).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'';
+  return `Oi! O envio ${p.shipmentId} (${it}) está parado no galpão: ${String(pe.rotulo||'').toLowerCase()}.${lim?` O prazo de despacho do Mercado Livre venceu em ${lim}.`:''} Precisamos que você ${PEND_PEDIDO[pe.motivo]||'resolva a pendência'} para a gente despachar. Qualquer dúvida, é só chamar.`;
+}
+function desenharPendencias(){
+  const alvo=$('pend-lista');
+  if(!pendencias.length){alvo.innerHTML='<div class="vazio"><b>Nenhuma pendência</b>Quando um envio atrasar por conta do cliente, ele aparece aqui.</div>';return;}
+  const porCli={};pendencias.forEach(p=>{(porCli[p.clienteNome||p.contaId]=porCli[p.clienteNome||p.contaId]||[]).push(p);});
+  alvo.innerHTML=Object.entries(porCli).sort((a,b)=>b[1].length-a[1].length).map(([cli,ps])=>`<section class="cad" style="gap:10px">
+    <h2 style="font-size:14px;color:var(--ink)">${esc(cli)} · ${ps.length} ${ps.length===1?'envio':'envios'}</h2>
+    ${ps.sort((a,b)=>String(a.limiteDespacho).localeCompare(String(b.limiteDespacho))).map(p=>{
+      const pe=p.pendencia, venc=diasDesde(p.limiteDespacho), id=esc(p.shipmentId), m=modDe(p.modalidade);
+      return `<article style="border:1px solid var(--line);border-left:5px solid ${pe.destino==='Vai cancelar a venda'?'var(--muted)':'#F0A500'};border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span class="pill" style="background:${m.cor};color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px">${esc(m.nome)}</span>
+          <span class="st warn">${esc(pe.rotulo)}</span>
+          <span class="st neu">${esc(pe.destinoRotulo||'Aguardando o cliente')}</span>
+          ${pe.auto?'<span style="font-size:11px;color:var(--muted)">automático</span>':''}
+          <span style="margin-left:auto;font-size:12px;font-weight:800;color:var(--bad-fg)">${venc!==null?(venc===0?'prazo venceu hoje':`prazo venceu há ${venc} ${venc===1?'dia':'dias'}`):''}</span>
+        </div>
+        <b style="font-size:14px;color:var(--ink);line-height:1.35">${(p.itens||[]).map(i=>`${i.qtd}× ${esc(i.titulo)}`).join(' + ')}</b>
+        <span style="font-size:12px;color:var(--muted)"><span class="mono">envio ${id}</span>${pe.avisadoEm?` · cliente avisado ${diaMes(new Date(pe.avisadoEm))} ${hora(new Date(pe.avisadoEm))}`:' · cliente ainda não avisado'}${pe.obs?` · ${esc(pe.obs)}`:''}</span>
+        ${(pe.historico||[]).length?`<details><summary style="font-size:12px;font-weight:800;cursor:pointer;color:var(--body)">Histórico (${pe.historico.length})</summary>${pe.historico.slice().reverse().map(h=>`<div style="font-size:12px;color:var(--muted);padding:2px 0">${diaMes(new Date(h.em))} ${hora(new Date(h.em))} · <b>${esc(h.acao)}</b>${h.detalhe?` · ${esc(h.detalhe)}`:''} · ${esc(String(h.por||'').split('@')[0])}</div>`).join('')}</details>`:''}
+        <div class="lin" style="align-items:flex-end">
+          <label style="flex:1 1 200px">Destino<select data-pd="${id}">${Object.entries(PEND_DESTINOS).filter(([k])=>k!=='aguardando').map(([k,v])=>`<option value="${k}" ${pe.destinoRotulo===v?'selected':''}>${v}</option>`).join('')}</select></label>
+          <label style="flex:2 1 220px">Observação<input data-po="${id}" maxlength="300" placeholder="O que foi combinado"></label>
+          <button class="btn pri" type="button" data-ps="${id}">Salvar</button>
+        </div>
+        <div class="lin">
+          <button class="btn" type="button" data-pm="${id}">Copiar mensagem para o cliente</button>
+          <button class="btn" type="button" data-pv="${id}">Voltar para a fila</button>
+        </div>
+      </article>`;}).join('')}
+  </section>`).join('');
+  const achar=id=>pendencias.find(x=>String(x.shipmentId)===String(id));
+  alvo.querySelectorAll('[data-ps]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.ps;b.disabled=true;
+    try{await chamar('prepPendencia',{shipmentId:id,acao:'destino',destino:alvo.querySelector(`[data-pd="${id}"]`).value,obs:alvo.querySelector(`[data-po="${id}"]`).value});som(true);carregar();}
+    catch(e){b.disabled=false;erro('Não salvou',esc(e.message));}
+  });
+  alvo.querySelectorAll('[data-pv]').forEach(b=>b.onclick=async()=>{
+    if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmar: voltar para a fila';return;}
+    b.disabled=true;
+    try{await chamar('prepPendencia',{shipmentId:b.dataset.pv,acao:'voltar'});som(true);carregar();}
+    catch(e){b.disabled=false;erro('Não voltou',esc(e.message));}
+  });
+  alvo.querySelectorAll('[data-pm]').forEach(b=>b.onclick=async()=>{
+    const t=msgCliente(achar(b.dataset.pm));
+    try{await navigator.clipboard.writeText(t);b.textContent='Copiada ✓';setTimeout(()=>{b.textContent='Copiar mensagem para o cliente';},1800);}
+    catch{prompt('Copie a mensagem:',t);}
+  });
+}
+
 /* ── Historico de envios ───────────────────────────────── */
 const PERIODOS=[['hoje','Hoje',0,0],['ontem','Ontem',1,1],['7d','7 dias',6,0],['30d','30 dias',29,0]];
 let hist={periodo:'hoje',envios:[],carregando:false};
 const diaISO=off=>{const d=new Date(Date.now()-off*864e5);return d.toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});};
 
 $('m-fila').onclick=()=>trocarVista('fila');
+$('m-pend').onclick=()=>trocarVista('pend');
 $('m-hist').onclick=()=>trocarVista('hist');
 $('m-equipe').onclick=()=>trocarVista('equipe');
 $('m-fatura').onclick=()=>trocarVista('fatura');
 $('m-full').onclick=()=>trocarVista('full');
 $('m-produtos').onclick=()=>trocarVista('produtos');
 $('m-receber').onclick=()=>trocarVista('receber');
-const TITULOS={fila:'Fila do dia',receber:'Receber mercadoria',produtos:'Produtos e estoque',full:'Etiquetagem Full',hist:'Histórico',fatura:'Fatura',equipe:'Equipe do galpão'};
+const TITULOS={pend:'Pendências do cliente',fila:'Fila do dia',receber:'Receber mercadoria',produtos:'Produtos e estoque',full:'Etiquetagem Full',hist:'Histórico',fatura:'Fatura',equipe:'Equipe do galpão'};
 function trocarVista(v){
   $('t-titulo').textContent=TITULOS[v]||'';document.title=`${NOME_SISTEMA} · ${TITULOS[v]||''}`;
   window.scrollTo(0,0);
-  [['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
+  [['pend','v-pend','m-pend'],['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
     $(vis).classList.toggle('oculto',v!==id);
     if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
   });
@@ -644,6 +739,7 @@ function trocarVista(v){
   if(v==='produtos')abrirProdutos();
   if(v==='receber')abrirReceber();
   if(v==='fatura')abrirFatura();
+  if(v==='pend')desenharPendencias();
   if(v==='full')abrirFull();
 }
 
@@ -1470,6 +1566,7 @@ async function acao(tipo,id,btn){
       telaCheia('#100D14',`<img class="foto-grande" alt="Foto da caixa do envio ${esc(id)}" src="data:image/jpeg;base64,${r.base64}"><button class="btn" type="button" id="ov-ok">Fechar</button>`);
       return;
     }
+    if(tipo==='pendencia'){dlgPendencia(id);return;}
     if(tipo==='problema'){
       const motivo=prompt('Qual o problema? (ex.: produto faltando, avariado, etiqueta ilegível)');
       if(!motivo)return;
