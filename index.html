@@ -1087,6 +1087,50 @@ function PainelAds({ads,dataRef,onSalvo,periodoLabel}){
   );
 }
 /* ══ VIEW: DASHBOARD ════════════════════════════════════════ */
+// De onde veio cada cancelamento: numero do pedido, quando foi vendido,
+// quando e por quem o ML cancelou. O painel do ML conta o cancelamento no
+// dia em que ele aconteceu; aqui ele sai do dia da venda.
+const QUEM_CANCELOU={buyer:'pelo comprador',seller:'pelo vendedor',mediator:'pelo Mercado Livre (mediação)',fraud:'pelo Mercado Livre (segurança)'};
+function ListaCanceladas({lista,total,multiConta}){
+  const [aberto,setAberto]=useState(false);
+  const dt=iso=>iso?new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}):'—';
+  const copiar=id=>{try{navigator.clipboard.writeText(String(id));}catch{}};
+  return (
+    <Card title="De onde vieram as canceladas" icon="x-circle"
+      subtitle={`${NUM(total)} ${total===1?'venda cancelada':'vendas canceladas'} no período · busque o número do pedido em Vendas no Mercado Livre`}
+      action={<Btn variant="neutral" size="sm" icon={aberto?'chevron-up':'chevron-down'} onClick={()=>setAberto(!aberto)}>{aberto?'Ocultar':'Ver quais'}</Btn>}>
+      {aberto&&(!lista.length
+        ? <Note tone="neutral" icon="info">A lista aparece na próxima atualização dos dados.</Note>
+        : <div className="tabela-lista">
+          {lista.map(p=>{
+            const c=p.cancelamento||{};
+            return (
+              <div key={p.id} style={{display:'flex',gap:'var(--space-3)',alignItems:'center',flexWrap:'wrap',
+                padding:'12px 2px',borderBottom:'1px solid var(--border-subtle)'}}>
+                <Thumb src={p.foto} alt={p.titulo} size={40}/>
+                <div style={{flex:'1 1 260px',minWidth:0}}>
+                  <div className="ell" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',color:'var(--text-strong)'}}>{p.titulo}</div>
+                  <div style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:2,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                    {multiConta&&<span style={{fontWeight:'var(--weight-bold)'}}>{p.conta}</span>}
+                    <button onClick={()=>copiar(p.id)} title="Copiar número do pedido" className="mono"
+                      style={{border:'1px solid var(--border-default)',background:'var(--surface-sunken)',borderRadius:6,
+                        padding:'1px 6px',fontSize:'var(--text-2xs)',cursor:'pointer',color:'var(--text-body)'}}>Pedido {p.id} ⧉</button>
+                    <span>vendido {dt(p.dataISO)}</span>
+                  </div>
+                  <div style={{fontSize:'var(--text-2xs)',color:'var(--status-danger-fg)',marginTop:3}}>
+                    Cancelado {c.data?dt(c.data):''} {QUEM_CANCELOU[c.quem]||(c.quem?`(${c.quem})`:'')}{c.motivo?` · ${c.motivo}`:''}
+                  </div>
+                </div>
+                <div className="tab" style={{textAlign:'right',fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)'}}>
+                  {BRL(p.valor)}<div style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',fontWeight:'normal'}}>{NUM(p.qtde)} un</div></div>
+              </div>
+            );
+          })}
+        </div>)}
+    </Card>
+  );
+}
+
 function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,rotuloPeriodo,contasAtivas,toggleConta,onRefresh,onIrParaAnuncios,onIrParaPrejuizos,onIrParaSkus,onIrParaContas,somenteLeitura}){
   const m=dados?.metricas||{},ads=dados?.ads||{};
   const multiConta=(dados?.contasUsadas?.length||0)>1;
@@ -1358,6 +1402,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
           {label:'Canceladas',value:NUM(m.canceladas),caption:`${BRL(m.valorCancelado)} não faturados`,icon:'x-circle',accent:'danger'},
         ].map(c=><StatCard key={c.label} {...c}/>)}
       </div>
+      {!loading&&m.canceladas>0&&<ListaCanceladas lista={dados?.canceladasLista||[]} total={m.canceladas} multiConta={multiConta}/>}
       {/* COMPOSIÇÃO DO FATURAMENTO */}
       {loading?(
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'var(--layout-grid-gap)'}}>
