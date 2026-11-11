@@ -1110,7 +1110,7 @@ function ViewDashboard({dados,loading,periodo,setPeriodo,intervalo,onIntervalo,r
       </div>
       <section className="dashboard-overview" aria-label="Resultado do período" aria-busy={loading}>
         {[
-          ['Faturamento',BRL(m.fat),`${NUM(m.pedidosDia)} pedidos · ${NUM(m.qtd)} unidades`],
+          ['Faturamento',BRL(m.fat),`${NUM(m.pedidosDia)} pedidos · ${NUM(m.qtd)} unidades`+(m.canceladas>0?` · bruto como no ML ${BRL(m.fat+(m.valorCancelado||0))} (com ${NUM(m.canceladas)} ${m.canceladas===1?'cancelada':'canceladas'})`:'')],
           ['Lucro',BRL(lucroExib),m.semCusto>0?'Parcial: existem vendas sem custo'
             :descontarAds&&temAds?`Já descontado ${BRL(invAds)} de publicidade`
             :'Após custos, tarifas, frete e impostos'],
@@ -5661,10 +5661,12 @@ function Delta({atual,anterior,sufixo='',moeda=false}){
 function CompararDias({tira,janela,setJanela,hoje,diaAberto,onAbrirDia,faltam,buscando}){
   const [busca,setBusca]=useState('');
   const [ordem,setOrdem]=useState('total');
-  const dias=tira.slice(0,janela).slice().reverse();
+  const dias=tira.slice(0,janela).slice().reverse().map(d=>d.pronto?{...d,bruto:(Number(d.faturamento)||0)+(Number(d.valorCancelado)||0)}:d);
   const prontos=dias.filter(d=>d.pronto);
   const linhasResumo=[
     {k:'faturamento',rot:'Faturamento',fmt:BRL,melhor:'max'},
+    {k:'bruto',rot:'Vendas brutas (ML)',fmt:BRL},
+    {k:'cancelados',rot:'Canceladas',fmt:NUM},
     {k:'pedidos',rot:'Pedidos',fmt:NUM,melhor:'max'},
     {k:'unidades',rot:'Unidades',fmt:NUM,melhor:'max'},
     {k:'ticketMedio',rot:'Ticket médio',fmt:BRL},
@@ -5673,7 +5675,7 @@ function CompararDias({tira,janela,setJanela,hoje,diaAberto,onAbrirDia,faltam,bu
   ];
   const melhorDe=k=>prontos.length?Math.max(...prontos.map(d=>Number(d[k])||0)):null;
   const somaPeriodo=k=>prontos.reduce((a,d)=>a+(Number(d[k])||0),0);
-  const totalPeriodo={faturamento:somaPeriodo('faturamento'),pedidos:somaPeriodo('pedidos'),
+  const totalPeriodo={faturamento:somaPeriodo('faturamento'),bruto:somaPeriodo('bruto'),cancelados:somaPeriodo('cancelados'),pedidos:somaPeriodo('pedidos'),
     unidades:somaPeriodo('unidades'),lucro:somaPeriodo('lucro')};
   totalPeriodo.ticketMedio=totalPeriodo.pedidos?totalPeriodo.faturamento/totalPeriodo.pedidos:0;
   totalPeriodo.margem=totalPeriodo.faturamento?totalPeriodo.lucro/totalPeriodo.faturamento*100:null;
@@ -5762,7 +5764,7 @@ function CompararDias({tira,janela,setJanela,hoje,diaAberto,onAbrirDia,faltam,bu
         </table>
       </div>
       <div style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)',marginTop:6}}>
-        Em verde, o melhor dia do período. Lucro e margem usam o custo cadastrado de cada produto naquele dia.</div>
+        Em verde, o melhor dia do período. Faturamento já tira as vendas canceladas; "Vendas brutas (ML)" soma elas de volta, como o painel do Mercado Livre. Lucro e margem usam o custo de cada produto naquele dia.</div>
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',
         margin:'var(--space-5) 0 var(--space-3)'}}>
