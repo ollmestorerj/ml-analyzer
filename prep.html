@@ -290,7 +290,7 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
     </section>
 
     <section id="v-fatura" class="oculto" style="display:flex;flex-direction:column;gap:12px">
-      <div class="dias" role="group" aria-label="Fatura"><button type="button" id="ft-t-cli" aria-pressed="true">Fatura por cliente</button><button type="button" id="ft-t-tab" aria-pressed="false">Tabela de preços</button></div>
+      <div class="dias" role="group" aria-label="Fatura"><button type="button" id="ft-t-rec" aria-pressed="true">A receber</button><button type="button" id="ft-t-cli" aria-pressed="false">Fatura por cliente</button><button type="button" id="ft-t-tab" aria-pressed="false">Tabela de preços</button></div>
       <div id="ft-corpo" style="display:flex;flex-direction:column;gap:12px"></div>
     </section>
 
@@ -774,12 +774,16 @@ const brl=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL
 const numBR=v=>{const t=String(v??'').trim();return Number(t.includes(',')?t.replace(/\./g,'').replace(',','.'):t)||0;};
 const mesAtual=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'}).slice(0,7);
 const LOG_NOMES={flex:'Flex',coleta:'Coleta',agencia:'Agência',correios:'Correios'};
-let ftAba='cli', ftEstado={contaId:'',mes:''};
+let ftAba='rec', ftEstado={contaId:'',mes:''};
+$('ft-t-rec').onclick=()=>{ftAba='rec';abrirFatura();};
 $('ft-t-cli').onclick=()=>{ftAba='cli';abrirFatura();};
 $('ft-t-tab').onclick=()=>{ftAba='tab';abrirFatura();};
+const dataBR=iso=>iso?iso.split('-').reverse().join('/'):'';
+const SIT={pago:['Pago','ok'],vencido:['Não pagou · vencida','bad'],em_aberto:['Em aberto','warn'],em_andamento:['Contando','neu'],sem_valor:['Sem valor','neu']};
 async function abrirFatura(){
-  $('ft-t-cli').setAttribute('aria-pressed',ftAba==='cli');$('ft-t-tab').setAttribute('aria-pressed',ftAba==='tab');
+  ['rec','cli','tab'].forEach(k=>$('ft-t-'+k).setAttribute('aria-pressed',ftAba===k));
   if(ftAba==='tab')return desenharTabela();
+  if(ftAba==='rec')return desenharAReceber();
   const corpo=$('ft-corpo');
   try{await garantirClientes();}catch(e){corpo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
   if(!clientesPrep.length){corpo.innerHTML='<div class="vazio">Nenhum cliente no prep ainda.</div>';return;}
@@ -788,64 +792,130 @@ async function abrirFatura(){
       <label>Cliente<select id="ft-cli"></select></label>
       <label style="flex:0 1 180px">Mês<input id="ft-mes" type="month" value="${esc(ftEstado.mes)}"></label>
     </div>
-    <span style="font-size:13px;color:var(--muted)">É a mesma conta que o cliente vê na página dele, atualizada a cada pacote finalizado. <a href="cliente.html" target="_blank" rel="noopener" style="color:var(--orange-d);font-weight:800">Abrir a página do cliente ↗</a></span></div>
+    <span style="font-size:13px;color:var(--muted)">Mensalidade vence no dia de cada cliente. O uso (envios, Full) fecha por quinzena: dias 1 a 15 vence dia 15; dia 16 ao fim do mês vence no último dia. <a href="cliente.html" target="_blank" rel="noopener" style="color:var(--orange-d);font-weight:800">Ver como o cliente vê ↗</a></span></div>
     <div id="ft-res"><div class="vazio">Calculando…</div></div>`;
   opcoesClientes($('ft-cli'),ftEstado.contaId);
   $('ft-cli').onchange=e=>{ftEstado.contaId=e.target.value;carregarFatura();};
   $('ft-mes').onchange=e=>{ftEstado.mes=e.target.value||mesAtual();carregarFatura();};
   carregarFatura();
 }
+async function desenharAReceber(){
+  const corpo=$('ft-corpo');corpo.innerHTML='<div class="vazio">Somando o que cada cliente deve…</div>';
+  let r;try{r=await chamar('prepAReceber',{},300);}catch(e){corpo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  const venc=r.clientes.reduce((s,c)=>s+c.totalVencido,0),aberto=r.clientes.reduce((s,c)=>s+c.totalAberto,0);
+  corpo.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
+      <div class="cad" style="gap:2px;${venc?'background:var(--bad-bg);border-color:transparent':''}"><span style="font-size:12px;font-weight:800;color:${venc?'var(--bad-fg)':'var(--muted)'};text-transform:uppercase;letter-spacing:.06em">Vencido, não pago</span><b class="tab" style="font-size:28px;color:${venc?'var(--bad-fg)':'var(--ink)'}">${brl(venc)}</b></div>
+      <div class="cad" style="gap:2px"><span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Em aberto no mês</span><b class="tab" style="font-size:28px;color:var(--ink)">${brl(aberto)}</b><span style="font-size:12px;color:var(--muted)">ainda dentro do prazo</span></div>
+    </div>
+    ${r.clientes.map(c=>`<button type="button" class="cad" data-vercli="${esc(c.contaId)}" style="text-align:left;cursor:pointer;font:inherit;${c.totalVencido?'border:2px solid var(--bad)':''}">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:16px;color:var(--ink)">${esc(c.nome)}</b>
+        ${c.totalVencido?`<span class="st bad">deve ${brl(c.totalVencido)}</span>`:'<span class="st ok">em dia</span>'}
+        ${c.vencimentoDia?'':'<span class="st warn">sem dia de vencimento</span>'}
+        <span style="margin-left:auto;font-size:13px;color:var(--muted)">em aberto ${brl(c.totalAberto)} ›</span></div>
+      ${c.vencidas.length?`<div style="font-size:13px;color:var(--bad-fg);margin-top:4px">${c.vencidas.map(v=>`${esc(v.nome)} ${v.mes.slice(5)}/${v.mes.slice(0,4)} · ${brl(v.valor)} · venceu ${dataBR(v.vencimento)}`).join('<br>')}</div>`:''}
+    </button>`).join('')||'<div class="vazio">Nenhum cliente.</div>'}`;
+  corpo.querySelectorAll('[data-vercli]').forEach(b=>b.onclick=()=>{ftEstado.contaId=b.dataset.vercli;ftEstado.mes=mesAtual();ftAba='cli';abrirFatura();});
+}
 async function carregarFatura(){
   const alvo=$('ft-res');if(!alvo)return;alvo.innerHTML='<div class="vazio">Calculando…</div>';
   try{
     const f=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes},120);
-    alvo.innerHTML=htmlVencimento(f)+htmlFatura(f,true);
-    const b=alvo.querySelector('[data-ir-tabela]');if(b)b.onclick=()=>{ftAba='tab';abrirFatura();};
-    ligarVencimento(alvo);
+    desenharCobrancas(alvo,f);
   }catch(e){alvo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
 }
-function htmlVencimento(f){
-  return `<form class="cad" id="ft-venc" style="margin-bottom:12px" autocomplete="off"><div class="lin" style="align-items:flex-end">
-    <label style="flex:0 1 200px">Vencimento da mensalidade<input id="ft-venc-dia" type="number" min="1" max="31" inputmode="numeric" placeholder="dia" value="${f.vencimentoDia||''}"></label>
-    <button class="btn" type="submit" id="ft-venc-btn">Salvar vencimento</button>
-    <span style="font-size:13px;color:var(--muted);flex:1 1 220px">Dia do mês em que este cliente paga. Aparece para ele na fatura.</span></div></form>`;
+function htmlCobranca(c,admin,online){
+  const [rot,cls]=SIT[c.situacao]||['',''];
+  const reloginho=c.situacao==='em_andamento';
+  const pg=c.pagamento;
+  return `<article class="cad" style="gap:8px;${c.situacao==='vencido'?'border:2px solid var(--bad);background:#FFF7F8':c.situacao==='pago'?'border-color:#A6E3C9':''}">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <b style="font-size:16px;color:var(--ink)">${esc(c.nome)}</b>
+      <span style="font-size:12px;color:var(--muted)">${c.tipo==='mensalidade'?`${c.mes.slice(5)}/${c.mes.slice(0,4)}`:`${dataBR(c.de).slice(0,5)} a ${dataBR(c.ate).slice(0,5)}`}</span>
+      <span class="st ${cls}">${rot}</span>
+      <span style="margin-left:auto;text-align:right"><b class="tab" style="font-size:24px;color:${c.situacao==='vencido'?'var(--bad-fg)':'var(--ink)'}">${brl(c.valor)}</b>
+        <span style="display:block;font-size:12px;color:var(--muted)">${pg?`pago em ${dataBR(pg.data)}`:reloginho?`até agora · fecha e vence ${dataBR(c.vencimento)}`:`vence ${dataBR(c.vencimento)}`}</span></span>
+    </div>
+    ${pg?`<div style="font-size:13px;color:var(--ok-fg);background:var(--ok-bg);border-radius:8px;padding:8px 10px">✓ ${brl(pg.valor)} · ${esc(pg.forma)} · ${dataBR(pg.data)}${pg.obs?` · ${esc(pg.obs)}`:''}${admin&&pg.registradoPor?` · registrado por ${esc(String(pg.registradoPor).split('@')[0])}`:''}
+      ${pg.comprovanteId?` · <button type="button" class="link" data-comp="${esc(pg.comprovanteId)}" style="color:var(--ok-fg)">ver comprovante</button>`:''}${pg.reciboUrl?` · <a href="${esc(pg.reciboUrl)}" target="_blank" rel="noopener" style="color:var(--ok-fg)">recibo InfinitePay</a>`:''}</div>`:''}
+    ${c.linhas.length?`<details><summary style="font-size:13px;font-weight:800;cursor:pointer;min-height:28px">O que foi cobrado (${c.linhas.length} ${c.linhas.length===1?'item':'itens'})</summary>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:6px">${c.linhas.map(l=>`<tr><td style="padding:6px 0;border-bottom:1px solid var(--line-soft)">${esc(l.nome)}</td><td class="tab" style="text-align:right;border-bottom:1px solid var(--line-soft)">${l.qtd} × ${brl(l.unit)}</td><td class="tab" style="text-align:right;font-weight:800;border-bottom:1px solid var(--line-soft)">${brl(l.total)}</td></tr>`).join('')}</table>
+      ${(c.full||[]).length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">Full: ${c.full.map(x=>`${dataBR(x.dataFull).slice(0,5)} (${x.etiquetas} etiquetas)`).join(', ')}</div>`:''}</details>`:'<span style="font-size:13px;color:var(--muted)">Nada cobrado ainda.</span>'}
+    ${admin&&!pg&&c.valor>0?`<div class="lin"><button class="btn pri" type="button" data-pagar="${esc(c.id)}">Registrar pagamento</button>${online?`<button class="btn" type="button" data-link="${esc(c.id)}">Copiar link de pagamento</button>`:''}</div><div id="pg-${esc(c.id)}"></div>`:''}
+    ${admin&&pg?`<div class="lin"><button class="btn" type="button" data-desfazer="${esc(c.id)}" style="min-height:38px;font-size:13px">Desfazer pagamento</button></div>`:''}
+  </article>`;
 }
-function ligarVencimento(alvo){
-  const f=alvo.querySelector('#ft-venc');if(!f)return;
-  f.onsubmit=async e=>{e.preventDefault();const b=$('ft-venc-btn');const dia=Number($('ft-venc-dia').value);
-    if(!(dia>=1&&dia<=31)){erro('Dia inválido','Coloque um dia entre 1 e 31.');return;}
+function desenharCobrancas(alvo,f){
+  const cs=f.cobrancas||[], atr=f.atrasadas||[];
+  alvo.innerHTML=`<form class="cad" id="ft-venc" autocomplete="off" style="margin-bottom:12px"><div class="lin" style="align-items:flex-end">
+      <label style="flex:0 1 190px">Vencimento da mensalidade<input id="ft-venc-dia" type="number" min="1" max="31" inputmode="numeric" placeholder="dia" value="${f.vencimentoDia||''}"></label>
+      <label style="flex:0 1 190px">Cobrar a partir de<input id="ft-desde" type="month" value="${esc(f.cobrancaDesde||'')}"></label>
+      <button class="btn" type="submit" id="ft-venc-btn">Salvar</button>
+      <span style="font-size:12px;color:var(--muted);flex:1 1 200px">${f.vencimentoDia?'':'<b style="color:var(--warn-fg)">Sem dia definido: usando dia 15.</b> '}Antes do mês de início não gera cobrança.</span></div></form>
+    ${!f.valoresDefinidos?'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:8px">A tabela de preços está com os valores iniciais. Confira em Tabela de preços.</div>':''}
+    ${atr.length?`<div class="cad" style="border:2px solid var(--bad);background:#FFF7F8;margin-bottom:12px;gap:8px"><h2 style="color:var(--bad-fg)">De meses anteriores, não pago · ${brl(atr.reduce((s,c)=>s+c.valor,0))}</h2>${atr.map(c=>htmlCobranca(c,true,f.pagamentoOnline)).join('')}</div>`:''}
+    <div style="display:flex;flex-direction:column;gap:10px">${cs.map(c=>htmlCobranca(c,true,f.pagamentoOnline)).join('')||'<div class="vazio">Nenhuma cobrança neste mês (antes do início da cobrança deste cliente).</div>'}</div>`;
+  $('ft-venc').onsubmit=async e=>{e.preventDefault();const b=$('ft-venc-btn');const dia=Number($('ft-venc-dia').value);
+    if($('ft-venc-dia').value&&!(dia>=1&&dia<=31)){erro('Dia inválido','Coloque um dia entre 1 e 31.');return;}
     b.disabled=true;b.textContent='Salvando…';
-    try{const r=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes,vencimentoDia:dia},120);
-      alvo.innerHTML=htmlVencimento(r)+htmlFatura(r,true);ligarVencimento(alvo);som(true);}
-    catch(err){b.disabled=false;b.textContent='Salvar vencimento';erro('Não salvou',esc(err.message));}};
+    try{const r=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes,vencimentoDia:$('ft-venc-dia').value?dia:undefined,cobrancaDesde:$('ft-desde').value||undefined},120);desenharCobrancas(alvo,r);som(true);}
+    catch(err){b.disabled=false;b.textContent='Salvar';erro('Não salvou',esc(err.message));}};
+  alvo.querySelectorAll('[data-pagar]').forEach(b=>b.onclick=()=>formPagamento(alvo,[...cs,...atr].find(c=>c.id===b.dataset.pagar)));
+  alvo.querySelectorAll('[data-comp]').forEach(b=>b.onclick=()=>verComprovantePag(b.dataset.comp));
+  alvo.querySelectorAll('[data-link]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;b.textContent='Gerando link…';
+    try{const r=await chamar('cobrancaLink',{id:b.dataset.link},60);
+      try{await navigator.clipboard.writeText(r.url);b.textContent='Link copiado ✓';}catch{prompt('Copie o link de pagamento:',r.url);b.textContent='Copiar link de pagamento';}}
+    catch(e){b.textContent='Copiar link de pagamento';erro('Sem link',esc(e.message));}
+    finally{b.disabled=false;}
+  });
+  alvo.querySelectorAll('[data-desfazer]').forEach(b=>b.onclick=async()=>{
+    if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmar: desfazer pagamento';b.style.color='var(--bad-fg)';return;}
+    b.disabled=true;try{await chamar('prepCobrancaPagar',{id:b.dataset.desfazer,desfazer:true});carregarFatura();}catch(e){b.disabled=false;erro('Não desfez',esc(e.message));}
+  });
 }
-// Usada aqui e na pagina do cliente (mesmo desenho)
-function htmlFatura(f,admin){
-  const fechado=f.mes<mesAtual();
-  const avisos=[];
-  if(!f.valoresDefinidos)avisos.push(`A tabela de preços está com os valores iniciais (mensalidade R$ 300, Flex R$ 1,20, Coleta/Agência/Correios R$ 1,50, Full R$ 0,90). Confira e salve a tabela.${admin?' <button class="link" type="button" data-ir-tabela style="color:var(--warn-fg)">Abrir tabela</button>':''}`);
-  if(f.semMedida)avisos.push(`${f.semMedida} pacote${f.semMedida>1?'s':''} sem medidas no cadastro do produto: ${f.semMedida>1?'foram cobrados':'foi cobrado'} no tamanho padrão. Cadastre as medidas em Produtos para cobrar certo.`);
-  const linhas=f.linhas.length?f.linhas.map(l=>`<tr><td style="padding:10px 12px;text-align:left">${esc(l.nome)}</td><td class="tab" style="padding:10px 8px;text-align:right">${l.qtd}</td><td class="tab" style="padding:10px 8px;text-align:right;color:var(--muted)">${brl(l.unit)}</td><td class="tab" style="padding:10px 12px;text-align:right;font-weight:800;color:var(--ink)">${brl(l.total)}</td></tr>`).join('')
-    :`<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--subtle)">Nada cobrado neste mês ainda.</td></tr>`;
-  const porFaixa={};(f.detalhes||[]).forEach(d=>{porFaixa[d.faixa]=(porFaixa[d.faixa]||0)+1;});
-  const porLog={};(f.detalhes||[]).forEach(d=>{porLog[d.modalidade]=(porLog[d.modalidade]||0)+1;});
-  const kpi=(t,v,s)=>`<div class="cad" style="gap:2px"><span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${t}</span><b class="tab" style="font-size:28px;color:var(--ink)">${v}</b>${s?`<span style="font-size:12px;color:var(--muted)">${s}</span>`:''}</div>`;
-  return `${avisos.map(a=>`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:8px">${a}</div>`).join('')}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
-    ${kpi(fechado?'Total do mês':'Até agora',brl(f.total),f.vencimentoDia?`mensalidade vence dia ${f.vencimentoDia}`:'')}
-    ${fechado?'':kpi('Previsão do mês',brl(f.projecao),'no ritmo atual')}
-    ${kpi('Pacotes finalizados',f.pacotes,Object.entries(porLog).map(([k,n])=>`${LOG_NOMES[k]||k} ${n}`).join(' · ')||'—')}
-    ${kpi('Etiquetas Full',f.etiquetasFull||0,`${(f.full||[]).length} envio${(f.full||[]).length===1?'':'s'} Full no mês`)}
-  </div>
-  <div class="quadro-wrap"><table class="quadro" style="min-width:0">
-    <thead><tr><th style="text-align:left;padding-left:12px">Item</th><th style="text-align:right">Qtd</th><th style="text-align:right">Valor un.</th><th style="text-align:right;padding-right:12px">Total</th></tr></thead>
-    <tbody>${linhas}</tbody>
-    <tfoot><tr><td colspan="3" style="text-align:left;padding:10px 12px;font-size:14px;color:var(--ink)">TOTAL</td><td class="tab" style="text-align:right;padding:10px 12px;font-size:16px;color:var(--ink)">${brl(f.total)}</td></tr></tfoot>
-  </table></div>
-  ${(f.full||[]).length?`<details class="cad" style="margin-top:12px"><summary style="font-weight:800;cursor:pointer;min-height:28px">Ver os envios Full do mês (${f.etiquetasFull} etiquetas)</summary>
-    <div style="margin-top:8px">${f.full.map(x=>`<div style="border-bottom:1px solid var(--line-soft);padding:8px 0;font-size:13px"><b>Full ${x.dataFull.split('-').reverse().slice(0,2).join('/')}</b>${x.inboundId?` · <span class="mono">${esc(x.inboundId)}</span>`:''} · ${x.etiquetas} etiquetas<div style="color:var(--muted)">${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(' · ')}</div></div>`).join('')}</div></details>`:''}
-  ${f.pacotes?`<details class="cad" style="margin-top:12px"><summary style="font-weight:800;cursor:pointer;min-height:28px">Ver os ${f.pacotes} pacotes (${Object.entries(porFaixa).map(([k,n])=>`${n} ${k}`).join(', ')})</summary>
-    <div class="hist" style="margin-top:8px">${(f.detalhes||[]).slice().sort((a,b)=>String(b.em).localeCompare(String(a.em))).map(d=>`<div style="display:flex;gap:10px;align-items:center;font-size:13px;border-bottom:1px solid var(--line-soft);padding:6px 0;flex-wrap:wrap"><span class="mono" style="color:var(--subtle)">${esc(d.shipmentId)}</span><span>${esc(LOG_NOMES[d.modalidade]||d.modalidade)}</span><span class="st neu">${esc(d.faixa)}</span>${d.semMedida?'<span class="st warn">sem medida</span>':''}<span style="margin-left:auto;color:var(--muted)">${d.em?diaMes(new Date(d.em))+' '+hora(new Date(d.em)):''}</span></div>`).join('')}</div></details>`:''}`;
+// Reduz foto do comprovante para caber no banco
+function lerComprovante(arq){
+  return new Promise((ok,falha)=>{
+    if(!arq)return ok(null);
+    const fr=new FileReader();
+    if(arq.type==='application/pdf'){
+      if(arq.size>700*1024)return falha(new Error('PDF grande demais (máx. 700 KB). Mande uma foto ou print do comprovante.'));
+      fr.onload=()=>ok({base64:String(fr.result).split(',')[1],mime:'application/pdf',nome:arq.name});fr.onerror=falha;fr.readAsDataURL(arq);return;
+    }
+    fr.onload=()=>{const img=new Image();img.onload=()=>{
+      const k=Math.min(1,1600/Math.max(img.width,img.height));const cv=document.createElement('canvas');cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);ok({base64:cv.toDataURL('image/jpeg',0.72).split(',')[1],mime:'image/jpeg',nome:arq.name});};
+      img.onerror=()=>falha(new Error('Não consegui ler a imagem'));img.src=fr.result;};
+    fr.onerror=falha;fr.readAsDataURL(arq);
+  });
+}
+function formPagamento(alvo,c){
+  const box=alvo.querySelector('#pg-'+CSS.escape(c.id));if(!box)return;
+  if(box.innerHTML){box.innerHTML='';return;}
+  box.innerHTML=`<form class="cad" style="background:var(--sunken);border-color:transparent" autocomplete="off">
+    <h2>Registrar pagamento · ${esc(c.nome)}</h2>
+    <div class="lin">
+      <label style="flex:0 1 150px">Valor pago (R$)<input name="valor" inputmode="decimal" value="${String(c.valor).replace('.',',')}"></label>
+      <label style="flex:0 1 170px">Data do pagamento<input name="data" type="date" value="${new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'})}"></label>
+      <label style="flex:0 1 200px">Forma<select name="forma"><option>Pix</option><option>Cartão (InfinitePay)</option><option>Link InfinitePay</option><option>Transferência</option><option>Dinheiro</option><option>Outro</option></select></label>
+    </div>
+    <label>Comprovante (foto, print ou PDF)<input name="arq" type="file" accept="image/*,application/pdf"></label>
+    <label>Observação<input name="obs" maxlength="300" placeholder="Ex.: pagou junto com a 2ª quinzena"></label>
+    <div class="lin"><button class="btn pri" type="submit">Confirmar pagamento</button><button class="btn" type="button" data-x>Cancelar</button></div></form>`;
+  const f=box.querySelector('form');
+  box.querySelector('[data-x]').onclick=()=>{box.innerHTML='';};
+  f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('[type=submit]');b.disabled=true;b.textContent='Salvando…';
+    try{
+      const comprovante=await lerComprovante(f.arq.files[0]);
+      await chamar('prepCobrancaPagar',{id:c.id,valor:numBR(f.valor.value),data:f.data.value,forma:f.forma.value,obs:f.obs.value,comprovante},120);
+      som(true);carregarFatura();
+    }catch(err){b.disabled=false;b.textContent='Confirmar pagamento';som(false);erro('Não salvou',esc(err.message));}};
+}
+async function verComprovantePag(id){
+  try{const r=await chamar('cobrancaComprovante',{comprovanteId:id});
+    if(r.mime==='application/pdf'){const w=window.open('','_blank');if(w)w.document.write(`<iframe src="data:application/pdf;base64,${r.base64}" style="border:0;width:100%;height:100vh"></iframe>`);return;}
+    telaCheia('#100D14',`<img class="foto-grande" alt="Comprovante de pagamento" src="data:${esc(r.mime)};base64,${r.base64}"><button class="btn" type="button" id="ov-ok">Fechar</button>`);
+  }catch(e){erro('Sem comprovante',esc(e.message));}
 }
 async function desenharTabela(){
   const corpo=$('ft-corpo');corpo.innerHTML='<div class="vazio">Carregando…</div>';
@@ -876,6 +946,9 @@ async function desenharTabela(){
     <div class="lin">${campo('ft-full','Por etiqueta colada (R$)',c.etiquetagemFull,'Conta pelos envios Full lançados no menu Full, no mês da data do Full')}</div>
     <details><summary style="font-weight:800;cursor:pointer;min-height:32px;color:var(--body)">Outras cobranças (opcional)</summary>
       <div class="lin" style="margin-top:8px">${campo('ft-receb','Por unidade recebida (R$)',c.porUnidadeRecebida)}${campo('ft-armaz','Armazenagem por unidade/mês (R$)',c.armazenagemPorUnidadeMes,'Cobra pelo estoque de hoje')}</div></details>
+    <h2 style="margin-top:6px">Pagamento online (InfinitePay)</h2>
+    <span style="font-size:13px;color:var(--muted)">Com a sua InfiniteTag, o cliente paga a cobrança por link (cartão de crédito ou Pix) e ela fica paga sozinha, com o recibo. Sem ela, só vale o pagamento que você registra.</span>
+    <div class="lin"><label>InfiniteTag (sem o $)<input id="ft-ip" value="${esc(c.infinitepayHandle||'')}" placeholder="ex.: realprep" autocapitalize="off" spellcheck="false"></label></div>
     <div id="ft-msg"></div>
     <div class="lin"><button class="btn pri" type="submit" id="ft-salvar">Salvar tabela</button></div>
   </form>`;
@@ -884,7 +957,7 @@ async function desenharTabela(){
     const faixas=[...corpo.querySelectorAll('[data-faixa]')].map(l=>{const o={};l.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.dataset.k==='nome'?i.value.trim():numBR(i.value);});return o;});
     const precos={};corpo.querySelectorAll('[data-preco]').forEach(i=>{const [m,f]=i.dataset.preco.split('|');(precos[m]=precos[m]||{})[f]=numBR(i.value);});
     const salvar={mensalidade:numBR($('ft-mensal').value),faixas,precos,semMedida:$('ft-sem').value,etiquetagemFull:numBR($('ft-full').value),
-      porUnidadeRecebida:numBR($('ft-receb').value),armazenagemPorUnidadeMes:numBR($('ft-armaz').value)};
+      porUnidadeRecebida:numBR($('ft-receb').value),armazenagemPorUnidadeMes:numBR($('ft-armaz').value),infinitepayHandle:$('ft-ip').value.trim()};
     try{await chamar('prepFaturaConfig',{salvar});$('ft-msg').innerHTML='<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Tabela salva. As faturas já usam os novos valores.</div>';som(true);}
     catch(err){$('ft-msg').innerHTML=`<div class="alerta bad">${esc(err.message)}</div>`;}
     finally{b.disabled=false;b.textContent='Salvar tabela';}

@@ -306,6 +306,7 @@ async function entrar(){
     }catch(e){$('conteudo').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
     if(!comoUid){$('conteudo').innerHTML='<div class="vazio">Ligue um cliente ao prep (ML Analyzer → Mentorados) para testar esta página.</div>';return;}
   }
+  if(await voltaDoPagamento())return;
   abrir('envios');
 }
 
@@ -316,7 +317,7 @@ document.querySelectorAll('.menu [data-v]').forEach(b=>b.onclick=()=>abrir(b.dat
 function abrir(v){
   vista=v;clearInterval(timer);
   document.querySelectorAll('.menu [data-v]').forEach(b=>b.dataset.v===v?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
-  ({envios:verEnvios,hist:verHistorico,estoque:verEstoque,fatura:verFatura,equipe:verEquipe})[v]();
+  return ({envios:verEnvios,hist:verHistorico,estoque:verEstoque,fatura:verFatura,equipe:verEquipe})[v]();
 }
 const carregando=()=>{$('conteudo').innerHTML='<div class="vazio">Carregando…</div>';};
 function falhou(e){
@@ -661,32 +662,75 @@ function formAviso(r){
 
 /* ── Fatura ────────────────────────────────────────────── */
 let fatMes='';
+const dataBR=iso=>iso?iso.split('-').reverse().join('/'):'';
+const SIT={pago:['Pago','ok'],vencido:['Vencida · não paga','bad'],em_aberto:['Em aberto','warn'],em_andamento:['Contando','neu'],sem_valor:['Sem valor','neu']};
+function cartaoCobranca(c,online){
+  const [rot,cls]=SIT[c.situacao]||['',''];const pg=c.pagamento;
+  const podePagar=online&&!pg&&c.valor>0&&c.situacao!=='em_andamento';
+  return `<article class="card" style="gap:8px;${c.situacao==='vencido'?'border:2px solid var(--bad);background:#FFF7F8':''}">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <b style="font-size:17px;color:var(--ink)">${esc(c.nome)}</b>
+      <span style="font-size:13px;color:var(--muted)">${c.tipo==='mensalidade'?`${c.mes.slice(5)}/${c.mes.slice(0,4)}`:`envios de ${dataBR(c.de).slice(0,5)} a ${dataBR(c.ate).slice(0,5)}`}</span>
+      <span class="st ${cls}">${rot}</span>
+      <span style="margin-left:auto;text-align:right"><b class="tab" style="font-size:26px;color:${c.situacao==='vencido'?'var(--bad-fg)':'var(--ink)'}">${brl(c.valor)}</b>
+      <span style="display:block;font-size:12px;color:var(--muted)">${pg?`pago em ${dataBR(pg.data)}`:c.situacao==='em_andamento'?`até agora · fecha e vence ${dataBR(c.vencimento)}`:`vence ${dataBR(c.vencimento)}`}</span></span>
+    </div>
+    ${pg?`<div class="alerta ok" style="font-size:13px">✓ Pago ${brl(pg.valor)} · ${esc(pg.forma)} · ${dataBR(pg.data)}${pg.comprovanteId?` · <button type="button" data-comp="${esc(pg.comprovanteId)}" style="border:0;background:none;color:inherit;font:inherit;text-decoration:underline;padding:0;cursor:pointer">ver comprovante</button>`:''}${pg.reciboUrl?` · <a href="${esc(pg.reciboUrl)}" target="_blank" rel="noopener" style="color:inherit">ver recibo</a>`:''}</div>`:''}
+    ${c.linhas.length?`<details><summary style="font-size:13px;font-weight:800;cursor:pointer;min-height:28px">O que está sendo cobrado</summary>
+      <div class="tabela" style="margin-top:6px"><table><thead><tr><th>Serviço</th><th>Qtd</th><th>Valor un.</th><th>Total</th></tr></thead>
+      <tbody>${c.linhas.map(l=>`<tr><td>${esc(l.nome)}</td><td class="tab">${l.qtd}</td><td class="tab" style="color:var(--muted)">${brl(l.unit)}</td><td class="tab" style="font-weight:800;color:var(--ink)">${brl(l.total)}</td></tr>`).join('')}</tbody></table></div>
+      ${(c.full||[]).length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${c.full.map(x=>`Full ${dataBR(x.dataFull).slice(0,5)}: ${x.etiquetas} etiquetas (${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(', ')})`).join('<br>')}</div>`:''}</details>`
+      :'<span style="font-size:13px;color:var(--muted)">Nada cobrado ainda.</span>'}
+    ${podePagar?`<div class="lin"><button class="btn pri" type="button" data-pagar="${esc(c.id)}">Pagar agora · cartão ou Pix</button></div>`:''}
+    ${!pg&&c.situacao==='em_andamento'?'<span style="font-size:12px;color:var(--muted)">O valor sobe a cada pacote enviado. Fecha no último dia da quinzena.</span>':''}
+  </article>`;
+}
 async function verFatura(){
   fatMes=fatMes||mesAtual();
   $('conteudo').innerHTML=`<div class="card"><div class="lin"><label style="flex:0 1 220px">Mês<input type="month" id="fat-mes" value="${esc(fatMes)}" max="${mesAtual()}"></label>
-    <span style="font-size:13px;color:var(--muted);flex:1 1 220px">O valor sobe a cada pacote finalizado. A previsão mostra quanto deve fechar no mês, no ritmo atual.</span></div></div>
+    <span style="font-size:13px;color:var(--muted);flex:1 1 220px">A mensalidade é cobrada uma vez por mês. Os envios são cobrados por quinzena: do dia 1 ao 15 vence no dia 15; do dia 16 ao fim do mês vence no último dia.</span></div></div>
     <div id="fat-res" style="display:flex;flex-direction:column;gap:12px"><div class="vazio">Calculando…</div></div>`;
   $('fat-mes').onchange=e=>{fatMes=e.target.value||mesAtual();verFatura();};
   let f;try{f=await chamar('clienteFatura',{mes:fatMes},120);}catch(e){$('fat-res').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
-  const fechado=fatMes<mesAtual();
-  let h='';
-  const pac=f.porConta.reduce((s,c)=>s+c.pacotes,0), etq=f.porConta.reduce((s,c)=>s+(c.etiquetasFull||0),0);
-  const venc=[...new Set(f.porConta.map(c=>c.vencimentoDia).filter(Boolean))];
-  h+=`<div class="kpis">
-    <div class="kpi"><span>${fechado?'Total do mês':'Até agora'}</span><b class="tab">${brl(f.total)}</b>${venc.length?`<small>mensalidade vence dia ${venc.join(' e ')}</small>`:''}</div>
-    ${fechado?'':`<div class="kpi"><span>Previsão do mês</span><b class="tab">${brl(f.projecao)}</b><small>no ritmo atual</small></div>`}
-    <div class="kpi"><span>Pacotes enviados</span><b class="tab">${pac}</b></div>
-    ${etq?`<div class="kpi"><span>Etiquetas Full</span><b class="tab">${etq}</b></div>`:''}
-  </div>`;
+  const todas=f.porConta.flatMap(c=>[...c.atrasadas,...c.cobrancas]);
+  const atr=f.porConta.flatMap(c=>c.atrasadas);
+  const vencido=todas.filter(c=>c.situacao==='vencido').reduce((s,c)=>s+c.valor,0);
+  const aberto=todas.filter(c=>c.situacao==='em_aberto'||c.situacao==='em_andamento').reduce((s,c)=>s+c.valor,0);
+  const pago=todas.filter(c=>c.situacao==='pago').reduce((s,c)=>s+(c.pagamento?.valor||c.valor),0);
+  let h=`<div class="kpis">
+    ${vencido?`<div class="kpi bad"><span>Vencido</span><b class="tab">${brl(vencido)}</b><small>não pago</small></div>`:''}
+    <div class="kpi"><span>Em aberto</span><b class="tab">${brl(aberto)}</b><small>ainda no prazo</small></div>
+    <div class="kpi"><span>Pago</span><b class="tab">${brl(pago)}</b></div></div>`;
   f.porConta.forEach(c=>{
-    h+=`${f.porConta.length>1?`<h2>${esc(c.conta)} · ${brl(c.total)}</h2>`:''}
-    <div class="tabela"><table><thead><tr><th>Serviço</th><th>Qtd</th><th>Valor un.</th><th>Total</th></tr></thead>
-    <tbody>${c.linhas.length?c.linhas.map(l=>`<tr><td>${esc(l.nome)}</td><td class="tab">${l.qtd}</td><td class="tab" style="color:var(--muted)">${brl(l.unit)}</td><td class="tab" style="font-weight:800;color:var(--ink)">${brl(l.total)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--subtle)">Nada cobrado neste mês ainda.</td></tr>'}</tbody>
-    <tfoot><tr><td colspan="3">Total</td><td class="tab">${brl(c.total)}</td></tr></tfoot></table></div>
-    <div style="font-size:12px;color:var(--muted)">${c.pacotes} pacotes finalizados · ${c.recebidas} unidades recebidas no mês · ${c.emEstoque} unidades em estoque hoje</div>
-    ${(c.full||[]).length?`<details class="card"><summary style="font-weight:800;cursor:pointer;min-height:28px;color:var(--ink)">Envios Full etiquetados no mês (${c.etiquetasFull} etiquetas)</summary>${c.full.map(x=>`<div style="border-top:1px solid var(--line-soft);padding-top:8px;font-size:14px"><b>Full ${x.dataFull.split('-').reverse().join('/')}</b>${x.inboundId?` · <span class="mono">${esc(x.inboundId)}</span>`:''} · ${x.etiquetas} etiquetas<div style="color:var(--muted);font-size:13px;margin-top:2px">${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(' · ')}</div></div>`).join('')}</details>`:''}`;
+    if(f.porConta.length>1)h+=`<h2>${esc(c.conta)}</h2>`;
+    if(c.atrasadas.length)h+=`<div class="alerta bad">De meses anteriores, não pago: ${brl(c.atrasadas.reduce((s,x)=>s+x.valor,0))}</div>${c.atrasadas.map(x=>cartaoCobranca(x,f.pagamentoOnline)).join('')}`;
+    h+=c.cobrancas.map(x=>cartaoCobranca(x,f.pagamentoOnline)).join('')||'<div class="vazio">Nenhuma cobrança neste mês.</div>';
   });
+  if(!f.pagamentoOnline&&todas.some(c=>!c.pagamento&&c.valor>0))h+='<span style="font-size:13px;color:var(--muted)">Para pagar, fale com o prep. Assim que o pagamento for registrado, a cobrança aparece como paga aqui.</span>';
   $('fat-res').innerHTML=h;
+  $('fat-res').querySelectorAll('[data-comp]').forEach(b=>b.onclick=async()=>{
+    try{const r=await chamar('cobrancaComprovante',{comprovanteId:b.dataset.comp});
+      const blob=await (await fetch(`data:${r.mime};base64,${r.base64}`)).blob();window.open(URL.createObjectURL(blob),'_blank');}
+    catch(e){alert(e.message);}
+  });
+  $('fat-res').querySelectorAll('[data-pagar]').forEach(b=>b.onclick=async()=>{
+    b.disabled=true;b.textContent='Abrindo o pagamento…';
+    try{const r=await chamar('cobrancaLink',{id:b.dataset.pagar},60);location.href=r.url;}
+    catch(e){b.disabled=false;b.textContent='Pagar agora · cartão ou Pix';$('fat-res').insertAdjacentHTML('afterbegin',`<div class="alerta bad">${esc(e.message)}</div>`);}
+  });
+}
+// Volta do checkout da InfinitePay: confirma na hora e abre a fatura
+async function voltaDoPagamento(){
+  const q=new URLSearchParams(location.search);
+  if(!q.get('pagamento'))return false;
+  const dados={order_nsu:q.get('order_nsu'),slug:q.get('slug'),transaction_nsu:q.get('transaction_nsu'),receipt_url:q.get('receipt_url')};
+  history.replaceState(null,'',location.pathname);
+  $('conteudo').innerHTML='<div class="vazio">Confirmando o pagamento…</div>';
+  let r={};try{if(dados.order_nsu)r=await chamar('cobrancaConfirmar',dados,60);}catch{}
+  await abrir('fatura');
+  const res=$('fat-res');
+  if(res)res.insertAdjacentHTML('afterbegin',r.ok?'<div class="alerta ok">Pagamento confirmado. Obrigado!</div>':'<div class="alerta warn">Recebemos a sua volta do pagamento. Se você pagou, a cobrança aparece como paga em alguns minutos.</div>');
+  return true;
 }
 
 /* ── Equipe do cliente ─────────────────────────────────── */
