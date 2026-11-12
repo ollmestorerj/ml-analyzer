@@ -414,7 +414,7 @@ const MOMENTOS=[
 ];
 function momentoDe(p){
   if(p.etapa==='problema')return 'problema';
-  if(p.etapa==='despachado')return 'despachado';
+  if(p.etapa==='despachado'||p.etapa==='enviado')return 'despachado';
   if(p.etapa==='pronto')return 'pronto';
   if(p.etapa==='etiquetado')return 'foto';
   if(p.aguardandoNF||!p.etiquetaLiberada)return 'nf';
@@ -517,10 +517,14 @@ function desenhar(){
   $('agora').innerHTML=`${agora.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'})}<br>atualizado ${hora(agora)}`;
 
   const naMesa=pedidos.filter(p=>p.momento!=='despachado');
-  const despHoje=pedidos.filter(p=>p.momento==='despachado');
+  // Feitos ficam no dia deles (o dia do prazo), marcados como feitos
+  const feitos=pedidos.filter(p=>p.momento==='despachado');
+  const feitosHoje=feitos.filter(p=>!p.paraAmanha), feitosAmanha=feitos.filter(p=>p.paraAmanha);
   const deHoje=naMesa.filter(p=>!p.paraAmanha), deAmanha=naMesa.filter(p=>p.paraAmanha);
-  $('d-hoje').textContent=`Hoje · ${deHoje.length}`;
-  $('d-amanha').textContent=deAmanha.length?`Amanhã · ${deAmanha.length}`:'Amanhã (a partir das 15h)';
+  const rotDia=(n,f)=>`${n} a fazer${f?` · ${f} ${f===1?'feito':'feitos'}`:''}`;
+  $('d-hoje').textContent=`Hoje · ${rotDia(deHoje.length,feitosHoje.length)}`;
+  $('d-amanha').textContent=deAmanha.length||feitosAmanha.length?`Amanhã · ${rotDia(deAmanha.length,feitosAmanha.length)}`:'Amanhã (a partir das 15h)';
+  const despHoje=dia==='hoje'?feitosHoje:feitosAmanha;
   $('d-hoje').setAttribute('aria-pressed',dia==='hoje');$('d-amanha').setAttribute('aria-pressed',dia==='amanha');
   const base=dia==='hoje'?deHoje:deAmanha;
 
@@ -541,10 +545,11 @@ function desenhar(){
   if(base.some(p=>!MODS.some(m=>m.id===p.modalidade)))mods.push(modDe('verificar'));
   const secoes=mods.map(m=>{
     const ps=base.filter(p=>m.id==='verificar'?!MODS.some(x=>x.id===p.modalidade):p.modalidade===m.id);
-    const desp=dia==='hoje'?despHoje.filter(p=>p.modalidade===m.id).length:0;
+    const feitosSec=despHoje.filter(p=>m.id==='verificar'?!MODS.some(x=>x.id===p.modalidade):p.modalidade===m.id);
+    const desp=feitosSec.length;
     if(!ps.length&&!desp)return '';
     const prontos=ps.filter(p=>p.momento==='pronto').length+desp, total=ps.length+desp;
-    const semComp=m.id==='correios'&&dia==='hoje'?despHoje.filter(p=>p.modalidade==='correios'&&!p.comprovante):[];
+    const semComp=m.id==='correios'?feitosSec.filter(p=>!p.comprovante):[];
     const pendente=ps.some(p=>p.momento!=='pronto')||semComp.length>0;
     const aberta=abertas[m.id]??pendente;
     const dica={flex:'Sai no dia',coleta:'Passa entre 13h e 14h',agencia:'Horário de cada conta',correios:'Horário de cada conta'}[m.id]||'Envio fora do padrão';
@@ -559,15 +564,36 @@ function desenhar(){
       ${aberta?`<div class="corpo-sec">${lotesDe(ps).map(loteHtml).join('')||(semComp.length?'':'<div class="vazio">Tudo finalizado</div>')}
         ${semComp.length?`<div class="lote" style="background:var(--warn-bg)"><div class="lote-l">
           <span class="qtd tab" style="text-align:center">${semComp.length}<small style="display:block;font-size:10px;font-weight:700;color:var(--muted);margin-top:2px">${semComp.length>1?'pacotes':'pacote'}</small></span>
-          <span class="info"><b>Sem comprovante de postagem</b><span style="color:var(--warn-fg)">Finalizados hoje · depois de postar, tire a foto do comprovante</span></span>
-          <button class="acao" type="button" data-acao="comprovante" data-id="${semComp.map(p=>esc(p.shipmentId)).join(',')}">Foto do comprovante</button></div></div>`:''}</div>`:''}
+          <span class="info"><b>Sem comprovante de postagem</b><span style="color:var(--warn-fg)">Já finalizados · depois de postar, tire a foto do comprovante</span></span>
+          <button class="acao" type="button" data-acao="comprovante" data-id="${semComp.map(p=>esc(p.shipmentId)).join(',')}">Foto do comprovante</button></div></div>`:''}
+        ${feitosSec.length?feitosHtml(m.id,feitosSec):''}</div>`:''}
     </section>`;
   }).join('');
   $('secoes').innerHTML=secoes||`<div class="vazio"><b>${dia==='hoje'?'Nada para sair hoje':'Nada para amanhã ainda'}</b>${dia==='hoje'?'Quando entrar venda de um cliente do prep, ela aparece aqui sozinha.':'As vendas de amanhã aparecem aqui a partir das 15h.'}</div>`;
   $('secoes').querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>{const id=b.dataset.sec;abertas[id]=b.getAttribute('aria-expanded')!=='true';desenhar();});
   $('secoes').querySelectorAll('[data-det]').forEach(b=>b.onclick=()=>{detAberto[b.dataset.det]=!detAberto[b.dataset.det];desenhar();});
+  $('secoes').querySelectorAll('[data-feitos]').forEach(b=>b.onclick=()=>{feitosAbertos[b.dataset.feitos]=!feitosAbertos[b.dataset.feitos];desenhar();});
   $('secoes').querySelectorAll('[data-acao]').forEach(b=>b.onclick=()=>acao(b.dataset.acao,b.dataset.id,b));
   if(exec)desenharExec();
+}
+
+// Pacotes ja feitos do dia, dentro da secao da logistica: ficam visiveis o dia todo
+const feitosAbertos={};
+function feitosHtml(mod,ps){
+  const aberto=feitosAbertos[mod];
+  const ord=ps.slice().sort((a,b)=>String(b.despachadoEm).localeCompare(String(a.despachadoEm)));
+  return `<div class="feitos" style="border-top:1px dashed var(--line);margin-top:6px;padding-top:6px">
+    <button type="button" data-feitos="${mod}" aria-expanded="${!!aberto}" style="width:100%;display:flex;align-items:center;gap:8px;border:0;background:none;padding:8px 4px;font:inherit;font-size:14px;font-weight:800;color:var(--ok-fg);cursor:pointer;min-height:40px">
+      ✓ ${ps.length} ${ps.length===1?'feito':'feitos'}<span style="font-weight:600;color:var(--muted)">· finalizados${ps.some(p=>p.etapa==='enviado')?` · ${ps.filter(p=>p.etapa==='enviado').length} já saíram no ML`:''}</span><span style="margin-left:auto">${aberto?'▴':'▾'}</span></button>
+    ${aberto?ord.map(p=>{const id=esc(p.shipmentId);const fim=p.despachadoEm?new Date(p.despachadoEm):null;
+      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 6px;border-radius:8px;background:var(--ok-bg);margin-bottom:6px">
+        <span style="font-weight:800;color:var(--ok-fg)">✓</span>
+        <span style="flex:1 1 220px;min-width:0;font-size:14px"><b style="color:var(--ink)">${esc(p.clienteNome||p.contaId)}</b> · ${(p.itens||[]).map(i=>`${i.qtd>1?i.qtd+'× ':''}${esc(i.titulo)}`).join(' + ')}
+          <span style="display:block;font-size:12px;color:var(--muted)"><span class="mono">envio ${id}</span>${fim?` · finalizado ${diaMes(fim)===diaMes(new Date())?'hoje':diaMes(fim)} às ${hora(fim)}`:''}${p.etapa==='enviado'?' · já saiu (ML)':''}${p.modalidade==='correios'?(p.comprovante?' · com comprovante':' · <b style="color:var(--warn-fg)">sem comprovante</b>'):''}</span></span>
+        <button type="button" class="btn" style="min-height:36px;font-size:13px" data-acao="verfoto" data-id="${id}">Ver foto</button>
+        ${p.etapa!=='enviado'?`<button type="button" class="btn" style="min-height:36px;font-size:13px" data-acao="etiqueta" data-id="${id}">Reimprimir</button>`:''}
+      </div>`;}).join(''):''}
+  </div>`;
 }
 
 // Lote = mesmo cliente + mesmos itens + mesmo momento (dentro da mesma logistica)
