@@ -613,7 +613,7 @@ function loteHtml(L){
     case 'bipar':
     case 'foto':    bt=`<button class="acao" type="button" data-acao="exec" data-id="${esc(p.shipmentId)}">Continuar</button>`;break;
     case 'pronto':  bt=`<button class="acao" type="button" data-acao="etiqueta" data-id="${ids}" style="background:#fff;color:var(--body);border:1px solid var(--line);margin-right:6px">Reimprimir</button><button class="acao" type="button" data-acao="despachar" data-id="${ids}">Finalizar</button>`;break;
-    case 'nf':      bt=`<button class="acao" type="button" disabled>Sem NF</button>`;break;
+    case 'nf':      bt=`<button class="acao" type="button" data-acao="atualizar" data-id="${esc(p.shipmentId)}" title="Pergunta ao Mercado Livre se a NF já saiu" style="background:#fff;color:var(--body);border:1px solid var(--line)">Já tem NF?</button>`;break;
     case 'problema':bt=`<button class="acao" type="button" data-acao="reabrir" data-id="${esc(p.shipmentId)}" style="background:#fff;color:var(--body);border:1px solid var(--line)">Resolvido</button>`;break;
   }
   const sub=[ROTULO[L.momento]];
@@ -635,6 +635,7 @@ function loteHtml(L){
       ${x.momento==='foto'?`<button type="button" data-acao="foto" data-id="${id}">Foto</button>`:''}
       ${x.momento!=='problema'?`<button type="button" data-acao="problema" data-id="${id}" style="color:var(--bad-fg)">Problema</button>`:''}
       <button type="button" data-acao="pendencia" data-id="${id}" style="color:var(--warn-fg)">Atraso do cliente</button>
+      <button type="button" data-acao="atualizar" data-id="${id}" title="Busca a situação atual deste envio no Mercado Livre">Atualizar do ML</button>
       </div>`;}).join('')}
       ${n>1&&L.momento!=='imprimir'?`<button type="button" class="btn" data-acao="folha" data-id="${ids}" style="min-height:40px">Folha de controle</button>`:''}
     </div>`:''}
@@ -1672,6 +1673,16 @@ async function acao(tipo,id,btn){
       await chamar('prepMudarEtapa',{shipmentId:id,etapa:'problema',motivo});carregar();return;
     }
     if(tipo==='reabrir'){await chamar('prepMudarEtapa',{shipmentId:id,etapa:'aberto'});carregar();return;}
+    if(tipo==='atualizar'){
+      btn.disabled=true;const txt=btn.textContent;btn.textContent='Consultando o ML…';
+      const r=await chamar('prepAtualizarEnvio',{shipmentId:id},60);
+      btn.disabled=false;btn.textContent=txt;
+      if(r.etapa==='enviado'){som(true);aviso(`Envio ${esc(id)}: o ML já deu como enviado. Saiu da fila e foi para o histórico.`);}
+      else if(r.etapa==='cancelado'){som(false);erro('Venda cancelada',`O ML cancelou o envio ${esc(id)}. Não envie.`);}
+      else if(r.aguardandoNF){aviso(`Envio ${esc(id)}: o ML ainda espera a NF do cliente.`);}
+      else aviso(`Envio ${esc(id)} atualizado${r.etiquetaLiberada?': etiqueta liberada, já dá para começar':''}.`);
+      carregar();return;
+    }
   }catch(e){btn.disabled=false;som(false);erro('Não deu certo',esc(e.message));}
 }
 
@@ -1981,6 +1992,7 @@ function telaCheia(cor,html,fechaSozinho){
   const b=$('ov-ok');if(b){b.onclick=fechar;b.focus();}
   if(fechaSozinho)setTimeout(fechar,fechaSozinho);
 }
+function aviso(msg){telaCheia('#1F7A55',`<div class="m" style="font-size:20px">${msg}</div><button class="btn" type="button" id="ov-ok">OK</button>`);}
 function erro(titulo,msg){telaCheia('#D32137',`<div class="g">${esc(titulo)}</div><div class="m">${msg}</div><button class="btn" type="button" id="ov-ok">Fechar</button>`);}
 // Som curto: agudo = certo, grave = errado (ninguem fica olhando a tela o tempo todo)
 let ac=null;
