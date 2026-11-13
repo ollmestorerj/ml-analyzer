@@ -926,8 +926,8 @@ function TabelaPedidos({pedidos,loading,multiConta,onRefresh,onIrParaAnuncios,pa
             {multiConta&&<div data-label="Conta" className="ell" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)'}}>{p.conta}</div>}
             <div data-label="Venda" style={{minWidth:0}}><NumVenda id={p.id}/></div>
             <div data-label="SKU" className="ell mono so-desktop" title={p.sku} style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.sku}</div>
-            <div data-label="Data" className="mono so-desktop" title={p.dataISO?new Date(p.dataISO).toLocaleString('pt-BR'):undefined}
-              style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.data}</div>
+            <div data-label="Data" className="mono so-desktop" title={p.dataISO?new Date(p.dataISO).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):undefined}
+              style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>{p.dataISO?new Date(p.dataISO).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):p.data}</div>
             <div data-label="Quantidade" className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-semibold)',textAlign:'right'}}>{p.qtde}</div>
             <div data-label="Valor" className="tab" style={{fontSize:'var(--text-sm)',fontWeight:'var(--weight-bold)',color:'var(--text-strong)',textAlign:'right'}}>{BRL(p.valor)}</div>
             <div data-label="Tarifa" className="tab so-desktop" style={{fontSize:'var(--text-xs)',color:'var(--text-muted)',textAlign:'right'}}>{BRL(p.tarifa)}</div>
