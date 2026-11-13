@@ -636,6 +636,7 @@ function loteHtml(L){
       ${x.momento!=='problema'?`<button type="button" data-acao="problema" data-id="${id}" style="color:var(--bad-fg)">Problema</button>`:''}
       <button type="button" data-acao="pendencia" data-id="${id}" style="color:var(--warn-fg)">Atraso do cliente</button>
       <button type="button" data-acao="atualizar" data-id="${id}" title="Busca a situação atual deste envio no Mercado Livre">Atualizar do ML</button>
+      ${x.momento!=='despachado'?`<button type="button" data-acao="baixa" data-id="${id}" title="O pacote já saiu (despachado direto no ML): finaliza aqui e baixa o estoque">Já saiu · dar baixa</button>`:''}
       </div>`;}).join('')}
       ${n>1&&L.momento!=='imprimir'?`<button type="button" class="btn" data-acao="folha" data-id="${ids}" style="min-height:40px">Folha de controle</button>`:''}
     </div>`:''}
@@ -1680,7 +1681,15 @@ async function acao(tipo,id,btn){
       if(r.etapa==='enviado'){som(true);aviso(`Envio ${esc(id)}: o ML já deu como enviado. Saiu da fila e foi para o histórico.`);}
       else if(r.etapa==='cancelado'){som(false);erro('Venda cancelada',`O ML cancelou o envio ${esc(id)}. Não envie.`);}
       else if(r.aguardandoNF){aviso(`Envio ${esc(id)}: o ML ainda espera a NF do cliente.`);}
-      else aviso(`Envio ${esc(id)} atualizado${r.etiquetaLiberada?': etiqueta liberada, já dá para começar':''}.`);
+      else aviso(`Envio ${esc(id)} atualizado${r.etiquetaLiberada?': etiqueta liberada, já dá para começar':''}.<br><span style="font-size:14px;opacity:.85">No ML: ${esc(r.statusML||'')}${r.substatusML?' · '+esc(r.substatusML):''}. Se o pacote já saiu, use <b>Já saiu · dar baixa</b>.</span>`);
+      carregar();return;
+    }
+    if(tipo==='baixa'){
+      if(btn.dataset.ok!=='1'){btn.dataset.ok='1';btn.textContent='Confirmar: já saiu';btn.style.color='var(--bad-fg)';btn.style.borderColor='var(--bad)';return;}
+      btn.disabled=true;btn.textContent='Dando baixa…';
+      const r=await chamar('prepMudarEtapa',{shipmentId:id,etapa:'despachado',manual:true,motivo:'Despachado direto no ML'});
+      if(r.cancelado){som(false);erro('Venda cancelada',`O ML cancelou o envio ${esc(id)}. Não envie.`);carregar();return;}
+      som(true);aviso(`Envio ${esc(id)} finalizado. Saiu da fila${r.semVinculo?'':' e o estoque foi baixado'}.`);
       carregar();return;
     }
   }catch(e){btn.disabled=false;som(false);erro('Não deu certo',esc(e.message));}
