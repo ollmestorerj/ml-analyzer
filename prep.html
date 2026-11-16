@@ -150,6 +150,21 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .prow{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .prow .sku{font-family:'JetBrains Mono',Menlo,monospace;font-size:13px;font-weight:600;color:var(--ink);background:var(--sunken);padding:4px 8px;border-radius:6px}
 .prow .est{margin-left:auto;text-align:right;line-height:1.1}
+.estq{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.estq>div{background:var(--sunken);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.estq span{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;line-height:1.2}
+.estq b{font-size:24px;font-weight:800;color:var(--ink);line-height:1.1}
+.estq small{font-size:11px;color:var(--muted)}
+.estq .bom{background:var(--ok-bg)}.estq .bom b{color:var(--ok-fg)}
+.estq .ruim{background:var(--bad-bg)}.estq .ruim b{color:var(--bad-fg)}
+.estq .zero b{color:var(--muted)}
+details.mais{position:relative}
+details.mais>summary{list-style:none;display:inline-flex;align-items:center}
+details.mais>summary::-webkit-details-marker{display:none}
+details.mais>div{position:absolute;z-index:20;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 28px -12px rgba(17,17,17,.35);padding:6px;display:flex;flex-direction:column;min-width:260px}
+details.mais>div button{border:0;background:none;text-align:left;font:inherit;font-size:14px;font-weight:600;color:var(--ink);padding:10px 12px;border-radius:8px;cursor:pointer;min-height:40px}
+details.mais>div button:hover{background:var(--sunken)}
+@media(max-width:520px){.estq b{font-size:20px}.estq small{display:none}details.mais>div{left:auto;right:0}}
 .prow .est b{font-size:22px;font-weight:800;color:var(--ink)}
 .prow .est span{display:block;font-size:11px;color:var(--muted);font-weight:700}
 .chip-sku{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:var(--ok-bg);color:var(--ok-fg);font-size:12px;font-weight:800}
@@ -1237,6 +1252,7 @@ async function abrirProdutos(){
   desenharProdutos();
 }
 $('pr-cli').onchange=()=>{$('pr-form').innerHTML='';desenharProdutos();};
+document.addEventListener('click',e=>{if(!e.target.closest('details.mais'))document.querySelectorAll('details.mais[open]').forEach(d=>{d.open=false;});});
 $('pr-t-prod').onclick=()=>{prAba='prod';desenharProdutos();};
 $('pr-t-anu').onclick=()=>{prAba='anu';desenharProdutos();};
 $('pr-contar').onclick=()=>abrirContagem();
@@ -1252,28 +1268,43 @@ async function desenharProdutos(){
       const ps=await produtosDe(contaId,true);
       if(!ps.length){$('pr-lista').innerHTML='<div class="vazio"><b>Nenhum produto cadastrado</b>Toque em "+ Novo produto" para cadastrar o primeiro. O SKU é gerado sozinho.</div>';return;}
       const cm=m=>[m.altura,m.largura,m.comprimento].every(Boolean)?`${m.altura}×${m.largura}×${m.comprimento} cm`:'sem medidas';
-      $('pr-lista').innerHTML=ps.map(p=>`<div class="prow">
+      const tot={pr:0,vd:0,lv:0,falta:0};ps.forEach(p=>{tot.pr+=p.estoque||0;tot.vd+=p.reservado||0;const l=p.disponivel??p.estoque;if(l<0)tot.falta++;else tot.lv+=l;});
+      $('pr-lista').innerHTML=`<div class="cad" style="gap:6px;font-size:13px;color:var(--body)">
+          <div class="estq">
+            <div><span>Na prateleira</span><b class="tab">${tot.pr}</b><small>o que está aqui no galpão</small></div>
+            <div><span>Vendido, falta enviar</span><b class="tab">${tot.vd}</b><small>já vendeu no ML, ainda não saiu</small></div>
+            <div><span>Livre para vender</span><b class="tab">${tot.lv}</b><small>prateleira menos o vendido</small></div>
+          </div>
+          ${tot.falta?`<div class="alerta bad" style="margin:0">${tot.falta} produto${tot.falta>1?'s vendeu':' vendeu'} mais do que tem na prateleira. Veja abaixo o que fazer.</div>`:''}
+        </div>`+ps.map(p=>{
+        const livre=p.disponivel??p.estoque,vend=p.reservado||0,prat=p.estoque||0,falta=livre<0?-livre:0;
+        return `<div class="prow" style="${falta?'border:2px solid var(--bad)':''}">
         <span class="sku">${esc(p.sku)}</span>
         <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px"><b style="font-size:15px;color:var(--ink)">${esc(p.nome)}</b>
-          <span style="font-size:12px;color:var(--muted)">${cm(p.medidas||{})}${p.medidas?.peso?' · '+p.medidas.peso+' g':''}${p.prateleira?' · prateleira '+esc(p.prateleira):''}${p.eans?.length?' · cód. '+esc(p.eans.join(', ')):''}</span></div>
-        <div class="est"><b class="tab" style="${(p.disponivel??p.estoque)<=0?'color:var(--bad-fg)':''}">${p.disponivel??p.estoque}</b><span>disponível</span></div>
-        <div style="width:100%;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
-          <span>Na prateleira: <b class="tab" style="color:var(--ink)">${p.estoque}</b></span>
-          <span>Reservado (vendido, no galpão): <b class="tab" style="color:var(--ink)">${p.reservado||0}</b></span>
-          ${p.ultimaContagem?`<span>Última contagem: ${diaMes(new Date(p.ultimaContagem))}</span>`:''}</div>
-        <div style="display:flex;gap:6px;width:100%;flex-wrap:wrap">
-          <button class="btn" type="button" style="min-height:38px" data-pm="entrada" data-sku="${esc(p.sku)}">+ Entrada</button>
-          <button class="btn" type="button" style="min-height:38px" data-pm="saida" data-sku="${esc(p.sku)}">− Saída</button>
-          <button class="btn" type="button" style="min-height:38px" data-pm="ajuste" data-sku="${esc(p.sku)}">Corrigir estoque</button>
-          <button class="btn" type="button" style="min-height:38px" data-pv="${esc(p.sku)}">Movimentos</button>
-          <button class="btn" type="button" style="min-height:38px" data-pe="${esc(p.sku)}">Editar</button>
-          <button class="btn" type="button" style="min-height:38px" data-pl="${esc(p.sku)}">Etiqueta do SKU</button></div>
+          <span style="font-size:12px;color:var(--muted)">${cm(p.medidas||{})}${p.medidas?.peso?' · '+p.medidas.peso+' g':''}${p.prateleira?' · prateleira '+esc(p.prateleira):''}${p.ultimaContagem?' · contado em '+diaMes(new Date(p.ultimaContagem)):''}</span></div>
+        <div class="estq" style="width:100%">
+          <div><span>Na prateleira</span><b class="tab">${prat}</b></div>
+          <div><span>Vendido, falta enviar</span><b class="tab">${vend}</b></div>
+          <div class="${falta?'ruim':livre===0?'zero':'bom'}"><span>Livre para vender</span><b class="tab">${falta?0:livre}</b></div>
+        </div>
+        ${falta?`<div class="alerta bad" style="width:100%;margin:0;font-size:13px"><b>Faltam ${falta} unidade${falta>1?'s':''}.</b> Tem ${vend} vendida${vend>1?'s':''} esperando envio e só ${prat} na prateleira. Se a mercadoria chegou, toque em <b>Chegou mercadoria</b>. Se a prateleira tem outro número, toque em <b>Contei a prateleira</b>.</div>`
+          :livre===0&&!vend?'<span style="width:100%;font-size:12px;color:var(--muted)">Sem estoque no galpão.</span>':''}
+        <div style="display:flex;gap:6px;width:100%;flex-wrap:wrap;align-items:center">
+          <button class="btn pri" type="button" style="min-height:40px" data-pm="entrada" data-sku="${esc(p.sku)}">Chegou mercadoria</button>
+          <button class="btn" type="button" style="min-height:40px" data-pm="ajuste" data-sku="${esc(p.sku)}">Contei a prateleira</button>
+          <details class="mais"><summary class="btn" style="min-height:40px">Mais</summary><div>
+            <button type="button" data-pv="${esc(p.sku)}">Histórico de entradas e saídas</button>
+            <button type="button" data-pm="saida" data-sku="${esc(p.sku)}">Tirar unidades (avaria, devolução ao cliente)</button>
+            <button type="button" data-pe="${esc(p.sku)}">Editar produto</button>
+            <button type="button" data-pl="${esc(p.sku)}">Imprimir etiqueta do SKU</button></div></details></div>
         <div id="mv-${esc(p.sku)}" style="width:100%"></div>
-      </div>`).join('');
+      </div>`;}).join('');
       $('pr-lista').querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>formMovimento(ps.find(p=>p.sku===b.dataset.sku),b.dataset.pm));
       $('pr-lista').querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>verMovimentos(b.dataset.pv));
       $('pr-lista').querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>formProduto(ps.find(p=>p.sku===b.dataset.pe)));
       $('pr-lista').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>etiquetaSku(ps.find(p=>p.sku===b.dataset.pl)));
+      $('pr-lista').querySelectorAll('details.mais').forEach(d=>{d.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{d.open=false;}));
+        d.addEventListener('toggle',()=>{if(d.open)$('pr-lista').querySelectorAll('details.mais[open]').forEach(o=>{if(o!==d)o.open=false;});});});
     }else{
       const [r,ps]=await Promise.all([chamar('prepAnunciosConta',{contaId},120),produtosDe(contaId)]);
       const an=r.anuncios||[];
@@ -1364,12 +1395,12 @@ function formEntrada(p){
 function formMovimento(p,tipo){
   if(tipo==='entrada')return formEntrada(p);
   const alvo=document.getElementById('mv-'+p.sku);
-  const tit={entrada:'Entrada de estoque',saida:'Saída de estoque',ajuste:'Corrigir estoque para o valor certo'}[tipo];
-  const dica={entrada:'Ex.: chegou sem aviso, devolução de comprador',saida:'Ex.: avaria no galpão, cliente retirou',ajuste:'Ex.: contagem rápida, erro de lançamento'}[tipo];
+  const tit={entrada:'Entrada de estoque',saida:'Tirar unidades da prateleira',ajuste:'Contei a prateleira: quantas tem?'}[tipo];
+  const dica={entrada:'Ex.: chegou sem aviso, devolução de comprador',saida:'Ex.: avaria no galpão, cliente retirou',ajuste:'Ex.: contagem do dia, achei mais caixas'}[tipo];
   alvo.innerHTML=`<form class="cad" style="margin-top:6px" autocomplete="off"><h2>${tit}</h2>
-    <div class="lin"><label style="flex:0 0 140px">${tipo==='ajuste'?'Estoque certo':'Quantidade'}<input name="q" inputmode="numeric" value="${tipo==='ajuste'?p.estoque:''}" required></label>
+    <div class="lin"><label style="flex:0 0 160px">${tipo==='ajuste'?'Tem na prateleira':'Quantidade'}<input name="q" inputmode="numeric" value="${tipo==='ajuste'?p.estoque:''}" required></label>
       <label>Motivo<input name="m" placeholder="${dica}" required></label></div>
-    <span style="font-size:12px;color:var(--muted)">Hoje na prateleira: <b>${p.estoque}</b>. Fica registrado quem fez e quando.</span>
+    <span style="font-size:12px;color:var(--muted)">${tipo==='ajuste'?`Conte o que está fisicamente na prateleira, <b>incluindo</b> o que já foi vendido e ainda não saiu. `:''}O sistema diz que tem <b>${p.estoque}</b>. Fica registrado quem fez e quando.</span>
     <div class="lin"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-x>Cancelar</button></div></form>`;
   const f=alvo.querySelector('form');f.q.focus();
   alvo.querySelector('[data-x]').onclick=()=>{alvo.innerHTML='';};
