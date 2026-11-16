@@ -1022,7 +1022,8 @@ async function desenharTabela(){
       <label style="flex:1 1 110px">Peso até (g)<input data-k="maxPeso" inputmode="decimal" value="${esc(v(f.maxPeso))}"></label></div>`).join('')}</div>
     <div class="lin"><label>Produto sem medidas cobra como<select id="ft-sem">${(c.faixas||[]).map(f=>`<option ${f.nome===c.semMedida?'selected':''}>${esc(f.nome)}</option>`).join('')}</select></label></div>
     <h2 style="margin-top:6px">Etiquetagem Full</h2>
-    <div class="lin">${campo('ft-full','Por etiqueta colada (R$)',c.etiquetagemFull,'Conta pelos envios Full lançados no menu Full, no mês da data do Full')}</div>
+    <div class="lin">${campo('ft-full','Por etiqueta colada (R$)',c.etiquetagemFull,'Conta pelos envios Full lançados no menu Full, no mês da data do Full')}
+      ${campo('ft-fullenv','Frete do Full, quando nós levamos (R$ por envio)',c.envioFull||0,'Valor que já vem preenchido ao marcar "Nós levamos" no envio Full. Dá para mudar em cada envio.')}</div>
     <details><summary style="font-weight:800;cursor:pointer;min-height:32px;color:var(--body)">Outras cobranças (opcional)</summary>
       <div class="lin" style="margin-top:8px">${campo('ft-receb','Por unidade recebida (R$)',c.porUnidadeRecebida)}${campo('ft-armaz','Armazenagem por unidade/mês (R$)',c.armazenagemPorUnidadeMes,'Cobra pelo estoque de hoje')}</div></details>
     <h2 style="margin-top:6px">Pagamento online (InfinitePay)</h2>
@@ -1039,7 +1040,7 @@ async function desenharTabela(){
     e.preventDefault();const b=$('ft-salvar');b.disabled=true;b.textContent='Salvando…';
     const faixas=[...corpo.querySelectorAll('[data-faixa]')].map(l=>{const o={};l.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.dataset.k==='nome'?i.value.trim():numBR(i.value);});return o;});
     const precos={};corpo.querySelectorAll('[data-preco]').forEach(i=>{const [m,f]=i.dataset.preco.split('|');(precos[m]=precos[m]||{})[f]=numBR(i.value);});
-    const salvar={mensalidade:numBR($('ft-mensal').value),faixas,precos,semMedida:$('ft-sem').value,etiquetagemFull:numBR($('ft-full').value),
+    const salvar={mensalidade:numBR($('ft-mensal').value),faixas,precos,semMedida:$('ft-sem').value,etiquetagemFull:numBR($('ft-full').value),envioFull:numBR($('ft-fullenv').value),
       porUnidadeRecebida:numBR($('ft-receb').value),armazenagemPorUnidadeMes:numBR($('ft-armaz').value),infinitepayHandle:$('ft-ip').value.trim(),
       chavePix:$('ft-pix').value.trim(),recebedorPix:$('ft-pixnome').value.trim()};
     try{await chamar('prepFaturaConfig',{salvar});$('ft-msg').innerHTML='<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Tabela salva. As faturas já usam os novos valores.</div>';som(true);}
@@ -1077,6 +1078,7 @@ async function listarFull(){
       ${x.inboundId?`<span class="mono" style="font-size:12px;color:var(--muted)">${esc(x.inboundId)}</span>`:''}
       <b class="tab" style="margin-left:auto;font-size:20px;color:var(--ink)">${x.etiquetas}<span style="font-size:12px;color:var(--muted);font-weight:700"> etiquetas</span></b></div>
     <div style="font-size:13px;color:var(--body)">${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}${i.sku?` <span class="mono" style="color:var(--muted)">${esc(i.sku)}</span>`:''}`).join('<br>')}</div>
+    ${x.envioPorNos?`<div style="font-size:13px;color:var(--ink)"><b>Nós levamos</b> · frete ${brl(x.valorEnvio||0)}${x.volumes?` · ${x.volumes} volume${x.volumes>1?'s':''}`:''}</div>`:''}
     ${x.obs?`<div style="font-size:12px;color:var(--muted)">${esc(x.obs)}</div>`:''}
     <div class="lin"><button class="btn" type="button" data-fe="${esc(x.id)}">Editar</button><button class="btn" type="button" data-fd="${esc(x.id)}">Apagar</button>
       <span style="font-size:12px;color:var(--muted);margin-left:auto">${esc(String(x.criadoPor||'').split('@')[0])}</span></div>
@@ -1087,9 +1089,12 @@ async function listarFull(){
     b.disabled=true;try{await chamar('prepFullRemover',{id:b.dataset.fd});listarFull();}catch(e){b.disabled=false;erro('Não apagou',esc(e.message));}
   });
 }
+let freteFullPadrao=null;
 async function formFull(x){
   const alvo=$('full-form');
   let prods=[];try{prods=await produtosLeve(fullCli);}catch{}
+  if(freteFullPadrao===null){try{freteFullPadrao=(await chamar('prepFaturaConfig',{})).envioFull||0;}catch{freteFullPadrao=0;}}
+  let envio={porNos:Boolean(x?.envioPorNos),valor:x?.valorEnvio??freteFullPadrao,volumes:x?.volumes||''};
   let itens=x?x.itens.map(i=>({...i})):[{nome:'',sku:null,qtd:''}];
   const rotulo=p=>`${p.sku} · ${p.nome}`;
   const desenhar=()=>{
@@ -1104,10 +1109,19 @@ async function formFull(x){
         <label style="flex:0 1 130px">Etiquetas<input data-i="${k}" data-k="qtd" type="number" min="1" inputmode="numeric" value="${esc(i.qtd)}"></label>
         <button class="btn" type="button" data-rm="${k}" ${itens.length===1?'disabled':''}>Tirar</button></div>`).join('')}</div>
       <div class="lin"><button class="btn" type="button" id="full-add">+ Outro produto</button><b class="tab" id="full-total" style="margin-left:auto;font-size:16px;color:var(--ink)">Total: ${total} etiquetas</b></div>
-      <label>Observação (opcional)<input id="full-obs" value="${esc(x?.obs||'')}" maxlength="300"></label>
+      <div style="background:var(--sunken);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px">
+        <label style="flex:0 0 auto;flex-direction:row;align-items:center;gap:10px;font-weight:700;color:var(--ink)"><input type="checkbox" id="full-porn" ${envio.porNos?'checked':''} style="width:22px;height:22px;min-height:0">Nós levamos este Full até o Mercado Livre (cobra o frete)</label>
+        <div class="lin" id="full-env-lin" ${envio.porNos?'':'hidden'}>
+          <label style="flex:0 1 200px">Frete (R$)<input id="full-val" inputmode="decimal" value="${esc(String(envio.valor??'').replace('.',','))}"></label>
+          <label style="flex:0 1 160px">Volumes (opcional)<input id="full-vol" type="number" min="0" inputmode="numeric" value="${esc(envio.volumes)}" placeholder="caixas"></label>
+          <span style="font-size:12px;color:var(--muted);flex:1 1 200px">${freteFullPadrao?`Valor da tabela: ${brl(freteFullPadrao)}.`:'Sem valor padrão: cadastre em Fatura → Tabela de preços.'} Entra na fatura junto com a etiquetagem, pela data do Full.</span></div>
+      </div>
+      <div class="lin"><label>Observação (opcional)<input id="full-obs" value="${esc(x?.obs||'')}" maxlength="300"></label></div>
       <div class="lin"><button class="btn pri" type="submit" id="full-salvar">Salvar envio Full</button><button class="btn" type="button" id="full-x">Cancelar</button></div>
     </form>`;
-    const ler=()=>{x={...(x||{}),dataFull:$('full-data').value,inboundId:$('full-inb').value,obs:$('full-obs').value,id:x?.id};};
+    const ler=()=>{x={...(x||{}),dataFull:$('full-data').value,inboundId:$('full-inb').value,obs:$('full-obs').value,id:x?.id};
+      envio={porNos:$('full-porn').checked,valor:$('full-val').value,volumes:$('full-vol').value};};
+    $('full-porn').onchange=e=>{$('full-env-lin').hidden=!e.target.checked;};
     alvo.querySelectorAll('[data-i]').forEach(inp=>inp.oninput=()=>{
       const it=itens[inp.dataset.i];
       if(inp.dataset.k==='qtd'){it.qtd=inp.value;$('full-total').textContent=`Total: ${itens.reduce((s,i)=>s+(Math.round(Number(i.qtd))||0),0)} etiquetas`;}
@@ -1121,7 +1135,9 @@ async function formFull(x){
       if(!x.dataFull){erro('Falta a data','Coloque a data marcada do Full.');return;}
       if(!lista.length||lista.some(i=>!i.nome||i.qtd<1)){erro('Confira os produtos','Cada linha precisa do produto e de quantas etiquetas.');return;}
       const b=$('full-salvar');b.disabled=true;b.textContent='Salvando…';
-      try{await chamar('prepFullSalvar',{id:x.id||null,contaId:fullCli,dataFull:x.dataFull,inboundId:x.inboundId,itens:lista,obs:x.obs});
+      if(envio.porNos&&!(numBR(envio.valor)>0)&&b.dataset.ok!=='1'){b.disabled=false;b.textContent='Salvar mesmo com frete R$ 0';b.dataset.ok='1';return;}
+      try{await chamar('prepFullSalvar',{id:x.id||null,contaId:fullCli,dataFull:x.dataFull,inboundId:x.inboundId,itens:lista,obs:x.obs,
+        envioPorNos:envio.porNos,valorEnvio:envio.porNos?String(envio.valor).replace(',','.'):null,volumes:envio.volumes});
         som(true);alvo.innerHTML='';listarFull();}
       catch(err){b.disabled=false;b.textContent='Salvar envio Full';erro('Não salvou',esc(err.message));}};
   };
