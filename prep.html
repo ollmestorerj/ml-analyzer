@@ -158,6 +158,9 @@ h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:u
 .estq .bom{background:var(--ok-bg)}.estq .bom b{color:var(--ok-fg)}
 .estq .ruim{background:var(--bad-bg)}.estq .ruim b{color:var(--bad-fg)}
 .estq .zero b{color:var(--muted)}
+.estq button.vend{background:var(--sunken);border:0;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left;font:inherit;cursor:pointer}
+.estq button.vend:not(:disabled):hover{outline:2px solid var(--orange)}
+.estq button.vend small{display:block;color:var(--orange-d);font-weight:800}
 details.mais{position:relative}
 details.mais>summary{list-style:none;display:inline-flex;align-items:center}
 details.mais>summary::-webkit-details-marker{display:none}
@@ -1292,7 +1295,7 @@ async function desenharProdutos(){
           <span style="font-size:12px;color:var(--muted)">${cm(p.medidas||{})}${p.medidas?.peso?' · '+p.medidas.peso+' g':''}${p.prateleira?' · prateleira '+esc(p.prateleira):''}${p.ultimaContagem?' · contado em '+diaMes(new Date(p.ultimaContagem)):''}</span></div>
         <div class="estq" style="width:100%">
           <div><span>Na prateleira</span><b class="tab">${prat}</b></div>
-          <div><span>Vendido, falta enviar</span><b class="tab">${vend}</b></div>
+          <button type="button" class="vend" data-vend="${esc(p.sku)}" ${vend?'':'disabled'}><span>Vendido, falta enviar</span><b class="tab">${vend}</b>${vend?'<small>ver as vendas ›</small>':''}</button>
           <div class="${falta?'ruim':livre===0?'zero':'bom'}"><span>Livre para vender</span><b class="tab">${falta?0:livre}</b></div>
         </div>
         ${falta?`<div class="alerta bad" style="width:100%;margin:0;font-size:13px"><b>Faltam ${falta} unidade${falta>1?'s':''}.</b> Tem ${vend} vendida${vend>1?'s':''} esperando envio e só ${prat} na prateleira. Se a mercadoria chegou, toque em <b>Chegou mercadoria</b>. Se a prateleira tem outro número, toque em <b>Contei a prateleira</b>.</div>`
@@ -1309,6 +1312,7 @@ async function desenharProdutos(){
       </div>`;}).join('');
       $('pr-lista').querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>formMovimento(ps.find(p=>p.sku===b.dataset.sku),b.dataset.pm));
       $('pr-lista').querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>verMovimentos(b.dataset.pv));
+      $('pr-lista').querySelectorAll('[data-vend]').forEach(b=>b.onclick=()=>verVendidos(ps.find(p=>p.sku===b.dataset.vend)));
       $('pr-lista').querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>formProduto(ps.find(p=>p.sku===b.dataset.pe)));
       $('pr-lista').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>etiquetaSku(ps.find(p=>p.sku===b.dataset.pl)));
       $('pr-lista').querySelectorAll('details.mais').forEach(d=>{d.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{d.open=false;}));
@@ -1418,10 +1422,38 @@ function formMovimento(p,tipo){
       desenharProdutos();}
     catch(err){bt.disabled=false;som(false);erro('Não salvou',esc(err.message));}};
 }
+// O que compoe o "Vendido, falta enviar": cada venda que ainda esta no galpao
+function verVendidos(p){
+  const alvo=document.getElementById('mv-'+p.sku);
+  if(alvo.dataset.vend){alvo.innerHTML='';delete alvo.dataset.vend;return;}
+  alvo.dataset.vend='1';delete alvo.dataset.aberto;
+  const vs=p.vendidos||[];
+  const ETAPA={aberto:'Na fila',picking:'Separando',conferido:'Conferido',etiquetado:'Etiquetado',problema:'Problema'};
+  const kits=[...new Map(vs.filter(v=>v.porVenda>1).map(v=>[v.itemId,v])).values()];
+  const vendas=new Set(vs.map(v=>v.shipmentId)).size;
+  alvo.innerHTML=`<div class="cad" style="margin-top:6px;gap:8px">
+    <h2>Vendido, falta enviar: ${p.reservado} unidade${p.reservado>1?'s':''} em ${vendas} pacote${vendas>1?'s':''}</h2>
+    ${kits.length?`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin:0;font-size:13px">${kits.map(k=>`O anúncio <b>${esc(k.titulo||k.itemId)}</b> está vinculado com <b>${k.porVenda} unidades por venda</b>.`).join('<br>')} Se cada venda é 1 unidade, corrija em <b>Anúncios e vínculos</b>: é isso que dobra o número.</div>`:''}
+    <div style="display:flex;flex-direction:column">${vs.map(v=>`<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px">
+      <b class="tab" style="min-width:34px;color:var(--ink)">${v.total}</b>
+      <span style="flex:1 1 220px;min-width:0">${esc(v.titulo||'')}${v.porVenda>1||v.unidadesVendidas>1?` <span style="color:var(--muted)">(${v.unidadesVendidas} vendida${v.unidadesVendidas>1?'s':''} × ${v.porVenda} por venda)</span>`:''}<br><span class="mono" style="color:var(--muted)">envio ${esc(v.shipmentId)}</span></span>
+      <span style="white-space:nowrap">${ETAPA[v.etapa]||esc(v.etapa)}${v.aguardandoNF?' · <b style="color:var(--warn-fg)">sem NF</b>':''}${v.pendencia?' · pendência':''}</span>
+      <span style="white-space:nowrap;color:${v.limite&&new Date(v.limite)<new Date()?'var(--bad-fg)':'var(--muted)'}">${v.limite?'prazo '+diaMes(new Date(v.limite)):''}</span>
+    </div>`).join('')}</div>
+    <div class="lin"><button class="btn" type="button" data-conf>Conferir esses pacotes no ML</button></div>
+    <span style="font-size:12px;color:var(--muted)">Pacote que já saiu ou foi cancelado no ML sai daqui. O estoque da prateleira só baixa quando o pacote fica Pronto.</span></div>`;
+  alvo.querySelector('[data-conf]').onclick=async e=>{
+    const b=e.currentTarget,ids=[...new Set(vs.map(v=>v.shipmentId))];b.disabled=true;let saiu=0,falha=0;
+    for(let i=0;i<ids.length;i++){b.textContent=`Conferindo ${i+1} de ${ids.length}…`;
+      try{const r=await chamar('prepAtualizarEnvio',{shipmentId:ids[i]},60);if(['enviado','cancelado'].includes(r.etapa))saiu++;}catch{falha++;}}
+    aviso(`Conferido no ML. ${saiu?(saiu>1?`${saiu} pacotes já tinham saído ou cancelado e saíram da conta.`:'1 pacote já tinha saído ou cancelado e saiu da conta.'):'Todos continuam aguardando envio.'}${falha?` ${falha} não deu para conferir.`:''}`);
+    prodLeve[$('pr-cli').value]=null;desenharProdutos();
+  };
+}
 async function verMovimentos(sku){
   const alvo=document.getElementById('mv-'+sku);
   if(alvo.dataset.aberto){alvo.innerHTML='';delete alvo.dataset.aberto;return;}
-  alvo.dataset.aberto='1';alvo.innerHTML='<div class="vazio">Carregando…</div>';
+  alvo.dataset.aberto='1';delete alvo.dataset.vend;alvo.innerHTML='<div class="vazio">Carregando…</div>';
   try{
     const ms=await chamar('prepMovimentosListar',{sku});
     const nome={entrada:'Entrada',saida:'Saída',ajuste:'Correção',contagem:'Contagem',estorno:'Volta ao estoque'};
