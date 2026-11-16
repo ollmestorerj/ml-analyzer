@@ -910,7 +910,7 @@ function desenharCobrancas(alvo,f){
     catch(err){b.disabled=false;b.textContent='Buscar grupos';erro('Não achei os grupos',esc(err.message));}};
   if($('ft-previa'))$('ft-previa').onclick=async()=>{
     try{const r=await chamar('prepCobrancaAutomaticaPrevia',{contaId:ftEstado.contaId},120);
-      aviso(r.length?`<div style="text-align:left;white-space:pre-wrap;font-size:15px">${esc(r[0].mensagem).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>`:'Hoje não sai nada para este cliente: nenhuma cobrança vencendo ou vencida sem aviso de hoje.');}
+      aviso(r.length?`${r[0].extrato?`<img alt="Foto do extrato" src="data:image/png;base64,${r[0].extrato}" style="width:100%;max-width:300px;border-radius:10px;display:block;margin:0 auto 10px">`:''}<div style="text-align:left;white-space:pre-wrap;font-size:15px">${esc(r[0].mensagem).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>`:'Hoje não sai nada para este cliente: nenhuma cobrança vencendo ou vencida sem aviso de hoje.');}
     catch(err){erro('Não deu para simular',esc(err.message));}};
   alvo.querySelectorAll('[data-link]').forEach(b=>b.onclick=async()=>{
     b.disabled=true;b.textContent='Gerando link…';
@@ -938,17 +938,20 @@ async function formWhatsApp(alvo,id,tipo,f){
     <div class="lin" data-tel-lin ${r.grupo?'hidden':''}><label>WhatsApp<input data-tel inputmode="tel" value="${esc(r.telefone?fone(r.telefone):'')}" placeholder="DDD + número"></label></div>
     ${r.telefone||r.grupo?'':'<span style="font-size:12px;color:var(--warn-fg)">Cliente sem grupo e sem WhatsApp no cadastro. Digite o número ou escolha o grupo lá em cima.</span>'}
     ${semPix?'<span style="font-size:12px;color:var(--warn-fg)">Sem chave Pix cadastrada: a mensagem pede para o cliente responder "pix". Cadastre em Tabela de preços.</span>':''}
+    ${r.extrato?`<label style="flex:0 0 auto;flex-direction:row;align-items:center;gap:10px;font-weight:700;color:var(--ink)"><input type="checkbox" data-ext checked style="width:22px;height:22px;min-height:0">Mandar com a foto do extrato</label>
+    <img data-extimg alt="Foto do extrato que vai junto" src="data:image/png;base64,${r.extrato}" style="width:100%;max-width:360px;border:1px solid var(--line);border-radius:10px">`:''}
     <div style="white-space:pre-wrap;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink)">${esc(r.mensagem).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>
     ${tipo==='link'?'<span style="font-size:12px;color:var(--muted)">O link é gerado na InfinitePay na hora do envio, com o valor exato desta cobrança.</span>':''}
     <div class="lin"><button class="btn pri" type="button" data-enviar>Enviar no WhatsApp</button><button class="btn" type="button" data-x>Cancelar</button></div></div>`;
   box.querySelector('[data-x]').onclick=()=>{box.innerHTML='';box.dataset.zap='';};
-  const dest=box.querySelector('[data-dest]');
+  const dest=box.querySelector('[data-dest]'),ext=box.querySelector('[data-ext]');
+  if(ext)ext.onchange=()=>{box.querySelector('[data-extimg]').hidden=!ext.checked;};
   if(dest)dest.onchange=()=>{box.querySelector('[data-tel-lin]').hidden=dest.value==='grupo';};
   box.querySelector('[data-enviar]').onclick=async e=>{
     const b=e.currentTarget,destino=dest?dest.value:'numero',tel=box.querySelector('[data-tel]').value.replace(/\D/g,'');
     if(destino==='numero'&&tel.length<10){erro('Falta o WhatsApp','Coloque o número com DDD.');return;}
     b.disabled=true;b.textContent='Enviando…';
-    try{const x=await chamar('prepCobrancaAvisar',{id,tipo,telefone:tel,destino},90);som(true);aviso(`Mensagem enviada para ${esc(destino==='grupo'?x.telefone:fone(x.telefone))}.`);carregarFatura();}
+    try{const x=await chamar('prepCobrancaAvisar',{id,tipo,telefone:tel,destino,comExtrato:ext?ext.checked:false},90);som(true);aviso(`Mensagem enviada para ${esc(destino==='grupo'?x.telefone:fone(x.telefone))}.`);carregarFatura();}
     catch(err){b.disabled=false;b.textContent='Enviar no WhatsApp';som(false);erro('Não enviou',esc(err.message));}
   };
 }
