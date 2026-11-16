@@ -194,6 +194,7 @@ main{max-width:960px;margin:0 auto;padding:12px 12px 48px;display:flex;flex-dire
       <button type="button" data-v="envios" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z"/></svg><span class="lg">Envios do dia</span><span class="ct">Envios</span></button>
       <button type="button" data-v="hist"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg><span class="lg">Histórico</span><span class="ct">Histórico</span></button>
       <button type="button" data-v="estoque"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span class="lg">Estoque</span><span class="ct">Estoque</span></button>
+      <button type="button" data-v="etiquetas"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M14 5v14M18 5v14M21 5v14"/></svg><span class="lg">Etiquetas TXT → PDF</span><span class="ct">Etiquetas</span></button>
       <button type="button" data-v="fatura"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h16v20l-3-2-2.5 2-2.5-2-2.5 2L7 20l-3 2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span class="lg">Fatura</span><span class="ct">Fatura</span></button>
       <button type="button" data-v="equipe"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg><span class="lg">Equipe</span><span class="ct">Equipe</span></button>
     </nav>
@@ -317,8 +318,14 @@ document.querySelectorAll('.menu [data-v]').forEach(b=>b.onclick=()=>abrir(b.dat
 function abrir(v){
   vista=v;clearInterval(timer);
   document.querySelectorAll('.menu [data-v]').forEach(b=>b.dataset.v===v?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
-  return ({envios:verEnvios,hist:verHistorico,estoque:verEstoque,fatura:verFatura,equipe:verEquipe})[v]();
+  return ({envios:verEnvios,hist:verHistorico,estoque:verEstoque,fatura:verFatura,equipe:verEquipe,etiquetas:verEtiquetas})[v]();
 }
+function verEtiquetas(){
+  $('conteudo').innerHTML=`<div class="card" style="gap:4px"><b style="font-size:17px;color:var(--ink)">Etiquetas do Full: TXT → PDF</b>
+    <span style="font-size:14px;color:var(--muted)">Arraste o TXT que o Mercado Livre gera (etiqueta de produto ou de volume), escolha o tamanho e baixe o PDF pronto para imprimir.</span></div>
+    `+'<iframe data-zpl src="etiquetas.html?embed=1" id="etq-frame-cli" title="Conversor de etiquetas TXT para PDF" style="width:100%;border:0;min-height:900px;display:block;background:transparent" loading="lazy"></iframe>';
+}
+window.addEventListener('message',e=>{if(e.origin!==location.origin||!e.data||!e.data.zplAltura)return;document.querySelectorAll('iframe[data-zpl]').forEach(f=>{if(f.contentWindow===e.source)f.style.height=e.data.zplAltura+'px';});});
 const carregando=()=>{$('conteudo').innerHTML='<div class="vazio">Carregando…</div>';};
 function falhou(e){
   $('conteudo').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;

@@ -281,6 +281,7 @@ details.mais>div button:hover{background:var(--sunken)}
       <button type="button" id="m-receber"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span class="lg">Receber</span><span class="ct">Receber</span></button>
       <button type="button" id="m-produtos"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span class="lg">Produtos e estoque</span><span class="ct">Produtos</span></button>
       <button type="button" id="m-full"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lg">Etiquetagem Full</span><span class="ct">Full</span></button>
+      <button type="button" id="m-etq"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M14 5v14M18 5v14M21 5v14"/></svg><span class="lg">Etiquetas TXT → PDF</span><span class="ct">Etiquetas</span></button>
       <button type="button" id="m-hist"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg><span class="lg">Histórico</span><span class="ct">Histórico</span></button>
       <span class="menu-sep oculto" id="menu-sep">Administração</span>
       <button type="button" id="m-fatura" class="oculto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h16v20l-3-2-2.5 2-2.5-2-2.5 2L7 20l-3 2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span class="lg">Fatura</span><span class="ct">Fatura</span></button>
@@ -300,6 +301,10 @@ details.mais>div button:hover{background:var(--sunken)}
   </header>
   <main>
 
+    <section id="v-etq" class="oculto" style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:14px;color:var(--muted)">Arraste o TXT de etiquetas que o Mercado Livre gera para o Full (produto ou volume), escolha o tamanho e baixe o PDF. Sem limite de quantidade. Link direto para mentorados: <a href="etiquetas.html" target="_blank" rel="noopener" style="color:var(--orange-d);font-weight:800">etiquetas.html ↗</a></span>
+      <iframe data-zpl id="etq-frame" title="Conversor de etiquetas TXT para PDF" style="width:100%;border:0;min-height:900px;display:block;background:transparent" loading="lazy"></iframe>
+    </section>
     <section id="v-full" class="oculto" style="display:flex;flex-direction:column;gap:12px">
       <div id="full-corpo" style="display:flex;flex-direction:column;gap:12px"></div>
     </section>
@@ -767,13 +772,15 @@ $('m-hist').onclick=()=>trocarVista('hist');
 $('m-equipe').onclick=()=>trocarVista('equipe');
 $('m-fatura').onclick=()=>trocarVista('fatura');
 $('m-full').onclick=()=>trocarVista('full');
+$('m-etq').onclick=()=>trocarVista('etq');
+window.addEventListener('message',e=>{if(e.origin!==location.origin||!e.data||!e.data.zplAltura)return;document.querySelectorAll('iframe[data-zpl]').forEach(f=>{if(f.contentWindow===e.source)f.style.height=e.data.zplAltura+'px';});});
 $('m-produtos').onclick=()=>trocarVista('produtos');
 $('m-receber').onclick=()=>trocarVista('receber');
-const TITULOS={pend:'Pendências do cliente',fila:'Fila do dia',receber:'Receber mercadoria',produtos:'Produtos e estoque',full:'Etiquetagem Full',hist:'Histórico',fatura:'Fatura',equipe:'Equipe do galpão'};
+const TITULOS={pend:'Pendências do cliente',fila:'Fila do dia',receber:'Receber mercadoria',produtos:'Produtos e estoque',full:'Etiquetagem Full',etq:'Etiquetas TXT → PDF',hist:'Histórico',fatura:'Fatura',equipe:'Equipe do galpão'};
 function trocarVista(v){
   $('t-titulo').textContent=TITULOS[v]||'';document.title=`${NOME_SISTEMA} · ${TITULOS[v]||''}`;
   window.scrollTo(0,0);
-  [['pend','v-pend','m-pend'],['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
+  [['pend','v-pend','m-pend'],['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['etq','v-etq','m-etq'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
     $(vis).classList.toggle('oculto',v!==id);
     if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
   });
@@ -784,6 +791,7 @@ function trocarVista(v){
   if(v==='fatura')abrirFatura();
   if(v==='pend')desenharPendencias();
   if(v==='full')abrirFull();
+  if(v==='etq'&&!$('etq-frame').src)$('etq-frame').src='etiquetas.html?embed=1';
 }
 
 /* ── Faturador (so admin) ──────────────────────────────── */
