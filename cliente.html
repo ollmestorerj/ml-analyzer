@@ -682,13 +682,13 @@ function cartaoCobranca(c,online){
       ${(c.full||[]).length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${c.full.map(x=>`Full ${dataBR(x.dataFull).slice(0,5)}: ${x.etiquetas} etiquetas (${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(', ')})`).join('<br>')}</div>`:''}</details>`
       :'<span style="font-size:13px;color:var(--muted)">Nada cobrado ainda.</span>'}
     ${podePagar?`<div class="lin"><button class="btn pri" type="button" data-pagar="${esc(c.id)}">Pagar agora · cartão ou Pix</button></div>`:''}
-    ${!pg&&c.situacao==='em_andamento'?'<span style="font-size:12px;color:var(--muted)">O valor sobe a cada pacote enviado. Fecha no último dia da quinzena.</span>':''}
+    ${!pg&&c.situacao==='em_andamento'?'<span style="font-size:12px;color:var(--muted)">O valor sobe a cada pacote enviado. Fecha no último dia da quinzena e vence no dia seguinte.</span>':''}
   </article>`;
 }
 async function verFatura(){
   fatMes=fatMes||mesAtual();
   $('conteudo').innerHTML=`<div class="card"><div class="lin"><label style="flex:0 1 220px">Mês<input type="month" id="fat-mes" value="${esc(fatMes)}" max="${mesAtual()}"></label>
-    <span style="font-size:13px;color:var(--muted);flex:1 1 220px">A mensalidade é cobrada uma vez por mês. Os envios são cobrados por quinzena: do dia 1 ao 15 vence no dia 15; do dia 16 ao fim do mês vence no último dia.</span></div></div>
+    <span style="font-size:13px;color:var(--muted);flex:1 1 220px">A mensalidade é cobrada uma vez por mês. Os envios são cobrados por quinzena: do dia 1 ao 15 vence no dia 16; do dia 16 ao fim do mês vence no dia 1 do mês seguinte.</span></div></div>
     <div id="fat-res" style="display:flex;flex-direction:column;gap:12px"><div class="vazio">Calculando…</div></div>`;
   $('fat-mes').onchange=e=>{fatMes=e.target.value||mesAtual();verFatura();};
   let f;try{f=await chamar('clienteFatura',{mes:fatMes},120);}catch(e){$('fat-res').innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}

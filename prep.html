@@ -794,7 +794,7 @@ async function abrirFatura(){
       <label>Cliente<select id="ft-cli"></select></label>
       <label style="flex:0 1 180px">Mês<input id="ft-mes" type="month" value="${esc(ftEstado.mes)}"></label>
     </div>
-    <span style="font-size:13px;color:var(--muted)">Mensalidade vence no dia de cada cliente. O uso (envios, Full) fecha por quinzena: dias 1 a 15 vence dia 15; dia 16 ao fim do mês vence no último dia. <a href="cliente.html" target="_blank" rel="noopener" style="color:var(--orange-d);font-weight:800">Ver como o cliente vê ↗</a></span></div>
+    <span style="font-size:13px;color:var(--muted)">Mensalidade vence no dia de cada cliente. O uso (envios, Full) fecha por quinzena: dias 1 a 15 vence dia 16; dia 16 ao fim do mês vence dia 1 do mês seguinte. <a href="cliente.html" target="_blank" rel="noopener" style="color:var(--orange-d);font-weight:800">Ver como o cliente vê ↗</a></span></div>
     <div id="ft-res"><div class="vazio">Calculando…</div></div>`;
   opcoesClientes($('ft-cli'),ftEstado.contaId);
   $('ft-cli').onchange=e=>{ftEstado.contaId=e.target.value;carregarFatura();};
@@ -856,18 +856,36 @@ function desenharCobrancas(alvo,f){
       <label style="flex:0 1 190px">Cobrar a partir de<input id="ft-desde" type="month" value="${esc(f.cobrancaDesde||'')}"></label>
       <label style="flex:0 1 210px">WhatsApp do cliente<input id="ft-zap" inputmode="tel" placeholder="${esc(f.whatsappDoCadastro?fone(f.whatsappDoCadastro)+' (do cadastro)':'DDD + número')}" value="${esc(f.whatsapp?fone(f.whatsapp):'')}"></label>
       <button class="btn" type="submit" id="ft-venc-btn">Salvar</button>
-      <span style="font-size:12px;color:var(--muted);flex:1 1 200px">${f.vencimentoDia?'':'<b style="color:var(--warn-fg)">Sem dia definido: usando dia 15.</b> '}Antes do mês de início não gera cobrança.</span></div></form>
+      <span style="font-size:12px;color:var(--muted);flex:1 1 200px">${f.vencimentoDia?'':'<b style="color:var(--warn-fg)">Sem dia definido: usando dia 15.</b> '}Antes do mês de início não gera cobrança.</span></div>
+      <div class="lin" style="align-items:flex-end;margin-top:4px">
+        <label style="flex:1 1 260px">Grupo do WhatsApp do cliente<select id="ft-grupo"><option value="">${f.grupo?esc(f.grupo.nome||f.grupo.id):'— sem grupo —'}</option></select></label>
+        <button class="btn" type="button" id="ft-grupos">Buscar grupos</button>
+        <label style="flex:1 1 260px;flex-direction:row;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="ft-auto" ${f.cobrancaAuto!==false?'checked':''} style="width:20px;height:20px;min-height:0">Cobrança automática no grupo</label>
+      </div>
+      <span style="font-size:12px;color:var(--muted)">${f.grupo?`Grupo: <b>${esc(f.grupo.nome||f.grupo.id)}</b>. `:''}Automático às 9h: manda no vencimento e lembra todo dia até pagar; quando paga, avisa no grupo. O mesmo grupo vai receber os avisos de envio e NF. ${f.grupo?'<button type="button" id="ft-previa" style="border:0;background:none;color:var(--orange-d);font:inherit;font-weight:800;text-decoration:underline;cursor:pointer;padding:0">Ver o que sairia hoje</button>':''}</span>
+    </form>
     ${!f.valoresDefinidos?'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:8px">A tabela de preços está com os valores iniciais. Confira em Tabela de preços.</div>':''}
     ${atr.length?`<div class="cad" style="border:2px solid var(--bad);background:#FFF7F8;margin-bottom:12px;gap:8px"><h2 style="color:var(--bad-fg)">De meses anteriores, não pago · ${brl(atr.reduce((s,c)=>s+c.valor,0))}</h2>${atr.map(c=>htmlCobranca(c,true,f.pagamentoOnline)).join('')}</div>`:''}
     <div style="display:flex;flex-direction:column;gap:10px">${cs.map(c=>htmlCobranca(c,true,f.pagamentoOnline)).join('')||'<div class="vazio">Nenhuma cobrança neste mês (antes do início da cobrança deste cliente).</div>'}</div>`;
   $('ft-venc').onsubmit=async e=>{e.preventDefault();const b=$('ft-venc-btn');const dia=Number($('ft-venc-dia').value);
     if($('ft-venc-dia').value&&!(dia>=1&&dia<=31)){erro('Dia inválido','Coloque um dia entre 1 e 31.');return;}
     b.disabled=true;b.textContent='Salvando…';
-    try{const r=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes,vencimentoDia:$('ft-venc-dia').value?dia:undefined,cobrancaDesde:$('ft-desde').value||undefined,whatsapp:$('ft-zap').value},120);desenharCobrancas(alvo,r);som(true);}
+    const sel=$('ft-grupo'),op=sel.selectedOptions[0];
+    const grupo=sel.value==='__nenhum'?null:sel.value?{id:sel.value,nome:op.textContent}:undefined;
+    try{const r=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes,vencimentoDia:$('ft-venc-dia').value?dia:undefined,cobrancaDesde:$('ft-desde').value||undefined,whatsapp:$('ft-zap').value,grupo,cobrancaAuto:$('ft-auto').checked},120);desenharCobrancas(alvo,r);som(true);}
     catch(err){b.disabled=false;b.textContent='Salvar';erro('Não salvou',esc(err.message));}};
   alvo.querySelectorAll('[data-pagar]').forEach(b=>b.onclick=()=>formPagamento(alvo,[...cs,...atr].find(c=>c.id===b.dataset.pagar)));
   alvo.querySelectorAll('[data-comp]').forEach(b=>b.onclick=()=>verComprovantePag(b.dataset.comp));
   alvo.querySelectorAll('[data-zap]').forEach(b=>b.onclick=()=>formWhatsApp(alvo,b.dataset.id,b.dataset.zap,f));
+  $('ft-grupos').onclick=async e=>{const b=e.currentTarget;b.disabled=true;b.textContent='Buscando…';
+    try{const gs=await chamar('prepZapGrupos',{},60);const sel=$('ft-grupo');
+      sel.innerHTML=`<option value="">${f.grupo?esc(f.grupo.nome||f.grupo.id)+' (atual)':'— escolha o grupo —'}</option>${f.grupo?'<option value="__nenhum">— tirar o grupo —</option>':''}`+gs.map(g=>`<option value="${esc(g.id)}">${esc(g.nome)}</option>`).join('');
+      b.textContent=`${gs.length} grupos`;sel.focus();}
+    catch(err){b.disabled=false;b.textContent='Buscar grupos';erro('Não achei os grupos',esc(err.message));}};
+  if($('ft-previa'))$('ft-previa').onclick=async()=>{
+    try{const r=await chamar('prepCobrancaAutomaticaPrevia',{contaId:ftEstado.contaId},120);
+      aviso(r.length?`<div style="text-align:left;white-space:pre-wrap;font-size:15px">${esc(r[0].mensagem).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>`:'Hoje não sai nada para este cliente: nenhuma cobrança vencendo ou vencida sem aviso de hoje.');}
+    catch(err){erro('Não deu para simular',esc(err.message));}};
   alvo.querySelectorAll('[data-link]').forEach(b=>b.onclick=async()=>{
     b.disabled=true;b.textContent='Gerando link…';
     try{const r=await chamar('cobrancaLink',{id:b.dataset.link},60);
@@ -890,18 +908,21 @@ async function formWhatsApp(alvo,id,tipo,f){
   const semPix=tipo==='escolha'&&!f.chavePix;
   box.innerHTML=`<div class="cad" style="background:var(--sunken);border-color:transparent;gap:8px">
     <h2>${tipo==='link'?'Mandar link do cartão':'Cobrar no WhatsApp'}</h2>
-    <div class="lin"><label>WhatsApp<input data-tel inputmode="tel" value="${esc(r.telefone?fone(r.telefone):'')}" placeholder="DDD + número"></label></div>
-    ${r.telefone?'':'<span style="font-size:12px;color:var(--warn-fg)">Cliente sem WhatsApp no cadastro. Digite o número (para guardar, use o campo WhatsApp do cliente lá em cima).</span>'}
+    ${r.grupo?`<div class="lin"><label>Mandar para<select data-dest><option value="grupo">Grupo: ${esc(r.grupo.nome||r.grupo.id)}</option><option value="numero">Número do cliente</option></select></label></div>`:''}
+    <div class="lin" data-tel-lin ${r.grupo?'hidden':''}><label>WhatsApp<input data-tel inputmode="tel" value="${esc(r.telefone?fone(r.telefone):'')}" placeholder="DDD + número"></label></div>
+    ${r.telefone||r.grupo?'':'<span style="font-size:12px;color:var(--warn-fg)">Cliente sem grupo e sem WhatsApp no cadastro. Digite o número ou escolha o grupo lá em cima.</span>'}
     ${semPix?'<span style="font-size:12px;color:var(--warn-fg)">Sem chave Pix cadastrada: a mensagem pede para o cliente responder "pix". Cadastre em Tabela de preços.</span>':''}
     <div style="white-space:pre-wrap;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink)">${esc(r.mensagem).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>
     ${tipo==='link'?'<span style="font-size:12px;color:var(--muted)">O link é gerado na InfinitePay na hora do envio, com o valor exato desta cobrança.</span>':''}
     <div class="lin"><button class="btn pri" type="button" data-enviar>Enviar no WhatsApp</button><button class="btn" type="button" data-x>Cancelar</button></div></div>`;
   box.querySelector('[data-x]').onclick=()=>{box.innerHTML='';box.dataset.zap='';};
+  const dest=box.querySelector('[data-dest]');
+  if(dest)dest.onchange=()=>{box.querySelector('[data-tel-lin]').hidden=dest.value==='grupo';};
   box.querySelector('[data-enviar]').onclick=async e=>{
-    const b=e.currentTarget,tel=box.querySelector('[data-tel]').value.replace(/\D/g,'');
-    if(tel.length<10){erro('Falta o WhatsApp','Coloque o número com DDD.');return;}
+    const b=e.currentTarget,destino=dest?dest.value:'numero',tel=box.querySelector('[data-tel]').value.replace(/\D/g,'');
+    if(destino==='numero'&&tel.length<10){erro('Falta o WhatsApp','Coloque o número com DDD.');return;}
     b.disabled=true;b.textContent='Enviando…';
-    try{const x=await chamar('prepCobrancaAvisar',{id,tipo,telefone:tel},90);som(true);aviso(`Mensagem enviada para ${esc(fone(x.telefone))}.`);carregarFatura();}
+    try{const x=await chamar('prepCobrancaAvisar',{id,tipo,telefone:tel,destino},90);som(true);aviso(`Mensagem enviada para ${esc(destino==='grupo'?x.telefone:fone(x.telefone))}.`);carregarFatura();}
     catch(err){b.disabled=false;b.textContent='Enviar no WhatsApp';som(false);erro('Não enviou',esc(err.message));}
   };
 }
