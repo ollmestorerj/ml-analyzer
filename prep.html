@@ -842,7 +842,10 @@ function htmlCobranca(c,admin,online){
     ${c.linhas.length?`<details><summary style="font-size:13px;font-weight:800;cursor:pointer;min-height:28px">O que foi cobrado (${c.linhas.length} ${c.linhas.length===1?'item':'itens'})</summary>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:6px">${c.linhas.map(l=>`<tr><td style="padding:6px 0;border-bottom:1px solid var(--line-soft)">${esc(l.nome)}</td><td class="tab" style="text-align:right;border-bottom:1px solid var(--line-soft)">${l.qtd} × ${brl(l.unit)}</td><td class="tab" style="text-align:right;font-weight:800;border-bottom:1px solid var(--line-soft)">${brl(l.total)}</td></tr>`).join('')}</table>
       ${(c.full||[]).length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">Full: ${c.full.map(x=>`${dataBR(x.dataFull).slice(0,5)} (${x.etiquetas} etiquetas)`).join(', ')}</div>`:''}</details>`:'<span style="font-size:13px;color:var(--muted)">Nada cobrado ainda.</span>'}
-    ${admin&&!pg&&c.valor>0?`<div class="lin"><button class="btn pri" type="button" data-pagar="${esc(c.id)}">Registrar pagamento</button>${online?`<button class="btn" type="button" data-link="${esc(c.id)}">Copiar link de pagamento</button>`:''}</div><div id="pg-${esc(c.id)}"></div>`:''}
+    ${admin&&(c.avisos||[]).length?`<div style="font-size:12px;color:var(--muted)">WhatsApp: ${c.avisos.slice(-3).map(a=>`${a.tipo==='link'?'link do cartão':'cobrança'} enviada ${new Date(a.em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`).join(' · ')}</div>`:''}
+    ${admin&&!pg&&c.valor>0?`<div class="lin"><button class="btn pri" type="button" data-pagar="${esc(c.id)}">Registrar pagamento</button>
+      <button class="btn" type="button" data-zap="escolha" data-id="${esc(c.id)}" ${c.situacao==='em_andamento'?'title="A quinzena ainda está contando: o valor pode subir"':''}>Cobrar no WhatsApp</button>
+      ${online?`<button class="btn" type="button" data-zap="link" data-id="${esc(c.id)}">Mandar link do cartão</button><button class="btn" type="button" data-link="${esc(c.id)}">Copiar link</button>`:''}</div><div id="pg-${esc(c.id)}"></div>`:''}
     ${admin&&pg?`<div class="lin"><button class="btn" type="button" data-desfazer="${esc(c.id)}" style="min-height:38px;font-size:13px">Desfazer pagamento</button></div>`:''}
   </article>`;
 }
@@ -851,6 +854,7 @@ function desenharCobrancas(alvo,f){
   alvo.innerHTML=`<form class="cad" id="ft-venc" autocomplete="off" style="margin-bottom:12px"><div class="lin" style="align-items:flex-end">
       <label style="flex:0 1 190px">Vencimento da mensalidade<input id="ft-venc-dia" type="number" min="1" max="31" inputmode="numeric" placeholder="dia" value="${f.vencimentoDia||''}"></label>
       <label style="flex:0 1 190px">Cobrar a partir de<input id="ft-desde" type="month" value="${esc(f.cobrancaDesde||'')}"></label>
+      <label style="flex:0 1 210px">WhatsApp do cliente<input id="ft-zap" inputmode="tel" placeholder="${esc(f.whatsappDoCadastro?fone(f.whatsappDoCadastro)+' (do cadastro)':'DDD + número')}" value="${esc(f.whatsapp?fone(f.whatsapp):'')}"></label>
       <button class="btn" type="submit" id="ft-venc-btn">Salvar</button>
       <span style="font-size:12px;color:var(--muted);flex:1 1 200px">${f.vencimentoDia?'':'<b style="color:var(--warn-fg)">Sem dia definido: usando dia 15.</b> '}Antes do mês de início não gera cobrança.</span></div></form>
     ${!f.valoresDefinidos?'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:8px">A tabela de preços está com os valores iniciais. Confira em Tabela de preços.</div>':''}
@@ -859,10 +863,11 @@ function desenharCobrancas(alvo,f){
   $('ft-venc').onsubmit=async e=>{e.preventDefault();const b=$('ft-venc-btn');const dia=Number($('ft-venc-dia').value);
     if($('ft-venc-dia').value&&!(dia>=1&&dia<=31)){erro('Dia inválido','Coloque um dia entre 1 e 31.');return;}
     b.disabled=true;b.textContent='Salvando…';
-    try{const r=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes,vencimentoDia:$('ft-venc-dia').value?dia:undefined,cobrancaDesde:$('ft-desde').value||undefined},120);desenharCobrancas(alvo,r);som(true);}
+    try{const r=await chamar('prepFatura',{contaId:ftEstado.contaId,mes:ftEstado.mes,vencimentoDia:$('ft-venc-dia').value?dia:undefined,cobrancaDesde:$('ft-desde').value||undefined,whatsapp:$('ft-zap').value},120);desenharCobrancas(alvo,r);som(true);}
     catch(err){b.disabled=false;b.textContent='Salvar';erro('Não salvou',esc(err.message));}};
   alvo.querySelectorAll('[data-pagar]').forEach(b=>b.onclick=()=>formPagamento(alvo,[...cs,...atr].find(c=>c.id===b.dataset.pagar)));
   alvo.querySelectorAll('[data-comp]').forEach(b=>b.onclick=()=>verComprovantePag(b.dataset.comp));
+  alvo.querySelectorAll('[data-zap]').forEach(b=>b.onclick=()=>formWhatsApp(alvo,b.dataset.id,b.dataset.zap,f));
   alvo.querySelectorAll('[data-link]').forEach(b=>b.onclick=async()=>{
     b.disabled=true;b.textContent='Gerando link…';
     try{const r=await chamar('cobrancaLink',{id:b.dataset.link},60);
@@ -874,6 +879,31 @@ function desenharCobrancas(alvo,f){
     if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmar: desfazer pagamento';b.style.color='var(--bad-fg)';return;}
     b.disabled=true;try{await chamar('prepCobrancaPagar',{id:b.dataset.desfazer,desfazer:true});carregarFatura();}catch(e){b.disabled=false;erro('Não desfez',esc(e.message));}
   });
+}
+const fone=d=>{d=String(d||'').replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'');return d.length===11?`(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`:d.length===10?`(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`:d;};
+// Mostra a mensagem antes de mandar no WhatsApp do cliente
+async function formWhatsApp(alvo,id,tipo,f){
+  const box=alvo.querySelector('#pg-'+CSS.escape(id));if(!box)return;
+  if(box.dataset.zap===tipo&&box.innerHTML){box.innerHTML='';box.dataset.zap='';return;}
+  box.dataset.zap=tipo;box.innerHTML='<div class="vazio">Montando a mensagem…</div>';
+  let r;try{r=await chamar('prepCobrancaAvisar',{id,tipo,previa:true},60);}catch(e){box.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  const semPix=tipo==='escolha'&&!f.chavePix;
+  box.innerHTML=`<div class="cad" style="background:var(--sunken);border-color:transparent;gap:8px">
+    <h2>${tipo==='link'?'Mandar link do cartão':'Cobrar no WhatsApp'}</h2>
+    <div class="lin"><label>WhatsApp<input data-tel inputmode="tel" value="${esc(r.telefone?fone(r.telefone):'')}" placeholder="DDD + número"></label></div>
+    ${r.telefone?'':'<span style="font-size:12px;color:var(--warn-fg)">Cliente sem WhatsApp no cadastro. Digite o número (para guardar, use o campo WhatsApp do cliente lá em cima).</span>'}
+    ${semPix?'<span style="font-size:12px;color:var(--warn-fg)">Sem chave Pix cadastrada: a mensagem pede para o cliente responder "pix". Cadastre em Tabela de preços.</span>':''}
+    <div style="white-space:pre-wrap;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink)">${esc(r.mensagem).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>
+    ${tipo==='link'?'<span style="font-size:12px;color:var(--muted)">O link é gerado na InfinitePay na hora do envio, com o valor exato desta cobrança.</span>':''}
+    <div class="lin"><button class="btn pri" type="button" data-enviar>Enviar no WhatsApp</button><button class="btn" type="button" data-x>Cancelar</button></div></div>`;
+  box.querySelector('[data-x]').onclick=()=>{box.innerHTML='';box.dataset.zap='';};
+  box.querySelector('[data-enviar]').onclick=async e=>{
+    const b=e.currentTarget,tel=box.querySelector('[data-tel]').value.replace(/\D/g,'');
+    if(tel.length<10){erro('Falta o WhatsApp','Coloque o número com DDD.');return;}
+    b.disabled=true;b.textContent='Enviando…';
+    try{const x=await chamar('prepCobrancaAvisar',{id,tipo,telefone:tel},90);som(true);aviso(`Mensagem enviada para ${esc(fone(x.telefone))}.`);carregarFatura();}
+    catch(err){b.disabled=false;b.textContent='Enviar no WhatsApp';som(false);erro('Não enviou',esc(err.message));}
+  };
 }
 // Reduz foto do comprovante para caber no banco
 function lerComprovante(arq){
@@ -951,6 +981,10 @@ async function desenharTabela(){
     <h2 style="margin-top:6px">Pagamento online (InfinitePay)</h2>
     <span style="font-size:13px;color:var(--muted)">Com a sua InfiniteTag, o cliente paga a cobrança por link (cartão de crédito ou Pix) e ela fica paga sozinha, com o recibo. Sem ela, só vale o pagamento que você registra.</span>
     <div class="lin"><label>InfiniteTag (sem o $)<input id="ft-ip" value="${esc(c.infinitepayHandle||'')}" placeholder="ex.: realprep" autocapitalize="off" spellcheck="false"></label></div>
+    <h2 style="margin-top:6px">Pix (vai na mensagem de cobrança)</h2>
+    <span style="font-size:13px;color:var(--muted)">A cobrança no WhatsApp pergunta se o cliente quer pagar por Pix ou cartão. A chave abaixo já vai na mensagem.</span>
+    <div class="lin"><label>Chave Pix<input id="ft-pix" value="${esc(c.chavePix||'')}" placeholder="CNPJ, e-mail, telefone ou chave aleatória" autocapitalize="off" spellcheck="false"></label>
+      <label>Nome de quem recebe<input id="ft-pixnome" value="${esc(c.recebedorPix||'')}" placeholder="ex.: Real Prep Ltda"></label></div>
     <div id="ft-msg"></div>
     <div class="lin"><button class="btn pri" type="submit" id="ft-salvar">Salvar tabela</button></div>
   </form>`;
@@ -959,7 +993,8 @@ async function desenharTabela(){
     const faixas=[...corpo.querySelectorAll('[data-faixa]')].map(l=>{const o={};l.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.dataset.k==='nome'?i.value.trim():numBR(i.value);});return o;});
     const precos={};corpo.querySelectorAll('[data-preco]').forEach(i=>{const [m,f]=i.dataset.preco.split('|');(precos[m]=precos[m]||{})[f]=numBR(i.value);});
     const salvar={mensalidade:numBR($('ft-mensal').value),faixas,precos,semMedida:$('ft-sem').value,etiquetagemFull:numBR($('ft-full').value),
-      porUnidadeRecebida:numBR($('ft-receb').value),armazenagemPorUnidadeMes:numBR($('ft-armaz').value),infinitepayHandle:$('ft-ip').value.trim()};
+      porUnidadeRecebida:numBR($('ft-receb').value),armazenagemPorUnidadeMes:numBR($('ft-armaz').value),infinitepayHandle:$('ft-ip').value.trim(),
+      chavePix:$('ft-pix').value.trim(),recebedorPix:$('ft-pixnome').value.trim()};
     try{await chamar('prepFaturaConfig',{salvar});$('ft-msg').innerHTML='<div class="alerta" style="background:var(--ok-bg);color:var(--ok-fg)">Tabela salva. As faturas já usam os novos valores.</div>';som(true);}
     catch(err){$('ft-msg').innerHTML=`<div class="alerta bad">${esc(err.message)}</div>`;}
     finally{b.disabled=false;b.textContent='Salvar tabela';}
