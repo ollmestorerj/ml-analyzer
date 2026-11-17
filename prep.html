@@ -871,7 +871,7 @@ function htmlCobranca(c,admin,online){
     ${(c.full||[]).length?`<div style="display:flex;flex-direction:column;gap:4px">${c.full.map(x=>`<div style="font-size:13px;color:var(--body);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span><b>Full ${dataBR(x.dataFull).slice(0,5)}</b> · ${x.etiquetas} etiquetas · ${x.envioPorNos?`frete ${brl(x.valorEnvio||0)}${x.volumes?` (${x.volumes} vol.)`:''}`:'<span style="color:var(--warn-fg);font-weight:700">sem frete</span>'}</span>
       ${admin&&!pg&&!x.envioPorNos?`<button type="button" class="btn" data-fullfrete="${esc(x.id)}" data-conta="${esc(c.contaId)}" style="min-height:32px;font-size:12px;padding:0 10px">Nós levamos? Cobrar frete</button>`:''}</div>`).join('')}</div>`:''}
-    ${admin&&(c.avisos||[]).length?`<div style="font-size:12px;color:var(--muted)">WhatsApp: ${c.avisos.slice(-3).map(a=>`${a.tipo==='link'?'link do cartão':'cobrança'} enviada ${new Date(a.em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`).join(' · ')}</div>`:''}
+    ${admin&&(c.avisos||[]).length?`<div style="font-size:12px;color:var(--muted)">WhatsApp: ${c.avisos.slice(-3).map(a=>`${a.tipo==='link'?'link do cartão':'cobrança'} ${a.telefone==='copiado e colado'?'mandada por vocês':'enviada'} ${new Date(a.em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`).join(' · ')}</div>`:''}
     ${admin&&!pg&&c.valor>0?`<div class="lin"><button class="btn pri" type="button" data-pagar="${esc(c.id)}">Registrar pagamento</button>
       <button class="btn" type="button" data-zap="escolha" data-id="${esc(c.id)}" ${c.situacao==='em_andamento'?'title="A quinzena ainda está contando: o valor pode subir"':''}>Cobrar no WhatsApp</button>
       ${online?`<button class="btn" type="button" data-zap="link" data-id="${esc(c.id)}">Mandar link do cartão</button><button class="btn" type="button" data-link="${esc(c.id)}">Copiar link</button>`:''}</div><div id="pg-${esc(c.id)}"></div>`:''}
@@ -953,9 +953,27 @@ async function formWhatsApp(alvo,id,tipo,f){
     <img data-extimg alt="Foto do extrato que vai junto" src="data:image/png;base64,${r.extrato}" style="width:100%;max-width:360px;border:1px solid var(--line);border-radius:10px">`:''}
     <div style="white-space:pre-wrap;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink)">${esc(r.mensagem).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>
     ${tipo==='link'?'<span style="font-size:12px;color:var(--muted)">O link é gerado na InfinitePay na hora do envio, com o valor exato desta cobrança.</span>':''}
-    <div class="lin"><button class="btn pri" type="button" data-enviar>Enviar no WhatsApp</button><button class="btn" type="button" data-x>Cancelar</button></div></div>`;
+    <div class="lin" style="background:#fff;border:1px dashed var(--line);border-radius:10px;padding:10px;align-items:center">
+      <b style="font-size:13px;color:var(--ink);flex:1 1 100%">Mandar você mesmo no grupo: copie e cole no WhatsApp</b>
+      ${r.extrato?'<button class="btn" type="button" data-cpimg>1. Copiar foto</button>':''}
+      <button class="btn" type="button" data-cptxt>${r.extrato?'2. ':''}Copiar texto</button>
+      <button class="btn" type="button" data-reg>Já mandei: registrar</button>
+      <span style="font-size:12px;color:var(--muted);flex:1 1 100%">Cole a foto no grupo e, antes de enviar, cole o texto na legenda. Depois toque em "Já mandei" para ficar no histórico.</span></div>
+    <div class="lin"><button class="btn pri" type="button" data-enviar>Enviar pelo sistema</button><button class="btn" type="button" data-x>Cancelar</button></div></div>`;
   box.querySelector('[data-x]').onclick=()=>{box.innerHTML='';box.dataset.zap='';};
   const dest=box.querySelector('[data-dest]'),ext=box.querySelector('[data-ext]');
+  const ok=(b,t)=>{const o=b.textContent;b.textContent=t;setTimeout(()=>{b.textContent=o;},2000);};
+  const cpTxt=box.querySelector('[data-cptxt]');
+  cpTxt.onclick=async()=>{try{await navigator.clipboard.writeText(r.mensagem);ok(cpTxt,'Texto copiado ✓');}catch{prompt('Copie o texto:',r.mensagem);}};
+  const cpImg=box.querySelector('[data-cpimg]');
+  if(cpImg)cpImg.onclick=async()=>{
+    const blob=await (await fetch('data:image/png;base64,'+r.extrato)).blob();
+    try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);ok(cpImg,'Foto copiada ✓');}
+    catch{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`extrato-${id}.png`;a.click();ok(cpImg,'Foto baixada ✓');}
+  };
+  box.querySelector('[data-reg]').onclick=async e=>{const b=e.currentTarget;b.disabled=true;
+    try{await chamar('prepCobrancaAvisar',{id,tipo,soRegistrar:true},60);som(true);carregarFatura();}
+    catch(err){b.disabled=false;erro('Não registrou',esc(err.message));}};
   if(ext)ext.onchange=()=>{box.querySelector('[data-extimg]').hidden=!ext.checked;};
   if(dest)dest.onchange=()=>{box.querySelector('[data-tel-lin]').hidden=dest.value==='grupo';};
   box.querySelector('[data-enviar]').onclick=async e=>{
@@ -963,7 +981,7 @@ async function formWhatsApp(alvo,id,tipo,f){
     if(destino==='numero'&&tel.length<10){erro('Falta o WhatsApp','Coloque o número com DDD.');return;}
     b.disabled=true;b.textContent='Enviando…';
     try{const x=await chamar('prepCobrancaAvisar',{id,tipo,telefone:tel,destino,comExtrato:ext?ext.checked:false},90);som(true);aviso(`Mensagem enviada para ${esc(destino==='grupo'?x.telefone:fone(x.telefone))}.`);carregarFatura();}
-    catch(err){b.disabled=false;b.textContent='Enviar no WhatsApp';som(false);erro('Não enviou',esc(err.message));}
+    catch(err){b.disabled=false;b.textContent='Enviar pelo sistema';som(false);erro('Não enviou',esc(err.message));}
   };
 }
 // Reduz foto do comprovante para caber no banco
