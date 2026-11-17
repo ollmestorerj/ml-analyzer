@@ -686,7 +686,7 @@ function cartaoCobranca(c,online){
     ${c.linhas.length?`<details><summary style="font-size:13px;font-weight:800;cursor:pointer;min-height:28px">O que está sendo cobrado</summary>
       <div class="tabela" style="margin-top:6px"><table><thead><tr><th>Serviço</th><th>Qtd</th><th>Valor un.</th><th>Total</th></tr></thead>
       <tbody>${c.linhas.map(l=>`<tr><td>${esc(l.nome)}</td><td class="tab">${l.qtd}</td><td class="tab" style="color:var(--muted)">${brl(l.unit)}</td><td class="tab" style="font-weight:800;color:var(--ink)">${brl(l.total)}</td></tr>`).join('')}</tbody></table></div>
-      ${(c.full||[]).length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${c.full.map(x=>`Full ${dataBR(x.dataFull).slice(0,5)}: ${x.etiquetas} etiquetas (${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(', ')})`).join('<br>')}</div>`:''}</details>`
+      ${(c.full||[]).length?`<div style="font-size:12px;color:var(--muted);margin-top:6px">${c.full.map(x=>`Full ${dataBR(x.dataFull).slice(0,5)}: ${x.etiquetas} etiquetas (${x.itens.map(i=>`${i.qtd}× ${esc(i.nome)}`).join(', ')})${x.envioPorNos?` · levado por nós, frete ${brl(x.valorEnvio||0)}`:''}`).join('<br>')}</div>`:''}</details>`
       :'<span style="font-size:13px;color:var(--muted)">Nada cobrado ainda.</span>'}
     ${podePagar?`<div class="lin"><button class="btn pri" type="button" data-pagar="${esc(c.id)}">Pagar agora · cartão ou Pix</button></div>`:''}
     ${!pg&&c.situacao==='em_andamento'?'<span style="font-size:12px;color:var(--muted)">O valor sobe a cada pacote enviado. Fecha no último dia da quinzena e vence no dia seguinte.</span>':''}
