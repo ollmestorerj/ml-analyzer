@@ -1327,39 +1327,48 @@ async function desenharProdutos(){
       const ps=await produtosDe(contaId,true);
       if(!ps.length){$('pr-lista').innerHTML='<div class="vazio"><b>Nenhum produto cadastrado</b>Toque em "+ Novo produto" para cadastrar o primeiro. O SKU é gerado sozinho.</div>';return;}
       const cm=m=>[m.altura,m.largura,m.comprimento].every(Boolean)?`${m.altura}×${m.largura}×${m.comprimento} cm`:'sem medidas';
-      const tot={pr:0,vd:0,lv:0,falta:0};ps.forEach(p=>{tot.pr+=p.estoque||0;tot.vd+=p.reservado||0;const l=p.disponivel??p.estoque;if(l<0)tot.falta++;else tot.lv+=l;});
-      $('pr-lista').innerHTML=`<div class="cad" style="gap:6px;font-size:13px;color:var(--body)">
+      // Mesmo modelo do servidor (estoqueResumo); se o servidor ainda for o antigo, calcula aqui
+      const R=p=>{const est=Number(p.estoque)||0,res=Number(p.reservado)||0,ng=Math.max(0,est);
+        return{noGalpao:p.noGalpao??ng,faltaLancar:p.faltaLancar??(est<0?-est:0),aguardandoEnvio:p.aguardandoEnvio??res,
+          livre:p.livre??Math.max(0,ng-res),faltamParaVendas:p.faltamParaVendas??Math.max(0,res-ng),emConferencia:p.emConferencia||0};};
+      const tot={ng:0,ag:0,lv:0,cf:0,prob:0};
+      ps.forEach(p=>{const r=R(p);tot.ng+=r.noGalpao;tot.ag+=r.aguardandoEnvio;tot.lv+=r.livre;tot.cf+=r.emConferencia;if(r.faltaLancar||r.faltamParaVendas)tot.prob++;});
+      $('pr-lista').innerHTML=`<div class="cad" style="gap:8px;font-size:13px;color:var(--body)">
           <div class="estq">
-            <div><span>Na prateleira</span><b class="tab">${tot.pr}</b><small>o que está aqui no galpão</small></div>
-            <div><span>Vendido, falta enviar</span><b class="tab">${tot.vd}</b><small>já vendeu no ML, ainda não saiu</small></div>
-            <div><span>Livre para vender</span><b class="tab">${tot.lv}</b><small>prateleira menos o vendido</small></div>
+            <div><span>No galpão</span><b class="tab">${tot.ng}</b><small>entrou menos o que saiu</small></div>
+            <div><span>Vendido, aguardando envio</span><b class="tab">${tot.ag}</b><small>vendeu e ainda não ficou Pronto</small></div>
+            <div class="${tot.lv?'bom':'zero'}"><span>Livre para vender</span><b class="tab">${tot.lv}</b><small>no galpão menos o aguardando</small></div>
           </div>
-          ${tot.falta?`<div class="alerta bad" style="margin:0">${tot.falta} produto${tot.falta>1?'s vendeu':' vendeu'} mais do que tem na prateleira. Veja abaixo o que fazer.</div>`:''}
+          ${tot.cf?`<span>Em conferência: <b class="tab" style="color:var(--ink)">${tot.cf}</b> unidade${tot.cf>1?'s':''} avisada${tot.cf>1?'s':''} pelo cliente, ainda sem conferir no Receber.</span>`:''}
+          ${tot.prob?`<div class="alerta bad" style="margin:0">${tot.prob} produto${tot.prob>1?'s precisam':' precisa'} de atenção. Veja abaixo o que fazer.</div>`:''}
         </div>`+ps.map(p=>{
-        const livre=p.disponivel??p.estoque,vend=p.reservado||0,prat=p.estoque||0,falta=livre<0?-livre:0;
-        return `<div class="prow" style="${falta?'border:2px solid var(--bad)':''}">
+        const r=R(p);
+        return `<div class="prow" style="${r.faltaLancar||r.faltamParaVendas?'border:2px solid var(--bad)':''}">
         <span class="sku">${esc(p.sku)}</span>
         <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px"><b style="font-size:15px;color:var(--ink)">${esc(p.nome)}</b>
           <span style="font-size:12px;color:var(--muted)">${cm(p.medidas||{})}${p.medidas?.peso?' · '+p.medidas.peso+' g':''}${p.prateleira?' · prateleira '+esc(p.prateleira):''}${p.ultimaContagem?' · contado em '+diaMes(new Date(p.ultimaContagem)):''}</span></div>
         <div class="estq" style="width:100%">
-          <div><span>Na prateleira</span><b class="tab">${prat}</b></div>
-          <button type="button" class="vend" data-vend="${esc(p.sku)}" ${vend?'':'disabled'}><span>Vendido, falta enviar</span><b class="tab">${vend}</b>${vend?'<small>ver as vendas ›</small>':''}</button>
-          <div class="${falta?'ruim':livre===0?'zero':'bom'}"><span>Livre para vender</span><b class="tab">${falta?0:livre}</b></div>
+          <div><span>No galpão</span><b class="tab">${r.noGalpao}</b></div>
+          <button type="button" class="vend" data-vend="${esc(p.sku)}" ${r.aguardandoEnvio?'':'disabled'}><span>Vendido, aguardando envio</span><b class="tab">${r.aguardandoEnvio}</b>${r.aguardandoEnvio?'<small>ver as vendas ›</small>':''}</button>
+          <div class="${r.livre?'bom':'zero'}"><span>Livre para vender</span><b class="tab">${r.livre}</b></div>
         </div>
-        ${falta?`<div class="alerta bad" style="width:100%;margin:0;font-size:13px"><b>Faltam ${falta} unidade${falta>1?'s':''}.</b> Tem ${vend} vendida${vend>1?'s':''} esperando envio e só ${prat} na prateleira. Se a mercadoria chegou, toque em <b>Chegou mercadoria</b>. Se a prateleira tem outro número, toque em <b>Contei a prateleira</b>.</div>`
-          :livre===0&&!vend?'<span style="width:100%;font-size:12px;color:var(--muted)">Sem estoque no galpão.</span>':''}
+        ${r.emConferencia?`<span style="width:100%;font-size:12px;color:var(--muted)">Em conferência: <b style="color:var(--ink)">${r.emConferencia}</b> avisada${r.emConferencia>1?'s':''} pelo cliente. Entram no galpão quando forem conferidas em <b>Receber</b>.</span>`:''}
+        ${r.faltaLancar?`<div class="alerta bad" style="width:100%;margin:0;font-size:13px"><b>Saíram ${r.faltaLancar} a mais do que foi lançado de entrada.</b> Chegou mercadoria que não foi registrada. Conte a prateleira (contando também o que já foi vendido e ainda não ficou Pronto) ou lance a entrada que faltou.
+          <div class="lin" style="margin-top:6px"><button class="btn pri" type="button" style="min-height:38px" data-pm="ajuste" data-sku="${esc(p.sku)}">Contar a prateleira agora</button><button class="btn" type="button" style="min-height:38px" data-pm="entrada" data-sku="${esc(p.sku)}">Lançar entrada</button></div></div>`
+          :r.faltamParaVendas?`<div class="alerta bad" style="width:100%;margin:0;font-size:13px"><b>Faltam ${r.faltamParaVendas} unidade${r.faltamParaVendas>1?'s':''} para as vendas já feitas.</b> Tem ${r.aguardandoEnvio} vendida${r.aguardandoEnvio>1?'s':''} aguardando envio e só ${r.noGalpao} no galpão. Se chegou mercadoria, lance em <b>Chegou mercadoria</b>.</div>`
+          :!r.noGalpao&&!r.aguardandoEnvio?'<span style="width:100%;font-size:12px;color:var(--muted)">Sem estoque no galpão.</span>':''}
         <div style="display:flex;gap:6px;width:100%;flex-wrap:wrap;align-items:center">
           <button class="btn pri" type="button" style="min-height:40px" data-pm="entrada" data-sku="${esc(p.sku)}">Chegou mercadoria</button>
           <button class="btn" type="button" style="min-height:40px" data-pm="ajuste" data-sku="${esc(p.sku)}">Contei a prateleira</button>
+          <button class="btn" type="button" style="min-height:40px" data-pv="${esc(p.sku)}">Extrato</button>
           <details class="mais"><summary class="btn" style="min-height:40px">Mais</summary><div>
-            <button type="button" data-pv="${esc(p.sku)}">Histórico de entradas e saídas</button>
             <button type="button" data-pm="saida" data-sku="${esc(p.sku)}">Tirar unidades (avaria, devolução ao cliente)</button>
             <button type="button" data-pe="${esc(p.sku)}">Editar produto</button>
             <button type="button" data-pl="${esc(p.sku)}">Imprimir etiqueta do SKU</button></div></details></div>
         <div id="mv-${esc(p.sku)}" style="width:100%"></div>
       </div>`;}).join('');
       $('pr-lista').querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>formMovimento(ps.find(p=>p.sku===b.dataset.sku),b.dataset.pm));
-      $('pr-lista').querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>verMovimentos(b.dataset.pv));
+      $('pr-lista').querySelectorAll('[data-pv]').forEach(b=>b.onclick=()=>verMovimentos(b.dataset.pv,ps.find(p=>p.sku===b.dataset.pv)?.estoque));
       $('pr-lista').querySelectorAll('[data-vend]').forEach(b=>b.onclick=()=>verVendidos(ps.find(p=>p.sku===b.dataset.vend)));
       $('pr-lista').querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>formProduto(ps.find(p=>p.sku===b.dataset.pe)));
       $('pr-lista').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>etiquetaSku(ps.find(p=>p.sku===b.dataset.pl)));
@@ -1498,17 +1507,28 @@ function verVendidos(p){
     prodLeve[$('pr-cli').value]=null;desenharProdutos();
   };
 }
-async function verMovimentos(sku){
+async function verMovimentos(sku,estoqueAtual){
   const alvo=document.getElementById('mv-'+sku);
   if(alvo.dataset.aberto){alvo.innerHTML='';delete alvo.dataset.aberto;return;}
   alvo.dataset.aberto='1';delete alvo.dataset.vend;alvo.innerHTML='<div class="vazio">Carregando…</div>';
   try{
     const ms=await chamar('prepMovimentosListar',{sku});
     const nome={entrada:'Entrada',saida:'Saída',ajuste:'Correção',contagem:'Contagem',estorno:'Volta ao estoque'};
-    alvo.innerHTML=ms.length?`<div class="cad" style="margin-top:6px;gap:0">${ms.map(m=>`<div style="display:flex;gap:10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px">
+    // Extrato como de banco: do mais novo para o mais velho, com o saldo depois de cada linha
+    const ord=[...ms].sort((a,b)=>String(b.em||'').localeCompare(String(a.em||'')));
+    const entrou=ord.filter(m=>m.qtd>0).reduce((t,m)=>t+m.qtd,0),saiu=ord.filter(m=>m.qtd<0).reduce((t,m)=>t-m.qtd,0);
+    let saldo=Number(estoqueAtual??(entrou-saiu));
+    const linhas=ord.map(m=>{const depois=saldo;saldo-=m.qtd;return{m,depois};});
+    alvo.innerHTML=ord.length?`<div class="cad" style="margin-top:6px;gap:0">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;padding-bottom:8px"><b style="color:var(--ink)">Extrato</b>
+        <span>Entrou <b class="tab" style="color:var(--ok-fg)">+${entrou}</b></span><span>Saiu <b class="tab" style="color:var(--bad-fg)">−${saiu}</b></span>
+        <span>Saldo <b class="tab" style="color:${Number(estoqueAtual)<0?'var(--bad-fg)':'var(--ink)'}">${estoqueAtual??entrou-saiu}</b></span>
+        ${ms.length>=300?'<span style="color:var(--muted)">(últimos 300 movimentos)</span>':''}</div>
+      ${linhas.map(({m,depois})=>`<div style="display:flex;gap:10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px;flex-wrap:wrap">
       <b class="tab" style="min-width:44px;color:${m.qtd<0?'var(--bad-fg)':'var(--ok-fg)'}">${m.qtd>0?'+':''}${m.qtd}</b>
-      <span style="flex:1">${nome[m.tipo]||esc(m.tipo)}${m.recebimentoId?' (recebimento)':''}${m.shipmentId?` · envio <span class="mono">${esc(m.shipmentId)}</span>`:''}${m.motivo?' · '+esc(m.motivo):''}</span>
-      <span style="color:var(--muted);white-space:nowrap">${m.em?diaMes(new Date(m.em))+' '+hora(new Date(m.em)):''} · ${esc(String(m.por||'').split('@')[0])}</span></div>`).join('')}</div>`
+      <span style="flex:1 1 200px">${nome[m.tipo]||esc(m.tipo)}${m.recebimentoId?' (recebimento)':''}${m.shipmentId?` · pacote <span class="mono">${esc(m.shipmentId)}</span>`:''}${m.motivo?' · '+esc(m.motivo):''}</span>
+      <span style="color:var(--muted);white-space:nowrap">${m.em?diaMes(new Date(m.em))+' '+hora(new Date(m.em)):''} · ${esc(String(m.por||'').split('@')[0])}</span>
+      <span class="tab" style="min-width:70px;text-align:right;color:${depois<0?'var(--bad-fg)':'var(--muted)'}">saldo ${depois}</span></div>`).join('')}</div>`
       :'<div class="vazio">Nenhum movimento ainda.</div>';
   }catch(e){alvo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;}
 }

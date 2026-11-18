@@ -443,8 +443,9 @@ function listaHist(){
 /* ── Estoque e aviso de chegada ────────────────────────── */
 let est={filtro:'todos',busca:''};
 function situacaoEstoque(p){
-  if(p.disponivel<0)return{c:'bad',t:`Faltam ${-p.disponivel} un para as vendas já feitas`,o:0};
-  if(p.disponivel===0)return{c:'bad',t:p.reservado?'Tudo já vendido':'Sem estoque',o:0};
+  const falta=p.faltamParaVendas??Math.max(0,-p.disponivel);
+  if(falta>0)return{c:'bad',t:`Faltam ${falta} un para vendas já feitas`,o:0};
+  if(p.disponivel<=0)return{c:'bad',t:'Sem unidade para vender',o:0};
   if(p.diasDeEstoque!==null&&p.diasDeEstoque<=10)return{c:'warn',t:`Acabando · ~${p.diasDeEstoque} dia${p.diasDeEstoque===1?'':'s'}`,o:1};
   return{c:'ok',t:p.diasDeEstoque!==null?`Dá para ~${p.diasDeEstoque} dias`:'Em estoque',o:2};
 }
@@ -454,24 +455,22 @@ async function verEstoque(){
   try{[r,e]=await Promise.all([resumo(true),chamar('clienteEstoque')]);}catch(err){return falhou(err);}
   if(vista!=='estoque')return;
   const multi=e.contas.length>1;
-  const ps=e.produtos.map(p=>({...p,sit:situacaoEstoque(p)}));
+  const ps=e.produtos.map(p=>({...p,disponivel:Math.max(0,p.livre??p.disponivel),emConferencia:p.emConferencia??p.aCaminho??0})).map(p=>({...p,sit:situacaoEstoque(p)}));
   const soma=k=>ps.reduce((s,p)=>s+Math.max(0,p[k]||0),0);
   const criticos=ps.filter(p=>p.sit.c!=='ok');
   const zerados=ps.filter(p=>p.sit.c==='bad');
   let h=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2>Seu estoque no galpão</h2><button class="btn pri" type="button" id="e-avisar">Avisar que vou mandar mercadoria</button></div><div id="e-form"></div>`;
-  if(zerados.length)h+=`<div class="alerta bad"><b>${zerados.length} produto${zerados.length>1?'s':''} sem unidade livre para vender.</b> Se o anúncio continuar ativo, a próxima venda fica sem produto no galpão. Mande mercadoria ou pause o anúncio.</div>`;
-  h+=`<div class="kpis">
-    <div class="kpi"><span>Disponível para vender</span><b class="tab">${soma('disponivel')}</b><small>unidades livres</small></div>
-    <div class="kpi"><span>Já vendido, saindo</span><b class="tab">${soma('reservado')}</b><small>separadas para pedidos</small></div>
-    <div class="kpi"><span>A caminho</span><b class="tab">${soma('aCaminho')}</b><small>avisadas, não chegaram</small></div>
-    <div class="kpi ${criticos.length?'warn':''}"><span>Acabando ou zerados</span><b class="tab">${criticos.length}</b><small>de ${ps.length} produtos</small></div>
+  if(zerados.length)h+=`<div class="alerta bad"><b>${zerados.length} produto${zerados.length>1?'s':''} sem unidade para vender.</b> Se o anúncio continuar ativo, a próxima venda fica sem produto no galpão. Mande mercadoria ou pause o anúncio.</div>`;
+  h+=`<div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+    <div class="kpi"><span>Disponível para vender</span><b class="tab">${soma('disponivel')}</b><small>já no galpão, livres para novas vendas</small></div>
+    <div class="kpi"><span>Em conferência</span><b class="tab">${soma('emConferencia')}</b><small>você avisou que mandou; entram depois de conferidas</small></div>
   </div>`;
-  if(r.aReceber.length)h+=`<details class="card"><summary style="font-weight:800;cursor:pointer;min-height:28px;color:var(--ink)">A caminho do galpão (${r.aReceber.length} aviso${r.aReceber.length>1?'s':''})</summary>${r.aReceber.map(a=>`<div style="border-top:1px solid var(--line-soft);padding-top:8px;font-size:14px"><b>${a.previsto?'Previsto para '+a.previsto.split('-').reverse().join('/'):'Sem data prevista'}</b>${multi?` · ${esc(a.conta)}`:''}<div style="color:var(--muted);font-size:13px;margin-top:2px">${(a.itens||[]).map(i=>`${i.avisado}× ${esc(i.nome)} <span class="mono">${esc(i.sku)}</span>`).join(' · ')}</div></div>`).join('')}</details>`;
+  if(r.aReceber.length)h+=`<details class="card"><summary style="font-weight:800;cursor:pointer;min-height:28px;color:var(--ink)">Em conferência (${r.aReceber.length} aviso${r.aReceber.length>1?'s':''})</summary>${r.aReceber.map(a=>`<div style="border-top:1px solid var(--line-soft);padding-top:8px;font-size:14px"><b>${a.previsto?'Previsto para '+a.previsto.split('-').reverse().join('/'):'Sem data prevista'}</b>${multi?` · ${esc(a.conta)}`:''}<div style="color:var(--muted);font-size:13px;margin-top:2px">${(a.itens||[]).map(i=>`${i.avisado}× ${esc(i.nome)} <span class="mono">${esc(i.sku)}</span>`).join(' · ')}</div></div>`).join('')}</details>`;
   if(!ps.length){h+='<div class="vazio">Nenhum produto no galpão ainda. Toque em <b>Avisar que vou mandar mercadoria</b> e escolha os produtos direto dos seus anúncios.</div>';$('conteudo').innerHTML=h;$('e-avisar').onclick=()=>formAviso(e);return;}
   h+=`<div class="filtros"><div class="periodos" role="group" aria-label="Filtro"><button type="button" data-ef="todos" aria-pressed="${est.filtro==='todos'}">Todos ${ps.length}</button><button type="button" data-ef="criticos" aria-pressed="${est.filtro==='criticos'}">Acabando ou zerados ${criticos.length}</button></div>
     <input type="search" id="e-busca" placeholder="Buscar SKU, produto ou anúncio" aria-label="Buscar produto" value="${esc(est.busca)}"></div>
     <div id="e-lista" class="lista"></div>
-    <span style="font-size:12px;color:var(--muted)">Disponível para vender = unidades na prateleira menos as que já foram vendidas e ainda não saíram. Atualiza a cada venda e a cada pacote finalizado.</span>`;
+    <span style="font-size:12px;color:var(--muted)">Disponível para vender = o que está no galpão menos o que já foi vendido e ainda não foi embalado. Atualiza a cada venda e a cada pacote embalado. Em conferência = mercadoria que você avisou; entra no disponível quando o galpão confere.</span>`;
   $('conteudo').innerHTML=h;
   $('e-avisar').onclick=()=>formAviso(e);
   document.querySelectorAll('[data-ef]').forEach(b=>b.onclick=()=>{est.filtro=b.dataset.ef;document.querySelectorAll('[data-ef]').forEach(x=>x.setAttribute('aria-pressed',x===b));listaEstoque(ps,multi);});
@@ -490,14 +489,12 @@ function listaEstoque(ps,multi){
         <b style="font-size:15px;color:var(--ink);line-height:1.3">${esc(p.nome)}</b>
         ${multi?`<span style="font-size:12px;color:var(--muted);font-weight:600">${esc(p.conta)}</span>`:''}
       </div>
-      <div style="text-align:right;flex:none"><b class="tab" style="font-size:30px;line-height:1;color:${cor[p.sit.c]}">${p.disponivel}</b><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">para vender</div></div>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted)">
-      <span>Na prateleira <b class="tab" style="color:var(--ink)">${p.estoque}</b></span>
-      <span>Já vendidas <b class="tab" style="color:var(--ink)">${p.reservado}</b></span>
-      ${p.aCaminho?`<span>A caminho <b class="tab" style="color:var(--ink)">${p.aCaminho}</b></span>`:''}
-      <span>Vendeu em 30 dias <b class="tab" style="color:var(--ink)">${p.vendidos30}</b></span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="background:${p.sit.c==='bad'?'var(--bad-bg)':'var(--sunken)'};border-radius:10px;padding:8px 10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Para vender</div><b class="tab" style="font-size:26px;line-height:1.1;color:${cor[p.sit.c]}">${p.disponivel}</b></div>
+      <div style="background:var(--sunken);border-radius:10px;padding:8px 10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Em conferência</div><b class="tab" style="font-size:26px;line-height:1.1;color:${p.emConferencia?'var(--ink)':'var(--muted)'}">${p.emConferencia}</b></div>
     </div>
+    ${p.vendidos30?`<span style="font-size:13px;color:var(--muted)">Vendeu <b class="tab" style="color:var(--ink)">${p.vendidos30}</b> nos últimos 30 dias</span>`:''}
     ${p.anuncios.length?`<details ${est.aberto===p.sku?'open':''}><summary style="font-size:13px;font-weight:800;cursor:pointer;color:var(--body);min-height:28px">Anúncios que usam este produto (${p.anuncios.length})</summary>
       <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${p.anuncios.map(a=>`<div style="display:flex;gap:10px;align-items:center;background:var(--sunken);border-radius:8px;padding:8px 10px;font-size:13px;flex-wrap:wrap"><span style="flex:1 1 200px;min-width:0"><b style="color:var(--ink)">${esc(a.titulo)}</b><br><span style="color:var(--muted)">${a.qtdPorVenda} un por venda${a.kit?' · kit com outros produtos':''} · <span class="mono">${esc(a.itemId)}</span></span></span><span style="text-align:right;flex:none"><b class="tab" style="font-size:18px;color:${a.vendasPossiveis?'var(--ink)':'var(--bad-fg)'}">${a.vendasPossiveis}</b><br><span style="font-size:11px;color:var(--muted);font-weight:700">vendas</span></span><button class="btn peq" type="button" data-deslig="${esc(p.sku)}|${esc(a.itemId)}|${esc(a.variacao||'')}">Desligar</button></div>`).join('')}</div></details>`
       :'<span style="font-size:12px;color:var(--warn-fg);font-weight:700">Nenhum anúncio ligado a este produto ainda: as vendas não baixam dele automaticamente.</span>'}
