@@ -1602,13 +1602,14 @@ function BotaoHistorico({periodos,onClick,disabled}){
   );
 }
 
-function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFechar,onSalvo}){
+function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,novoCusto,novoImposto,comoUid,onFechar,onSalvo}){
   const [linhas,setLinhas]=useState(null);
   const [carregando,setCarregando]=useState(true);
   const [salvando,setSalvando]=useState(false);
   const [erro,setErro]=useState('');
   const hoje=new Date(Date.now()-3*3600000).toISOString().slice(0,10);
-  const [nova,setNova]=useState({de:hoje,custo:'',imposto:''});
+  // O preco digitado na tabela antes de abrir a janela ja vem como o novo preco
+  const [nova,setNova]=useState({de:hoje,ate:'',custo:novoCusto?PARACAMPO(novoCusto):'',imposto:novoImposto?PARACAMPO(novoImposto):''});
 
   useEffect(()=>{
     let vivo=true;
@@ -1617,7 +1618,7 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
         const r=await call('mlHistoricoCusto',{skus:[sku],comoUid:comoUid||null});
         if(!vivo)return;
         const h=r.custos?.[sku]?.historico||[];
-        setLinhas(h.map(x=>({de:x.de,custo:PARACAMPO(x.custo),imposto:x.imposto==null?'':PARACAMPO(x.imposto)})));
+        setLinhas(h.map(x=>({de:x.de,ate:x.ate||'',custo:PARACAMPO(x.custo),imposto:x.imposto==null?'':PARACAMPO(x.imposto)})));
       }catch(e){if(vivo)setErro(e.message||'Não consegui carregar o histórico.');}
       finally{if(vivo)setCarregando(false);}
     })();
@@ -1633,18 +1634,20 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
 
   const ordenadas=[...(linhas||[])].sort((a,b)=>String(a.de).localeCompare(String(b.de)));
   const maisAntiga=ordenadas[0];
-  const vigente=ordenadas.length?ordenadas[ordenadas.length-1]:null;
+  // Mesma regra do servidor: vale o periodo mais recente que ja comecou e nao terminou
+  const vigente=(()=>{let v=null;for(const l of ordenadas){if(l.de>hoje)break;if(!l.ate||l.ate>=hoje)v=l;}
+    if(!v){const ab=ordenadas.filter(l=>!l.ate&&l.de<=hoje);v=ab.length?ab[ab.length-1]:null;}return v||ordenadas[0]||null;})();
+  const novaPreenchida=String(nova.custo).trim()!=='';
 
   function adicionar(){
     if(!nova.de){setErro('Escolha a data a partir da qual esse custo passa a valer.');return;}
     const c=PARSE(nova.custo);
     if(!Number.isFinite(c)||c<0){setErro('Informe o custo desse período.');return;}
-    if((linhas||[]).some(l=>l.de===nova.de)){
-      setErro('Já existe um período começando nessa data — edite aquele em vez de criar outro.');return;
-    }
+    if(nova.ate&&nova.ate<nova.de){setErro('A data "até" é antes da data "a partir de".');return;}
     setErro('');
-    setLinhas([...(linhas||[]),{de:nova.de,custo:nova.custo,imposto:nova.imposto}]);
-    setNova({de:hoje,custo:'',imposto:''});
+    // Mesma data de inicio: substitui o periodo que ja existia
+    setLinhas([...(linhas||[]).filter(l=>l.de!==nova.de),{de:nova.de,ate:nova.ate,custo:nova.custo,imposto:nova.imposto}]);
+    setNova({de:hoje,ate:'',custo:'',imposto:''});
   }
   function mudar(i,campo,v){
     const c=[...linhas];c[i]={...c[i],[campo]:v};setLinhas(c);setErro('');
@@ -1654,10 +1657,19 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
   }
 
   async function salvar(){
+    // Preco novo preenchido e nao adicionado: entra junto (antes ficava de fora)
+    let lista=[...(linhas||[])];
+    if(novaPreenchida){
+      const c=PARSE(nova.custo);
+      if(!nova.de||!Number.isFinite(c)||c<0){setErro('Confira a data e o custo do novo preço.');return;}
+      if(nova.ate&&nova.ate<nova.de){setErro('A data "até" do novo preço é antes da data "a partir de".');return;}
+      lista=[...lista.filter(l=>l.de!==nova.de),{de:nova.de,ate:nova.ate,custo:nova.custo,imposto:nova.imposto}];
+    }
+    if(lista.some(l=>l.ate&&l.ate<l.de)){setErro('Tem período terminando antes de começar.');return;}
     setSalvando(true);setErro('');
     try{
       await call('mlSalvarHistoricoCusto',{sku,
-        historico:(linhas||[]).map(l=>({de:l.de,custo:PARSE(l.custo),
+        historico:lista.map(l=>({de:l.de,ate:l.ate||null,custo:PARSE(l.custo),
           imposto:l.imposto===''?null:PARSE(l.imposto)}))});
       onSalvo?.();onFechar();
     }catch(e){setErro(e.message||'Não consegui salvar.');}
@@ -1703,6 +1715,12 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
               </label>
               <label style={{display:'flex',flexDirection:'column',gap:4}}>
                 <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',
+                  fontWeight:'var(--weight-semibold)'}}>Até (opcional)</span>
+                <input type="date" value={nova.ate} min={nova.de||undefined} onChange={e=>setNova({...nova,ate:e.target.value})}
+                  className="fld" style={{height:'var(--control-h-md)',padding:'0 10px',fontSize:'var(--text-sm)'}}/>
+              </label>
+              <label style={{display:'flex',flexDirection:'column',gap:4}}>
+                <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)',
                   fontWeight:'var(--weight-semibold)'}}>Custo (R$)</span>
                 <input value={nova.custo} onChange={e=>setNova({...nova,custo:LIMPAR(e.target.value)})}
                   onKeyDown={e=>{if(e.key==='Enter')adicionar();}}
@@ -1719,8 +1737,10 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
                   style={{height:'var(--control-h-md)',width:88,padding:'0 10px',
                     fontSize:'var(--text-sm)',textAlign:'right'}}/>
               </label>
-              <Btn variant="primary" icon="plus" onClick={adicionar}>Adicionar</Btn>
+              <Btn variant="neutral" icon="plus" onClick={adicionar}>Adicionar outro</Btn>
             </div>
+            <span style={{fontSize:'var(--text-2xs)',color:'var(--text-muted)'}}>
+              {novaPreenchida?'Este preço entra ao tocar em Salvar. ':''}Sem "até", vale até o próximo período começar. Com "até", vale só nesses dias e depois volta o preço anterior.</span>
           </div>
 
           {carregando
@@ -1741,8 +1761,11 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
                         <input type="date" value={l.de} onChange={e=>mudar(i,'de',e.target.value)}
                           className="fld" style={{height:'var(--control-h-sm)',padding:'0 8px',
                             fontSize:'var(--text-xs)'}}/>
+                        <input type="date" value={l.ate||''} min={l.de||undefined} onChange={e=>mudar(i,'ate',e.target.value)}
+                          title="Até (opcional)" className="fld" style={{height:'var(--control-h-sm)',padding:'0 8px',
+                            fontSize:'var(--text-xs)'}}/>
                         <span style={{fontSize:'var(--text-2xs)',color:'var(--text-subtle)'}}>
-                          {proximo?`até ${fmtData(proximo.de)}`:'até hoje'}</span>
+                          {l.ate?`até ${fmtData(l.ate)}`:proximo?`até ${fmtData(proximo.de)}`:'sem data para acabar'}</span>
                       </div>
                       <span style={{position:'relative',display:'inline-flex',alignItems:'center'}}>
                         <span style={{position:'absolute',left:8,fontSize:'var(--text-2xs)',
@@ -1777,7 +1800,7 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
           )}
 
           <Note tone="neutral" icon="info">
-            Cada período vale a partir da data até o próximo começar. A margem de cada venda passa a usar
+            Cada período vale a partir da data até o próximo começar (ou até a data "até", se tiver). A margem de cada venda passa a usar
             o custo do dia em que ela aconteceu, inclusive nas vendas já registradas — nada precisa ser
             recalculado nem reimportado. Editar o custo direto na tabela continua funcionando: ele muda
             o período que vale hoje.
@@ -1795,7 +1818,7 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,comoUid,onFech
           <div style={{display:'flex',gap:8}}>
             <Btn variant="neutral" onClick={onFechar}>Cancelar</Btn>
             <Btn variant="primary" icon={salvando?'loader':'check'} onClick={salvar} disabled={salvando||carregando}>
-              {salvando?'Salvando…':'Salvar períodos'}</Btn>
+              {salvando?'Salvando…':'Salvar'}</Btn>
           </div>
         </div>
       </div>
@@ -2047,7 +2070,9 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
                 <div data-label="Períodos de custo">
                   <BotaoHistorico periodos={a.periodosCusto||0} disabled={salvando}
                     onClick={()=>setHistAberto({sku:a.sku,titulo:a.titulo,
-                      custo:PARSE(custoV)||a.custo,imposto:PARSE(impV)||a.imposto})}/>
+                      custo:a.custo,imposto:a.imposto,
+                      novoCusto:rascunho[a.sku]?.custo!=null&&PARSE(rascunho[a.sku].custo)!==a.custo?PARSE(rascunho[a.sku].custo):null,
+                      novoImposto:rascunho[a.sku]?.imposto!=null?PARSE(rascunho[a.sku].imposto):null})}/>
                 </div>
                 </>}
               </div>
@@ -2096,8 +2121,9 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
       {histAberto&&(
         <PainelHistoricoCusto sku={histAberto.sku} titulo={histAberto.titulo}
           custoAtual={histAberto.custo} impostoAtual={histAberto.imposto}
+          novoCusto={histAberto.novoCusto} novoImposto={histAberto.novoImposto}
           onFechar={()=>setHistAberto(null)}
-          onSalvo={()=>{setRascunho({});onRefresh?.(true);}}/>
+          onSalvo={()=>{const k=histAberto.sku;setRascunho(r=>{const c={...r};delete c[k];return c;});onRefresh?.(true);}}/>
       )}
     </div>
   );
@@ -2523,8 +2549,9 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
                   <div data-label="Períodos de custo">
                     <BotaoHistorico periodos={x.periodosCusto||0} disabled={salvando}
                       onClick={()=>setHistAberto({sku:x.sku,titulo:x.titulo,
-                        custo:PARSE(val(x,'custo'))||x.custoUnit,
-                        imposto:PARSE(val(x,'imposto'))||x.impostoPct})}/>
+                        custo:x.custoUnit,imposto:x.impostoPct,
+                        novoCusto:rascunho[x.sku]?.custo!=null&&PARSE(rascunho[x.sku].custo)!==x.custoUnit?PARSE(rascunho[x.sku].custo):null,
+                        novoImposto:rascunho[x.sku]?.imposto!=null?PARSE(rascunho[x.sku].imposto):null})}/>
                   </div>
                   </>}
 
@@ -2576,8 +2603,9 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
       {histAberto&&(
         <PainelHistoricoCusto sku={histAberto.sku} titulo={histAberto.titulo}
           custoAtual={histAberto.custo} impostoAtual={histAberto.imposto}
+          novoCusto={histAberto.novoCusto} novoImposto={histAberto.novoImposto}
           onFechar={()=>setHistAberto(null)}
-          onSalvo={()=>{setRascunho({});onRefresh?.(true);}}/>
+          onSalvo={()=>{const k=histAberto.sku;setRascunho(r=>{const c={...r};delete c[k];return c;});onRefresh?.(true);}}/>
       )}
     </div>
   );
