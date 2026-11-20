@@ -965,6 +965,7 @@ function desenharCobrancas(alvo,f){
       </div>
       <span style="font-size:12px;color:var(--muted)">${f.grupo?`Grupo: <b>${esc(f.grupo.nome||f.grupo.id)}</b>. `:''}Automático às 9h: manda no vencimento e lembra todo dia até pagar; quando paga, avisa no grupo. O mesmo grupo vai receber os avisos de envio e NF. ${f.grupo?'<button type="button" id="ft-previa" style="border:0;background:none;color:var(--orange-d);font:inherit;font-weight:800;text-decoration:underline;cursor:pointer;padding:0">Ver o que sairia hoje</button>':''}</span>
     </form>
+    ${f.contaPropria?'<div class="alerta" style="background:var(--sunken);color:var(--body);margin-bottom:8px">Esta é uma conta sua: os pacotes passam pela fila do prep normalmente, mas não geram cobrança.</div>':''}
     ${!f.valoresDefinidos?'<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin-bottom:8px">A tabela de preços está com os valores iniciais. Confira em Tabela de preços.</div>':''}
     ${atr.length?`<div class="cad" style="border:2px solid var(--bad);background:#FFF7F8;margin-bottom:12px;gap:8px"><h2 style="color:var(--bad-fg)">De meses anteriores, não pago · ${brl(atr.reduce((s,c)=>s+c.valor,0))}</h2>${atr.map(c=>htmlCobranca(c,true,f.pagamentoOnline)).join('')}</div>`:''}
     <div style="display:flex;flex-direction:column;gap:10px">${cs.map(c=>htmlCobranca(c,true,f.pagamentoOnline)).join('')||'<div class="vazio">Nenhuma cobrança neste mês (antes do início da cobrança deste cliente).</div>'}</div>`;
