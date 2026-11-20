@@ -286,6 +286,7 @@ details.mais>div button:hover{background:var(--sunken)}
       <button type="button" id="m-full"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="lg">Etiquetagem Full</span><span class="ct">Full</span></button>
       <button type="button" id="m-etq"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5v14M7 5v14M11 5v14M14 5v14M18 5v14M21 5v14"/></svg><span class="lg">Etiquetas TXT → PDF</span><span class="ct">Etiquetas</span></button>
       <button type="button" id="m-hist"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg><span class="lg">Histórico</span><span class="ct">Histórico</span></button>
+      <button type="button" id="m-ganhos"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg><span class="lg" id="m-ganhos-lg">Meus ganhos</span><span class="ct">Ganhos</span></button>
       <span class="menu-sep oculto" id="menu-sep">Administração</span>
       <button type="button" id="m-fatura" class="oculto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h16v20l-3-2-2.5 2-2.5-2-2.5 2L7 20l-3 2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg><span class="lg">Fatura</span><span class="ct">Fatura</span></button>
       <button type="button" id="m-equipe" class="oculto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8"/></svg><span class="lg">Equipe</span><span class="ct">Equipe</span></button>
@@ -356,6 +357,7 @@ details.mais>div button:hover{background:var(--sunken)}
       <div id="rc-lista" class="hist"></div>
     </section>
 
+    <section id="v-ganhos" class="oculto" style="display:flex;flex-direction:column;gap:12px"><div id="gn-corpo"></div></section>
     <section id="v-hist" class="oculto" style="display:flex;flex-direction:column;gap:12px">
       <div class="periodos" id="periodos" role="group" aria-label="Período"></div>
       <div class="hist-filtros">
@@ -472,6 +474,7 @@ auth.onAuthStateChanged(async u=>{
   $('quem-sou').textContent=u.email||'';
   $('m-equipe').classList.toggle('oculto',!souAdmin);
   $('m-fatura').classList.toggle('oculto',!souAdmin);
+  if(souAdmin){$('m-ganhos-lg').textContent='Pagamento da equipe';TITULOS.ganhos='Pagamento da equipe';}
   $('menu-sep').classList.toggle('oculto',!souAdmin);
   if(perfil.trocarSenha){mostrar('senha');return;}
   mostrar('app');carregar();
@@ -772,6 +775,7 @@ const diaISO=off=>{const d=new Date(Date.now()-off*864e5);return d.toLocaleDateS
 $('m-fila').onclick=()=>trocarVista('fila');
 $('m-pend').onclick=()=>trocarVista('pend');
 $('m-hist').onclick=()=>trocarVista('hist');
+$('m-ganhos').onclick=()=>trocarVista('ganhos');
 $('m-equipe').onclick=()=>trocarVista('equipe');
 $('m-fatura').onclick=()=>trocarVista('fatura');
 $('m-full').onclick=()=>trocarVista('full');
@@ -779,15 +783,16 @@ $('m-etq').onclick=()=>trocarVista('etq');
 window.addEventListener('message',e=>{if(e.origin!==location.origin||!e.data||!e.data.zplAltura)return;document.querySelectorAll('iframe[data-zpl]').forEach(f=>{if(f.contentWindow===e.source)f.style.height=e.data.zplAltura+'px';});});
 $('m-produtos').onclick=()=>trocarVista('produtos');
 $('m-receber').onclick=()=>trocarVista('receber');
-const TITULOS={pend:'Pendências do cliente',fila:'Fila do dia',receber:'Receber mercadoria',produtos:'Produtos e estoque',full:'Etiquetagem Full',etq:'Etiquetas TXT → PDF',hist:'Histórico',fatura:'Fatura',equipe:'Equipe do galpão'};
+const TITULOS={pend:'Pendências do cliente',fila:'Fila do dia',receber:'Receber mercadoria',produtos:'Produtos e estoque',full:'Etiquetagem Full',etq:'Etiquetas TXT → PDF',hist:'Histórico',ganhos:'Meus ganhos',fatura:'Fatura',equipe:'Equipe do galpão'};
 function trocarVista(v){
   $('t-titulo').textContent=TITULOS[v]||'';document.title=`${NOME_SISTEMA} · ${TITULOS[v]||''}`;
   window.scrollTo(0,0);
-  [['pend','v-pend','m-pend'],['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['etq','v-etq','m-etq'],['hist','v-hist','m-hist'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
+  [['pend','v-pend','m-pend'],['fila','v-fila','m-fila'],['receber','v-receber','m-receber'],['produtos','v-produtos','m-produtos'],['full','v-full','m-full'],['etq','v-etq','m-etq'],['hist','v-hist','m-hist'],['ganhos','v-ganhos','m-ganhos'],['fatura','v-fatura','m-fatura'],['equipe','v-equipe','m-equipe']].forEach(([id,vis,men])=>{
     $(vis).classList.toggle('oculto',v!==id);
     if(v===id)$(men).setAttribute('aria-current','page');else $(men).removeAttribute('aria-current');
   });
   if(v==='hist')carregarHistorico();
+  if(v==='ganhos')abrirGanhos();
   if(v==='equipe')carregarEquipe();
   if(v==='produtos')abrirProdutos();
   if(v==='receber')abrirReceber();
@@ -795,6 +800,73 @@ function trocarVista(v){
   if(v==='pend')desenharPendencias();
   if(v==='full')abrirFull();
   if(v==='etq'&&!$('etq-frame').src)$('etq-frame').src='etiquetas.html?embed=1';
+}
+
+/* ── Ganhos da equipe (pagamento por envio) ──────────────── */
+let gnEstado={email:'',mes:''};
+async function abrirGanhos(){
+  gnEstado.mes=gnEstado.mes||mesAtual();
+  const corpo=$('gn-corpo');corpo.innerHTML='<div class="vazio">Somando os envios…</div>';
+  let g;try{g=await chamar('equipeGanhos',{email:gnEstado.email||undefined,mes:gnEstado.mes},120);}catch(e){corpo.innerHTML=`<div class="alerta bad">${esc(e.message)}</div>`;return;}
+  gnEstado.email=g.email;
+  const SITG={pago:['Pago','ok'],a_pagar:['A pagar','warn'],atrasado:[g.admin?'Atrasado · pagar':'Aguardando pagamento','bad'],em_andamento:['Contando','neu'],sem_valor:['Sem envios','neu']};
+  const tx=g.taxas;
+  corpo.innerHTML=`<div class="cad"><div class="lin">
+      ${g.admin?`<label>Pessoa<select id="gn-pessoa">${(g.membros||[]).map(m=>`<option value="${esc(m.email)}" ${m.email===g.email?'selected':''}>${esc(m.nome)}${m.ativo?'':' (inativa)'}</option>`).join('')||`<option value="${esc(g.email)}">${esc(g.nome)}</option>`}</select></label>`:''}
+      <label style="flex:0 1 180px">Mês<input id="gn-mes" type="month" value="${esc(gnEstado.mes)}" max="${mesAtual()}"></label></div>
+    <span style="font-size:13px;color:var(--muted)">${g.admin?'':'Seus ganhos por pacote embalado. '}Conta cada pacote em que ${g.admin?'a pessoa':'você'} tirou a foto da caixa ao marcar Pronto: Agência ${brl(tx.agencia)}, Correios ${brl(tx.correios)}, Flex ${brl(tx.flex)}, Coleta ${brl(tx.coleta)}. No Full, ${brl(tx.full)} por pacote informado em cada envio Full. Fecha por quinzena: 1 a 15 paga dia 16; 16 ao fim do mês paga dia 1.</span>
+    ${g.admin?`<details><summary style="font-size:13px;font-weight:800;cursor:pointer;min-height:28px">Mudar os valores por pacote</summary><form id="gn-tx" class="lin" style="margin-top:6px;align-items:flex-end" autocomplete="off">
+      ${['agencia','correios','flex','coleta','full'].map(k=>`<label style="flex:0 1 130px">${{agencia:'Agência',correios:'Correios',flex:'Flex',coleta:'Coleta',full:'Full (pacote)'}[k]} (R$)<input name="${k}" inputmode="decimal" value="${String(tx[k]).replace('.',',')}"></label>`).join('')}
+      <button class="btn" type="submit">Salvar valores</button></form></details>`:''}</div>
+    ${g.quinzenas.length?g.quinzenas.map(q=>{const [rot,cls]=SITG[q.situacao]||['',''];const pg=q.pagamento;return `<article class="cad" style="gap:8px;${q.situacao==='atrasado'&&g.admin?'border:2px solid var(--bad)':q.situacao==='pago'?'border-color:#A6E3C9':''}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:16px;color:var(--ink)">${q.nome}</b>
+        <span style="font-size:12px;color:var(--muted)">${dataBR(q.de).slice(0,5)} a ${dataBR(q.ate).slice(0,5)}</span><span class="st ${cls}">${rot}</span>
+        <span style="margin-left:auto;text-align:right"><b class="tab" style="font-size:26px;color:var(--ink)">${brl(q.total)}</b>
+        <span style="display:block;font-size:12px;color:var(--muted)">${pg?`pago em ${dataBR(pg.data)}`:q.situacao==='em_andamento'?`até agora · paga em ${dataBR(q.vencimento)}`:`paga em ${dataBR(q.vencimento)}`}</span></span></div>
+      ${pg?`<div style="font-size:13px;color:var(--ok-fg);background:var(--ok-bg);border-radius:8px;padding:8px 10px">✓ ${brl(pg.valor)} · ${esc(pg.forma)} · ${dataBR(pg.data)}${pg.obs?` · ${esc(pg.obs)}`:''}${pg.comprovanteId?` · <button type="button" class="link" data-gncomp="${esc(pg.comprovanteId)}" style="color:var(--ok-fg)">ver comprovante</button>`:''}</div>`:''}
+      ${q.linhas.length?`<table style="width:100%;border-collapse:collapse;font-size:13px">${q.linhas.map(l=>`<tr><td style="padding:6px 0;border-bottom:1px solid var(--line-soft)">${esc(l.nome)}</td><td class="tab" style="text-align:right;border-bottom:1px solid var(--line-soft)">${l.qtd} × ${brl(l.unit)}</td><td class="tab" style="text-align:right;font-weight:800;border-bottom:1px solid var(--line-soft)">${brl(l.total)}</td></tr>`).join('')}</table>`:'<span style="font-size:13px;color:var(--muted)">Nenhum pacote nesta quinzena ainda.</span>'}
+      ${q.fulls.length?`<div style="background:var(--sunken);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px">
+        <b style="font-size:13px;color:var(--ink)">Envios Full da quinzena: quantos pacotes ${g.admin?'a pessoa fez':'você fez'} em cada um</b>
+        ${q.fulls.map(f=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px"><span style="flex:1 1 200px"><b>${dataBR(f.dataFull).slice(0,5)}</b> · ${esc(f.cliente)} · ${f.etiquetas} etiquetas${f.inboundId?` · ${esc(f.inboundId)}`:''}</span>
+          ${pg?`<b class="tab">${f.pacotes} pacote${f.pacotes===1?'':'s'}</b>`:`<input type="number" min="0" inputmode="numeric" value="${f.pacotes||''}" placeholder="pacotes" data-gnfull="${esc(f.id)}" style="width:110px;min-height:40px"><button class="btn" type="button" data-gnsalvar="${esc(f.id)}" style="min-height:40px">Salvar</button>`}</div>`).join('')}</div>`:''}
+      ${q.pacotes.length?`<details><summary style="font-size:13px;font-weight:800;cursor:pointer;min-height:28px">Ver os ${q.pacotes.length} pacotes</summary>
+        <div style="display:flex;flex-direction:column;margin-top:4px">${q.pacotes.map(p=>`<div style="display:flex;gap:10px;font-size:12px;padding:5px 0;border-top:1px solid var(--line-soft);flex-wrap:wrap"><span class="mono">${esc(p.shipmentId)}</span><span>${esc({agencia:'Agência',correios:'Correios',flex:'Flex',coleta:'Coleta'}[p.modalidade]||p.modalidade)}</span><span style="color:var(--muted)">${esc(p.cliente)}</span><span style="margin-left:auto;color:var(--muted)">${diaMes(new Date(p.em))} ${hora(new Date(p.em))}</span></div>`).join('')}</div></details>`:''}
+      ${g.admin&&!pg&&q.total>0&&q.situacao!=='em_andamento'?`<div class="lin"><button class="btn pri" type="button" data-gnpagar="${esc(q.id)}">Registrar pagamento</button></div><div id="gp-${esc(q.id)}"></div>`:''}
+      ${g.admin&&!pg&&q.situacao==='em_andamento'&&q.total>0?`<div class="lin"><button class="btn" type="button" data-gnpagar="${esc(q.id)}">Pagar antes de fechar</button></div><div id="gp-${esc(q.id)}"></div>`:''}
+      ${g.admin&&pg?`<div class="lin"><button class="btn" type="button" data-gndesf="${esc(q.id)}" style="min-height:38px;font-size:13px">Desfazer pagamento</button></div>`:''}
+    </article>`;}).join(''):'<div class="vazio">Nada neste mês ainda.</div>'}`;
+  if($('gn-pessoa'))$('gn-pessoa').onchange=e=>{gnEstado.email=e.target.value;abrirGanhos();};
+  $('gn-mes').onchange=e=>{gnEstado.mes=e.target.value||mesAtual();abrirGanhos();};
+  if($('gn-tx'))$('gn-tx').onsubmit=async e=>{e.preventDefault();const f=e.target,d={};['agencia','correios','flex','coleta','full'].forEach(k=>d[k]=f[k].value);
+    try{await chamar('equipeTaxasSalvar',d);som(true);abrirGanhos();}catch(err){erro('Não salvou',esc(err.message));}};
+  corpo.querySelectorAll('[data-gnsalvar]').forEach(b=>b.onclick=async()=>{
+    const inp=corpo.querySelector(`[data-gnfull="${CSS.escape(b.dataset.gnsalvar)}"]`);b.disabled=true;b.textContent='Salvando…';
+    try{await chamar('equipeFullPacotes',{id:b.dataset.gnsalvar,qtd:Number(inp.value)||0,email:g.admin?g.email:undefined});som(true);abrirGanhos();}
+    catch(err){b.disabled=false;b.textContent='Salvar';erro('Não salvou',esc(err.message));}});
+  corpo.querySelectorAll('[data-gncomp]').forEach(b=>b.onclick=async()=>{
+    try{const r=await chamar('equipeComprovante',{comprovanteId:b.dataset.gncomp});
+      if(r.mime==='application/pdf'){const blob=await (await fetch(`data:${r.mime};base64,${r.base64}`)).blob();window.open(URL.createObjectURL(blob),'_blank');return;}
+      telaCheia('#100D14',`<img class="foto-grande" alt="Comprovante do pagamento" src="data:${esc(r.mime)};base64,${r.base64}"><button class="btn" type="button" id="ov-ok">Fechar</button>`);}
+    catch(err){erro('Sem comprovante',esc(err.message));}});
+  corpo.querySelectorAll('[data-gndesf]').forEach(b=>b.onclick=async()=>{
+    if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmar: desfazer pagamento';b.style.color='var(--bad-fg)';return;}
+    b.disabled=true;try{await chamar('equipePagar',{id:b.dataset.gndesf,desfazer:true});abrirGanhos();}catch(err){b.disabled=false;erro('Não desfez',esc(err.message));}});
+  corpo.querySelectorAll('[data-gnpagar]').forEach(b=>b.onclick=()=>{
+    const q=g.quinzenas.find(x=>x.id===b.dataset.gnpagar),box=$('gp-'+q.id);
+    if(box.innerHTML){box.innerHTML='';return;}
+    box.innerHTML=`<form class="cad" style="background:var(--sunken);border-color:transparent" autocomplete="off"><h2>Pagamento · ${esc(g.nome)} · ${q.nome}</h2>
+      <div class="lin"><label style="flex:0 1 150px">Valor pago (R$)<input name="valor" inputmode="decimal" value="${String(q.total).replace('.',',')}"></label>
+        <label style="flex:0 1 170px">Data<input name="data" type="date" value="${new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'})}"></label>
+        <label style="flex:0 1 180px">Forma<select name="forma"><option>Pix</option><option>Transferência</option><option>Dinheiro</option><option>Outro</option></select></label></div>
+      <div class="lin"><label>Comprovante (foto, print ou PDF)<input name="arq" type="file" accept="image/*,application/pdf"></label></div>
+      <div class="lin"><label>Observação<input name="obs" maxlength="300"></label></div>
+      <div class="lin"><button class="btn pri" type="submit">Confirmar pagamento</button></div></form>`;
+    const f=box.querySelector('form');
+    f.onsubmit=async e=>{e.preventDefault();const s=f.querySelector('[type=submit]');s.disabled=true;s.textContent='Salvando…';
+      try{const comprovante=await lerComprovante(f.arq.files[0]);
+        await chamar('equipePagar',{id:q.id,valor:numBR(f.valor.value),data:f.data.value,forma:f.forma.value,obs:f.obs.value,comprovante},120);som(true);abrirGanhos();}
+      catch(err){s.disabled=false;s.textContent='Confirmar pagamento';erro('Não salvou',esc(err.message));}};
+  });
 }
 
 /* ── Faturador (so admin) ──────────────────────────────── */
