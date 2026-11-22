@@ -1364,7 +1364,7 @@ function opcoesClientes(sel,id){
 }
 async function produtosDe(contaId,forcar){
   if(forcar)delete prodLeve[contaId];
-  if(forcar||!prodCache[contaId])prodCache[contaId]=await chamar('prepProdutosListar',{contaId});
+  if(forcar||!prodCache[contaId])prodCache[contaId]=await chamar('prepProdutosListar',{contaId},120);
   return prodCache[contaId];
 }
 // Lista leve (so SKU e nome): abre na hora. Guardada por 2 minutos e buscada antes de precisar.
@@ -1398,7 +1398,7 @@ async function desenharProdutos(){
   const contaId=$('pr-cli').value, aba=prAba, vez=++prVez, chaveTela=aba+'|'+contaId;
   $('pr-t-prod').setAttribute('aria-pressed',aba==='prod');$('pr-t-anu').setAttribute('aria-pressed',aba==='anu');
   // Mesma tela ja na frente: atualiza por baixo, sem apagar (nao fecha o que estava aberto a toa)
-  if(prMostrando!==chaveTela){prMostrando='';$('pr-lista').innerHTML=`<div class="vazio">${aba==='anu'?'Buscando os anúncios no Mercado Livre… pode levar alguns segundos.':'Carregando…'}</div>`;}
+  if(prMostrando!==chaveTela){prMostrando='';$('pr-lista').innerHTML=`<div class="vazio">${aba==='anu'?'Buscando os anúncios no Mercado Livre… pode levar alguns segundos.':'Carregando e conferindo as vendas no Mercado Livre…'}</div>`;}
   if(aba==='anu')$('pr-form').innerHTML='';
   try{
     if(aba==='prod'){

@@ -452,7 +452,7 @@ function situacaoEstoque(p){
 async function verEstoque(){
   carregando();
   let r,e;
-  try{[r,e]=await Promise.all([resumo(true),chamar('clienteEstoque')]);}catch(err){return falhou(err);}
+  try{[r,e]=await Promise.all([resumo(true),chamar('clienteEstoque',{},120)]);}catch(err){return falhou(err);}
   if(vista!=='estoque')return;
   const multi=e.contas.length>1;
   const ps=e.produtos.map(p=>({...p,disponivel:Math.max(0,p.livre??p.disponivel),emConferencia:p.emConferencia??p.aCaminho??0})).map(p=>({...p,sit:situacaoEstoque(p)}));
