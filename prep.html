@@ -1390,14 +1390,23 @@ $('pr-t-anu').onclick=()=>{prAba='anu';desenharProdutos();};
 $('pr-contar').onclick=()=>abrirContagem();
 $('pr-novo').onclick=async()=>{if(prAba!=='prod'){prAba='prod';await desenharProdutos();}formProduto(null);$('pr-form').scrollIntoView({behavior:'smooth',block:'start'});};
 
+// So a ultima chamada desenha. Antes, uma busca lenta que terminava depois
+// (ex.: os anuncios do ML, ou a lista de quando voce saiu e voltou) escrevia
+// por cima da tela atual: a tela aparecia, sumia e voltava.
+let prVez=0,prMostrando='';
 async function desenharProdutos(){
-  const contaId=$('pr-cli').value;
-  $('pr-t-prod').setAttribute('aria-pressed',prAba==='prod');$('pr-t-anu').setAttribute('aria-pressed',prAba==='anu');
-  $('pr-lista').innerHTML=`<div class="vazio">${prAba==='anu'?'Buscando os anúncios no Mercado Livre… pode levar alguns segundos.':'Carregando…'}</div>`;
-  if(prAba==='anu')$('pr-form').innerHTML='';
+  const contaId=$('pr-cli').value, aba=prAba, vez=++prVez, chaveTela=aba+'|'+contaId;
+  $('pr-t-prod').setAttribute('aria-pressed',aba==='prod');$('pr-t-anu').setAttribute('aria-pressed',aba==='anu');
+  // Mesma tela ja na frente: atualiza por baixo, sem apagar (nao fecha o que estava aberto a toa)
+  if(prMostrando!==chaveTela){prMostrando='';$('pr-lista').innerHTML=`<div class="vazio">${aba==='anu'?'Buscando os anúncios no Mercado Livre… pode levar alguns segundos.':'Carregando…'}</div>`;}
+  if(aba==='anu')$('pr-form').innerHTML='';
   try{
-    if(prAba==='prod'){
+    if(aba==='prod'){
       const ps=await produtosDe(contaId,true);
+      if(vez!==prVez)return;
+      // Lista de vendas aberta continua aberta depois de atualizar
+      const abertosVend=[...$('pr-lista').querySelectorAll('[id^="mv-"][data-vend]')].map(x=>x.id.slice(3));
+      prMostrando=chaveTela;
       if(!ps.length){$('pr-lista').innerHTML='<div class="vazio"><b>Nenhum produto cadastrado</b>Toque em "+ Novo produto" para cadastrar o primeiro. O SKU é gerado sozinho.</div>';return;}
       const cm=m=>[m.altura,m.largura,m.comprimento].every(Boolean)?`${m.altura}×${m.largura}×${m.comprimento} cm`:'sem medidas';
       // Mesmo modelo do servidor (estoqueResumo); se o servidor ainda for o antigo, calcula aqui
@@ -1447,15 +1456,18 @@ async function desenharProdutos(){
       $('pr-lista').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>etiquetaSku(ps.find(p=>p.sku===b.dataset.pl)));
       $('pr-lista').querySelectorAll('details.mais').forEach(d=>{d.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{d.open=false;}));
         d.addEventListener('toggle',()=>{if(d.open)$('pr-lista').querySelectorAll('details.mais[open]').forEach(o=>{if(o!==d)o.open=false;});});});
+      abertosVend.forEach(sku=>{const p=ps.find(x=>x.sku===sku);if(p&&document.getElementById('mv-'+sku))verVendidos(p);});
     }else{
       const [r,ps]=await Promise.all([chamar('prepAnunciosConta',{contaId},120),produtosDe(contaId)]);
+      if(vez!==prVez)return;
+      prMostrando=chaveTela;
       const an=r.anuncios||[];
       if(!an.length){$('pr-lista').innerHTML='<div class="vazio">Nenhum anúncio ativo fora do Full nessa conta.</div>';return;}
       vinc={an:an.sort((a,b)=>(a.receita.length?1:0)-(b.receita.length?1:0)),ps,abertos:new Map(),sel:new Set()};
       $('pr-lista').innerHTML=`<div id="vc-aviso"></div><div id="vc-barra" class="cad oculto" style="position:sticky;top:76px;z-index:15;border:2px solid var(--orange);box-shadow:0 8px 20px -14px rgba(17,17,17,.5)"></div>`+vinc.an.map(linhaAnuncio).join('');
       ligarLinhasVinc();atualizarAvisoVinc();desenharBarraVinc();
     }
-  }catch(e){$('pr-lista').innerHTML=`<div class="alerta bad"><b>Não consegui carregar.</b> ${esc(e.message)}</div>`;}
+  }catch(e){if(vez!==prVez)return;prMostrando='';$('pr-lista').innerHTML=`<div class="alerta bad"><b>Não consegui carregar.</b> ${esc(e.message)}</div>`;}
 }
 
 function formProduto(p){
@@ -1561,17 +1573,28 @@ function verVendidos(p){
   const ETAPA={aberto:'Na fila',picking:'Separando',conferido:'Conferido',etiquetado:'Etiquetado',problema:'Problema'};
   const kits=[...new Map(vs.filter(v=>v.porVenda>1).map(v=>[v.itemId,v])).values()];
   const vendas=new Set(vs.map(v=>v.shipmentId)).size;
+  // De onde vem o numero: cada anuncio vinculado a este produto, com quantas vendas e unidades
+  const porAn=[...vs.reduce((m,v)=>{const k=v.itemId||v.titulo;const x=m.get(k)||{itemId:v.itemId,titulo:v.titulo,vendas:new Set(),un:0};x.vendas.add(v.shipmentId);x.un+=v.total;return m.set(k,x);},new Map()).values()].sort((a,b)=>b.un-a.un);
+  const STML={pending:'pagamento pendente',handling:'em preparação',ready_to_ship:'pronto p/ enviar'};
+  const SUBML={invoice_pending:'aguardando NF',ready_to_print:'etiqueta liberada',printed:'etiqueta impressa',ready_for_pickup:'aguardando coleta',ready_for_dropoff:'aguardando postagem',in_packing_list:'na lista de coleta',in_pickup_list:'na lista de coleta',buffered:'aguardando data de envio'};
+  const stTxt=v=>v.statusML?`ML: ${SUBML[v.substatusML]||STML[v.statusML]||v.statusML}`:'';
   alvo.innerHTML=`<div class="cad" style="margin-top:6px;gap:8px">
     <h2>Vendido, falta enviar: ${p.reservado} unidade${p.reservado>1?'s':''} em ${vendas} pacote${vendas>1?'s':''}</h2>
+    <div style="background:var(--sunken);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px;font-size:13px">
+      <b style="color:var(--ink)">De onde vem esse número${porAn.length>1?`: ${porAn.length} anúncios vinculados a ${esc(p.sku)}`:''}</b>
+      ${porAn.map(a=>`<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b class="tab" style="min-width:34px;color:var(--ink)">${a.un}</b><span style="flex:1 1 200px">${esc(a.titulo||a.itemId)} <span class="mono" style="color:var(--muted)">${esc(a.itemId||'')}</span></span><span style="color:var(--muted)">${a.vendas.size} venda${a.vendas.size>1?'s':''}</span></div>`).join('')}
+      ${porAn.length>1?`<span style="color:var(--warn-fg)">Se algum desses anúncios <b>não é ${esc(p.nome)}</b>, ele está vinculado errado e está somando as vendas dele aqui. Corrija em <button type="button" class="link" data-irvinc style="color:var(--warn-fg);font-weight:800">Anúncios e vínculos</button>.</span>`:''}
+    </div>
     ${kits.length?`<div class="alerta" style="background:var(--warn-bg);color:var(--warn-fg);margin:0;font-size:13px">${kits.map(k=>`O anúncio <b>${esc(k.titulo||k.itemId)}</b> está vinculado com <b>${k.porVenda} unidades por venda</b>.`).join('<br>')} Se cada venda é 1 unidade, corrija em <b>Anúncios e vínculos</b>: é isso que dobra o número.</div>`:''}
     <div style="display:flex;flex-direction:column">${vs.map(v=>`<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px">
       <b class="tab" style="min-width:34px;color:var(--ink)">${v.total}</b>
       <span style="flex:1 1 220px;min-width:0">${esc(v.titulo||'')}${v.porVenda>1||v.unidadesVendidas>1?` <span style="color:var(--muted)">(${v.unidadesVendidas} vendida${v.unidadesVendidas>1?'s':''} × ${v.porVenda} por venda)</span>`:''}<br><span class="mono" style="color:var(--muted)">envio ${esc(v.shipmentId)}</span></span>
-      <span style="white-space:nowrap">${ETAPA[v.etapa]||esc(v.etapa)}${v.aguardandoNF?' · <b style="color:var(--warn-fg)">sem NF</b>':''}${v.pendencia?' · pendência':''}</span>
+      <span style="white-space:nowrap">${ETAPA[v.etapa]||esc(v.etapa)}${v.aguardandoNF?' · <b style="color:var(--warn-fg)">sem NF</b>':''}${v.pendencia?' · pendência':''}${stTxt(v)?`<br><span style="color:var(--muted)">${esc(stTxt(v))}</span>`:''}</span>
       <span style="white-space:nowrap;color:${v.limite&&new Date(v.limite)<new Date()?'var(--bad-fg)':'var(--muted)'}">${v.limite?'prazo '+diaMes(new Date(v.limite)):''}</span>
     </div>`).join('')}</div>
     <div class="lin"><button class="btn" type="button" data-conf>Conferir esses pacotes no ML</button></div>
     <span style="font-size:12px;color:var(--muted)">Pacote que já saiu ou foi cancelado no ML sai daqui. O estoque da prateleira só baixa quando o pacote fica Pronto.</span></div>`;
+  const iv=alvo.querySelector('[data-irvinc]');if(iv)iv.onclick=()=>{prAba='anu';desenharProdutos();window.scrollTo(0,0);};
   alvo.querySelector('[data-conf]').onclick=async e=>{
     const b=e.currentTarget,ids=[...new Set(vs.map(v=>v.shipmentId))];b.disabled=true;let saiu=0,falha=0;
     for(let i=0;i<ids.length;i++){b.textContent=`Conferindo ${i+1} de ${ids.length}…`;
