@@ -1602,7 +1602,7 @@ function BotaoHistorico({periodos,onClick,disabled}){
   );
 }
 
-function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,novoCusto,novoImposto,comoUid,onFechar,onSalvo}){
+function PainelHistoricoCusto({sku,itemId,titulo,custoAtual,impostoAtual,novoCusto,novoImposto,comoUid,onFechar,onSalvo}){
   const [linhas,setLinhas]=useState(null);
   const [carregando,setCarregando]=useState(true);
   const [salvando,setSalvando]=useState(false);
@@ -1615,7 +1615,7 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,novoCusto,novo
     let vivo=true;
     (async()=>{
       try{
-        const r=await call('mlHistoricoCusto',{skus:[sku],comoUid:comoUid||null});
+        const r=await call('mlHistoricoCusto',{skus:[sku],itemIds:itemId?{[sku]:itemId}:undefined,comoUid:comoUid||null});
         if(!vivo)return;
         const h=r.custos?.[sku]?.historico||[];
         setLinhas(h.map(x=>({de:x.de,ate:x.ate||'',custo:PARACAMPO(x.custo),imposto:x.imposto==null?'':PARACAMPO(x.imposto)})));
@@ -1668,10 +1668,10 @@ function PainelHistoricoCusto({sku,titulo,custoAtual,impostoAtual,novoCusto,novo
     if(lista.some(l=>l.ate&&l.ate<l.de)){setErro('Tem período terminando antes de começar.');return;}
     setSalvando(true);setErro('');
     try{
-      await call('mlSalvarHistoricoCusto',{sku,
+      const res=await call('mlSalvarHistoricoCusto',{sku,itemId:itemId||null,
         historico:lista.map(l=>({de:l.de,ate:l.ate||null,custo:PARSE(l.custo),
           imposto:l.imposto===''?null:PARSE(l.imposto)}))});
-      onSalvo?.();onFechar();
+      onSalvo?.(res);onFechar();
     }catch(e){setErro(e.message||'Não consegui salvar.');}
     finally{setSalvando(false);}
   }
@@ -1849,8 +1849,10 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
   const [impostoGlobal,setImpostoGlobal]=useState('');
   const todos=dados?.anuncios||[];
   const multiConta=(dados?.contasUsadas?.length||0)>1;
+  // Valores ja salvos: valem na tela ate os dados novos chegarem do servidor
+  const [salvos,setSalvos]=useState({});
   // Reseta rascunho quando os dados recarregam
-  useEffect(()=>{setRascunho({});},[dados]);
+  useEffect(()=>{setRascunho({});setSalvos({});},[dados]);
   const anuncios=todos.filter(a=>{
     if(soSemCusto){
       if(a.custo>0)return false;
@@ -1871,8 +1873,10 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
   const val=(a,campo)=>{
     const r=rascunho[a.sku];
     if(r&&r[campo]!==undefined)return r[campo];
+    if(salvos[a.sku]&&salvos[a.sku][campo]!==undefined)return PARACAMPO(salvos[a.sku][campo]);
     return PARACAMPO(a[campo]);
   };
+  const base=(a,campo)=>salvos[a.sku]?.[campo]!==undefined?salvos[a.sku][campo]:(a[campo]||0);
   const setCampo=(sku,campo,v)=>{
     setRascunho(d=>({...d,[sku]:{...(d[sku]||{}),[campo]:LIMPAR(v)}}));
     setMsg('');
@@ -1882,9 +1886,9 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
     const a=todos.find(x=>String(x.sku)===String(sku));
     if(!a)return false;
     const r=rascunho[sku];
-    const c=r.custo!==undefined?PARSE(r.custo)||0:a.custo;
-    const i=r.imposto!==undefined?PARSE(r.imposto)||0:a.imposto;
-    return c!==(a.custo||0)||i!==(a.imposto||0);
+    const c=r.custo!==undefined?PARSE(r.custo)||0:base(a,'custo');
+    const i=r.imposto!==undefined?PARSE(r.imposto)||0:base(a,'imposto');
+    return c!==base(a,'custo')||i!==base(a,'imposto');
   });
   useEffect(()=>{onDirty?.(alterados.length>0&&!somenteLeitura);},[alterados.length,onDirty,somenteLeitura]);
   useEffect(()=>()=>onDirty?.(false),[onDirty]);
@@ -1914,13 +1918,15 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
         const a=todos.find(x=>String(x.sku)===String(sku));
         const r=rascunho[sku];
         return {
-          sku,
-          custo:   r.custo!==undefined?PARSE(r.custo)||0:a.custo,
-          imposto: r.imposto!==undefined?PARSE(r.imposto)||0:a.imposto,
+          sku, itemId:a?.itemId||a?.id||null,
+          custo:   r.custo!==undefined?PARSE(r.custo)||0:base(a,'custo'),
+          imposto: r.imposto!==undefined?PARSE(r.imposto)||0:base(a,'imposto'),
         };
       });
       await call('mlSalvarCustosLote',{itens});
       setMsg(`${itens.length} ${itens.length===1?'produto salvo':'produtos salvos'}`);
+      // Mostra o que foi salvo na hora, sem esperar o recarregamento
+      setSalvos(v=>{const n={...v};itens.forEach(it=>{n[it.sku]={custo:it.custo,imposto:it.imposto};});return n;});
       setRascunho({});
       onRefresh(true);
     }catch(e){setMsg('Erro: '+e.message);}
@@ -1941,7 +1947,7 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
     : (multiConta
         ? ['','Título','Conta','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','']
         : ['','Título','SKU','Preço','Est.','Visitas','Custo un.','Imp. %','']);
-  if(loading)return (
+  if(loading&&!todos.length)return (
     <div style={{display:'flex',flexDirection:'column',gap:'var(--space-2)'}}>
       {[...Array(6)].map((_,i)=>(
         <div key={i} style={{background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-lg)',
@@ -2069,7 +2075,7 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
                 </div>
                 <div data-label="Períodos de custo">
                   <BotaoHistorico periodos={a.periodosCusto||0} disabled={salvando}
-                    onClick={()=>setHistAberto({sku:a.sku,titulo:a.titulo,
+                    onClick={()=>setHistAberto({sku:a.sku,itemId:a.itemId||a.id,titulo:a.titulo,
                       custo:a.custo,imposto:a.imposto,
                       novoCusto:rascunho[a.sku]?.custo!=null&&PARSE(rascunho[a.sku].custo)!==a.custo?PARSE(rascunho[a.sku].custo):null,
                       novoImposto:rascunho[a.sku]?.imposto!=null?PARSE(rascunho[a.sku].imposto):null})}/>
@@ -2119,11 +2125,12 @@ function ViewAnuncios({dados,loading,onRefresh,onDirty,initialSemCusto=false,som
       )}
 
       {histAberto&&(
-        <PainelHistoricoCusto sku={histAberto.sku} titulo={histAberto.titulo}
+        <PainelHistoricoCusto sku={histAberto.sku} itemId={histAberto.itemId} titulo={histAberto.titulo}
           custoAtual={histAberto.custo} impostoAtual={histAberto.imposto}
           novoCusto={histAberto.novoCusto} novoImposto={histAberto.novoImposto}
           onFechar={()=>setHistAberto(null)}
-          onSalvo={()=>{const k=histAberto.sku;setRascunho(r=>{const c={...r};delete c[k];return c;});onRefresh?.(true);}}/>
+          onSalvo={r=>{const k=histAberto.sku;setRascunho(x=>{const c={...x};delete c[k];return c;});
+            if(r&&r.custoAtual!=null)setSalvos(v=>({...v,[k]:{...(v[k]||{}),custo:r.custoAtual}}));onRefresh?.(true);}}/>
       )}
     </div>
   );
@@ -2388,7 +2395,7 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
       const itens=alterados.map(sku=>{
         const x=todos.find(t=>String(t.sku)===String(sku));
         const r=rascunho[sku];
-        return{sku,
+        return{sku,itemId:x?.itemId||null,
           custo:r.custo!==undefined?PARSE(r.custo)||0:(x.custoUnit||0),
           imposto:r.imposto!==undefined?PARSE(r.imposto)||0:(x.impostoPct||0)};
       });
@@ -2548,7 +2555,7 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
                   </div>
                   <div data-label="Períodos de custo">
                     <BotaoHistorico periodos={x.periodosCusto||0} disabled={salvando}
-                      onClick={()=>setHistAberto({sku:x.sku,titulo:x.titulo,
+                      onClick={()=>setHistAberto({sku:x.sku,itemId:x.itemId,titulo:x.titulo,
                         custo:x.custoUnit,imposto:x.impostoPct,
                         novoCusto:rascunho[x.sku]?.custo!=null&&PARSE(rascunho[x.sku].custo)!==x.custoUnit?PARSE(rascunho[x.sku].custo):null,
                         novoImposto:rascunho[x.sku]?.imposto!=null?PARSE(rascunho[x.sku].imposto):null})}/>
@@ -2601,7 +2608,7 @@ function TabelaSkus({dados,loading,onRefresh,compacta=false,limite=null,somenteL
       )}
 
       {histAberto&&(
-        <PainelHistoricoCusto sku={histAberto.sku} titulo={histAberto.titulo}
+        <PainelHistoricoCusto sku={histAberto.sku} itemId={histAberto.itemId} titulo={histAberto.titulo}
           custoAtual={histAberto.custo} impostoAtual={histAberto.imposto}
           novoCusto={histAberto.novoCusto} novoImposto={histAberto.novoImposto}
           onFechar={()=>setHistAberto(null)}
