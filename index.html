@@ -6584,6 +6584,7 @@ function ViewIA({dados,periodo,rotuloPeriodo,setPeriodo,intervalo,onIntervalo,co
                       ['Comparativo',atual.enviado.temComparativo?'sim':'não'],
                       ['Ads',atual.enviado.temAds?'sim':'não'],
                       ['Visitas',atual.enviado.temVisitas?'sim':'não'],
+                      ['Dia a dia',atual.enviado.dias?`${NUM(atual.enviado.dias)} dias · ${NUM(atual.enviado.semanas)} semanas`:'não'],
                     ].map(([lbl,val])=>(
                       <div key={lbl}>
                         <Overline>{lbl}</Overline>
