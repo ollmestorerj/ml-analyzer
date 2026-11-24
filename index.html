@@ -6211,7 +6211,7 @@ function ViewDiaADia({comoUid,contasAtivas}){
 }
 
 
-function ViewIA({dados,periodo,rotuloPeriodo}){
+function ViewIA({dados,periodo,rotuloPeriodo,setPeriodo,intervalo,onIntervalo,contasAtivas,toggleConta,loading}){
   const [analises,setAnalises]=useState(null);
   const [carregandoLista,setCarregandoLista]=useState(true);
   const [rodando,setRodando]=useState(null);      // id da análise em execução
@@ -6259,6 +6259,7 @@ function ViewIA({dados,periodo,rotuloPeriodo}){
   }
 
   async function rodar({tipo,livre}={}){
+    if(loading){setErro('Espere terminar de carregar o período escolhido');return;}
     if(!dados){setErro('Carregue os dados de um período antes de analisar');return;}
     const chave=livre?`livre:${Date.now()}`:tipo;
     setRodando(chave);setErro('');setSelecionado(chave);
@@ -6292,7 +6293,7 @@ function ViewIA({dados,periodo,rotuloPeriodo}){
 
   const semDados=!dados||!(dados.metricas?.pedidosDia>0);
   const atual=selecionado?resultados[selecionado]:null;
-  const emExecucao=rodando===selecionado;
+  const emExecucao=rodando!=null&&rodando===selecionado;
 
   // Perguntas livres já feitas, para a lista lateral
   const livres=Object.entries(resultados)
@@ -6302,6 +6303,13 @@ function ViewIA({dados,periodo,rotuloPeriodo}){
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:'var(--layout-grid-gap)'}}>
+
+      {/* Período e contas: a análise usa exatamente o que estiver escolhido aqui */}
+      {setPeriodo&&<div style={{display:'flex',gap:'var(--space-2)',flexWrap:'wrap',justifyContent:'flex-end',alignItems:'center'}}>
+        {loading&&<span style={{fontSize:'var(--text-xs)',color:'var(--text-subtle)',marginRight:'auto'}}>Carregando o período…</span>}
+        <ContaFilter contas={dados?.contas} ativas={contasAtivas} onToggle={toggleConta}/>
+        <PeriodFilter value={periodo} onChange={setPeriodo} intervalo={intervalo} onIntervalo={onIntervalo}/>
+      </div>}
 
       {/* Barra de contexto */}
       <Card pad={false}>
@@ -6337,7 +6345,7 @@ function ViewIA({dados,periodo,rotuloPeriodo}){
         {semDados&&(
           <div style={{padding:'0 var(--layout-card-pad) var(--layout-card-pad)'}}>
             <Note tone="warning" icon="triangle-alert">
-              Não há vendas no período carregado. Troque o período na Visão geral antes de pedir a análise.
+              Não há vendas no período carregado. Troque o período logo acima antes de pedir a análise.
             </Note>
           </div>
         )}
@@ -7085,7 +7093,7 @@ function AppLogado({user,erroConexao}){
           {view==='consulta'&&perfil?.admin&&<ViewConsulta contasAtivas={contasAtivas} periodo={periodo} intervalo={intervalo} rotuloPeriodo={rotuloPeriodo} contas={dados?.contas} comoUid={mentorado?.uid||null}/>}
           {view==='trafego'&&perfil?.admin&&<ViewTrafego dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta}/>}
           {view==='concorrentes'&&perfil?.admin&&<ViewConcorrentes/>}
-          {view==='ia'&&perfil?.admin&&<ViewIA dados={dados} periodo={periodo} rotuloPeriodo={rotuloPeriodo}/>}
+          {view==='ia'&&perfil?.admin&&<ViewIA dados={dados} loading={loading} periodo={periodo} setPeriodo={escolherPeriodo} intervalo={intervalo} onIntervalo={escolherIntervalo} rotuloPeriodo={rotuloPeriodo} contasAtivas={contasAtivas} toggleConta={toggleConta}/>}
           {view==='hub'&&perfil?.admin&&<ViewHub perfil={perfil} mentoradoAtivo={mentorado} onAbrir={abrirMentorado} onVoltarParaMim={voltarParaMim}/>}
           {view==='contas'&&perfil?.admin&&<ViewContas dados={dados} onRefresh={carregar}/>}
           </>}
