@@ -1393,7 +1393,7 @@ $('pr-novo').onclick=async()=>{if(prAba!=='prod'){prAba='prod';await desenharPro
 // So a ultima chamada desenha. Antes, uma busca lenta que terminava depois
 // (ex.: os anuncios do ML, ou a lista de quando voce saiu e voltou) escrevia
 // por cima da tela atual: a tela aparecia, sumia e voltava.
-let prVez=0,prMostrando='';
+let prVez=0,prMostrando='',prEtiqLocal=null;
 async function desenharProdutos(){
   const contaId=$('pr-cli').value, aba=prAba, vez=++prVez, chaveTela=aba+'|'+contaId;
   $('pr-t-prod').setAttribute('aria-pressed',aba==='prod');$('pr-t-anu').setAttribute('aria-pressed',aba==='anu');
@@ -1423,6 +1423,7 @@ async function desenharProdutos(){
           </div>
           ${tot.cf?`<span>Em conferência: <b class="tab" style="color:var(--ink)">${tot.cf}</b> unidade${tot.cf>1?'s':''} avisada${tot.cf>1?'s':''} pelo cliente, ainda sem conferir no Receber.</span>`:''}
           ${tot.prob?`<div class="alerta bad" style="margin:0">${tot.prob} produto${tot.prob>1?'s precisam':' precisa'} de atenção. Veja abaixo o que fazer.</div>`:''}
+          ${souAdmin?`<div><button type="button" class="link" id="pr-corr" style="font-weight:700">Conferir baixas automáticas do Mercado Livre</button></div><div id="pr-corr-res"></div>`:''}
         </div>`+ps.map(p=>{
         const r=R(p);
         return `<div class="prow" style="${r.faltaLancar||r.faltamParaVendas?'border:2px solid var(--bad)':''}">
@@ -1457,6 +1458,12 @@ async function desenharProdutos(){
       $('pr-lista').querySelectorAll('details.mais').forEach(d=>{d.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{d.open=false;}));
         d.addEventListener('toggle',()=>{if(d.open)$('pr-lista').querySelectorAll('details.mais[open]').forEach(o=>{if(o!==d)o.open=false;});});});
       abertosVend.forEach(sku=>{const p=ps.find(x=>x.sku===sku);if(p&&document.getElementById('mv-'+sku))verVendidos(p);});
+      if($('pr-corr'))$('pr-corr').onclick=()=>corrigirBaixas(contaId);
+      // Entrada recem salva: pede a etiqueta do local
+      if(prEtiqLocal&&souAdmin){const p=ps.find(x=>x.sku===prEtiqLocal);const alvo=p&&document.getElementById('mv-'+p.sku);
+        if(alvo){alvo.innerHTML=`<div class="alerta" style="margin-top:6px;background:var(--ok-bg);color:var(--ok-fg);display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span><b>Entrada salva.</b> Cole a etiqueta do local onde ${esc(p.nome)} ficou guardado: é ela que vai ser bipada no picking.</span><button class="btn pri" type="button" data-etl style="margin-left:auto">Imprimir etiqueta do local</button><button class="btn" type="button" data-etx>Depois</button></div>`;
+          alvo.querySelector('[data-etl]').onclick=()=>{etiquetaSku(p);alvo.innerHTML='';};alvo.querySelector('[data-etx]').onclick=()=>{alvo.innerHTML='';};}
+        prEtiqLocal=null;}
     }else{
       const [r,ps]=await Promise.all([chamar('prepAnunciosConta',{contaId},120),produtosDe(contaId)]);
       if(vez!==prVez)return;
@@ -1468,6 +1475,26 @@ async function desenharProdutos(){
       ligarLinhasVinc();atualizarAvisoVinc();desenharBarraVinc();
     }
   }catch(e){if(vez!==prVez)return;prMostrando='';$('pr-lista').innerHTML=`<div class="alerta bad"><b>Não consegui carregar.</b> ${esc(e.message)}</div>`;}
+}
+
+// Baixas automaticas do ML em pacote que nunca passou pelo galpao (cliente enviou, ou venda de antes do prep):
+// mostra o que voltaria para o estoque e, confirmando, devolve.
+async function corrigirBaixas(contaId){
+  const box=$('pr-corr-res');box.innerHTML='<div class="vazio" style="padding:10px">Procurando…</div>';
+  try{
+    const r=await chamar('prepCorrigirBaixasSemGalpao',{contaId,previa:true},300);
+    if(!r.movimentos){box.innerHTML='<div class="alerta ok" style="margin:0">Nenhuma baixa automática errada neste cliente.</div>';return;}
+    box.innerHTML=`<div class="alerta" style="margin:0;background:var(--warn-bg);color:var(--warn-fg);display:flex;flex-direction:column;gap:6px">
+      <span><b>${r.pacotes} pacote${r.pacotes>1?'s':''} saíram no Mercado Livre sem nunca passar pelo galpão</b> (sem etiqueta impressa aqui, sem bipagem, sem foto) e mesmo assim foram descontados do estoque. Devolvendo, o estoque volta assim:</span>
+      ${r.porSku.map(x=>`<span><b class="tab">+${x.qtd}</b> <span class="mono">${esc(x.sku)}</span> ${esc(x.nome||'')}</span>`).join('')}
+      <span style="font-size:12px">Se algum desses pacotes saiu daqui de verdade (separado fora do sistema), não devolva: conte a prateleira depois.</span>
+      <div class="lin"><button class="btn pri" type="button" id="pr-corr-ok">Devolver ao estoque</button><button class="btn" type="button" id="pr-corr-x">Agora não</button></div></div>`;
+    $('pr-corr-x').onclick=()=>{box.innerHTML='';};
+    $('pr-corr-ok').onclick=async e=>{e.currentTarget.disabled=true;
+      try{const f=await chamar('prepCorrigirBaixasSemGalpao',{contaId,previa:false},300);som(true);
+        aviso(`Estoque corrigido: ${f.porSku.map(x=>`+${x.qtd} ${esc(x.sku)}`).join(', ')}`);prodCache={};desenharProdutos();}
+      catch(err){e.currentTarget.disabled=false;erro('Não corrigiu',esc(err.message));}};
+  }catch(e){box.innerHTML=`<div class="alerta bad" style="margin:0">${esc(e.message)}</div>`;}
 }
 
 function formProduto(p){
@@ -1543,7 +1570,7 @@ function formEntrada(p){
     const bt=f.querySelector('[type=submit]');bt.disabled=true;
     try{const r=await chamar('prepEstoqueAjustar',{sku:p.sku,tipo:'entrada',informada:c.inf,recebida:c.rec,avariadas:c.ava,explicacao:f.exp.value});som(true);
       telaCheia('#0E9F6E',`<div class="m">ENTRADA SALVA</div><div class="g">${esc(p.sku)}</div><div class="m">+${c.boas} boas${c.ava?` · ${c.ava} avariada${c.ava>1?'s':''}`:''} · ${r.antes} → ${r.depois}</div><button class="btn" type="button" id="ov-ok">OK</button>`,2200);
-      desenharProdutos();}
+      prEtiqLocal=p.sku;desenharProdutos();}
     catch(err){bt.disabled=false;som(false);erro('Não salvou',esc(err.message));}};
 }
 function formMovimento(p,tipo){
@@ -1682,8 +1709,8 @@ function etiquetaSku(p){
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(p.sku)}</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
   <style>@page{size:60mm 40mm;margin:0}body{margin:0;font-family:Arial,sans-serif}.e{width:60mm;height:40mm;box-sizing:border-box;padding:2mm 3mm;display:flex;flex-direction:column;align-items:center;justify-content:center;page-break-after:always;overflow:hidden}
-  .e b{font-size:13pt}.e span{font-size:8pt;text-align:center;max-height:8mm;overflow:hidden}svg{width:100%;height:16mm}</style></head><body>
-  ${Array.from({length:n},()=>`<div class="e"><b>${esc(p.sku)}</b><svg class="bc"></svg><span>${esc(p.nome)} · ${esc(p.clienteNome||'')}</span></div>`).join('')}
+  .e b{font-size:13pt}.e span{font-size:8pt;text-align:center;max-height:6mm;overflow:hidden}svg{width:100%;height:14mm}</style></head><body>
+  ${Array.from({length:n},()=>`<div class="e"><b>${esc(p.sku)}</b><svg class="bc"></svg><span>${esc(p.nome)}</span><span><b style="font-size:9pt">Local: ${esc(p.prateleira||p.clienteNome||'')}</b></span></div>`).join('')}
   <script>JsBarcode('.bc',${JSON.stringify(p.sku)},{format:'CODE128',displayValue:false,margin:0});window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   w.document.close();
 }
@@ -2076,10 +2103,17 @@ function desenharExec(){
   if(!exec)return;
   const p=pedidos.find(x=>String(x.shipmentId)===exec.id);
   if(!p||['pronto','despachado','problema'].includes(p.momento)){fecharExec();return;}
-  const m=modDe(p.modalidade), passo={imprimir:1,bipar:2,foto:3}[p.momento]||1;
+  // Separar conferido: bipa a etiqueta do local de cada SKU (e o codigo do produto, se tiver)
+  const sepItens=pickItens(p);
+  const comSep=souAdmin&&sepItens.length>0;
+  if(comSep&&!exec.sep)exec.sep={feito:Boolean(p.separacao),it:sepItens.map(x=>({...x,local:false,n:0}))};
+  const separando=comSep&&p.momento==='bipar'&&!exec.sep.feito;
+  if(separando)return desenharSeparar(p);
+  const m=modDe(p.modalidade), passo=({imprimir:1,bipar:2,foto:3}[p.momento]||1)+(comSep&&p.momento!=='imprimir'?1:0);
+  const nomesPassos=comSep?['Imprimir','Separar','Bipar etiqueta','Foto']:['Imprimir','Bipar etiqueta','Foto'];
   const instr={
     imprimir:'Imprima a etiqueta deste pedido.',
-    bipar:'Separe o produto acima, cole a etiqueta na caixa e <b>bipe a etiqueta colada</b>.',
+    bipar:comSep?'Produto separado e conferido. Cole a etiqueta de envio na caixa e <b>bipe a etiqueta colada</b>.':'Separe o produto acima, cole a etiqueta na caixa e <b>bipe a etiqueta colada</b>.',
     foto:'Etiqueta conferida. Tire a foto da caixa <b>aberta</b>, com o produto e a etiqueta aparecendo.',
     nf:'Este pedido está esperando a NF do cliente. A etiqueta ainda não pode ser impressa.'}[p.momento]||'';
   let principal='';
@@ -2092,7 +2126,7 @@ function desenharExec(){
     <div class="ex-corpo">
       ${(p.itens||[]).map(i=>`<div class="ex-item"><span class="q tab">${esc(i.qtd)}×</span><div style="display:flex;flex-direction:column;gap:4px"><b>${esc(i.titulo)}</b><span style="font-size:13px;color:var(--subtle)">${i.atributos?esc(i.atributos):''}</span>
         ${i.receita?`<span style="display:flex;flex-wrap:wrap;gap:4px">${i.receita.map(r=>`<span class="chip-sku">Pegar ${r.qtd*(Number(i.qtd)||1)}× <span class="mono">${esc(r.sku)}</span></span>`).join('')}</span>`:'<span class="tag warn" style="align-self:flex-start">Anúncio sem vínculo com produto · vincule em Produtos</span>'}</div></div>`).join('')}
-      <div class="ex-passos">${['Imprimir','Bipar etiqueta','Foto'].map((t,k)=>`<div class="ex-passo ${k+1<passo?'feito':k+1===passo?'agora':''}">${k+1<passo?'✓ ':''}${t}</div>`).join('')}</div>
+      <div class="ex-passos">${nomesPassos.map((t,k)=>`<div class="ex-passo ${k+1<passo?'feito':k+1===passo?'agora':''}">${k+1<passo?'✓ ':''}${t}</div>`).join('')}</div>
       <div class="ex-instr">${instr}</div>
       ${principal}
       <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px">
@@ -2114,6 +2148,65 @@ function desenharExec(){
     setTimeout(()=>q('ex-bip')&&q('ex-bip').focus(),50);
   }
 }
+// Itens a separar: cada SKU do pedido, somando as quantidades, com o local e os codigos de barras
+function pickItens(p){
+  const m=new Map();
+  (p.itens||[]).forEach(i=>(i.receita||[]).forEach(r=>{const q=r.qtd*(Number(i.qtd)||1);const x=m.get(r.sku)||{sku:r.sku,nome:r.nome||i.titulo,local:r.local||p.clienteNome||'',eans:(r.eans||[]).map(String),qtd:0};x.qtd+=q;m.set(r.sku,x);}));
+  return [...m.values()].map(x=>({sku:x.sku,nome:x.nome,lugar:x.local,eans:x.eans,qtd:x.qtd}));
+}
+function desenharSeparar(p){
+  const m=modDe(p.modalidade), it=exec.sep.it;
+  const atual=it.find(x=>!x.local||(x.eans.length&&x.n<x.qtd));
+  const passos=['Imprimir','Separar','Bipar etiqueta','Foto'];
+  $('exec').innerHTML=`<div class="ex-cab" style="background:${m.cor}"><small>Fazendo agora · ${m.nome}${p.atrasado?' · ATRASADO':''}</small><b id="exec-cli">${esc(p.clienteNome||p.contaId)}</b><span style="font-size:13px;opacity:.9" class="mono">envio ${esc(p.shipmentId)}</span></div>
+    <div class="ex-corpo">
+      ${it.map(x=>{const ok=x.local&&(!x.eans.length||x.n>=x.qtd), agora=x===atual;
+        return `<div class="ex-item" style="${agora?'outline:3px solid var(--orange);outline-offset:2px;':''}${ok?'opacity:.6':''}"><span class="q tab">${x.qtd}×</span><div style="display:flex;flex-direction:column;gap:4px;flex:1">
+          <b>${ok?'✓ ':''}${esc(x.nome)}</b><span class="mono" style="font-size:13px">${esc(x.sku)}</span>
+          <span style="font-size:15px;color:var(--ink)">Local: <b>${esc(x.lugar||'sem local cadastrado')}</b></span>
+          <span style="font-size:13px;color:var(--muted)">${x.local?'Local conferido':'Bipe a etiqueta do local'}${x.eans.length?` · código do produto: ${x.n}/${x.qtd}`:' · produto sem código de barras'}</span></div></div>`;}).join('')}
+      <div class="ex-passos">${passos.map((t,k)=>`<div class="ex-passo ${k+1<2?'feito':k+1===2?'agora':''}">${k+1<2?'✓ ':''}${t}</div>`).join('')}</div>
+      <div class="ex-instr">${atual?(!atual.local?`Vá até <b>${esc(atual.lugar||'o local de '+atual.sku)}</b> e <b>bipe a etiqueta do local</b> de ${esc(atual.sku)}.`:`Pegue as unidades e <b>bipe o código de barras de cada uma</b> (${atual.n} de ${atual.qtd}).`):'Tudo separado.'}</div>
+      <form id="sp-form" autocomplete="off"><input id="sp-bip" placeholder="Leitor: bipe aqui" aria-label="Bipar"><button class="btn pri" type="button" id="sp-cam">Câmera</button></form>
+      <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px">
+        <button class="btn" type="button" id="ex-pausar">Pausar e voltar</button>
+        <button class="btn" type="button" id="ex-prob" style="color:var(--bad-fg)">Reportar problema</button>
+      </div>
+    </div>`;
+  $('exec').classList.remove('oculto');
+  const q=id=>document.getElementById(id);
+  q('ex-pausar').onclick=fecharExec;
+  q('ex-prob').onclick=async()=>{const motivo=prompt('Qual o problema? (ex.: produto faltando, local vazio, avariado)');if(!motivo)return;
+    try{await chamar('prepMudarEtapa',{shipmentId:exec.id,etapa:'problema',motivo});fecharExec();carregar();}catch(e){erro('Não deu certo',esc(e.message));}};
+  q('sp-form').onsubmit=e=>{e.preventDefault();const v=q('sp-bip').value;q('sp-bip').value='';conferirSeparacao(v);};
+  q('sp-cam').onclick=()=>abrirCamera('Bipe a etiqueta do local ou o código do produto',conferirSeparacao,true);
+  setTimeout(()=>q('sp-bip')&&q('sp-bip').focus(),50);
+}
+const normCod=v=>String(v||'').trim().toUpperCase().replace(/[\x00-\x1f]/g,'');
+async function conferirSeparacao(lido){
+  if(!exec||!exec.sep)return;
+  const cod=normCod(lido), it=exec.sep.it;
+  const atual=it.find(x=>!x.local||(x.eans.length&&x.n<x.qtd));
+  if(!atual)return;
+  const deSku=it.find(x=>normCod(x.sku)===cod), deEan=it.find(x=>x.eans.some(e=>normCod(e)===cod));
+  if(!atual.local){
+    if(deSku===atual){atual.local=true;som(true);}
+    else{som(false);erro('LOCAL ERRADO',deSku?`Essa é a etiqueta de <b>${esc(deSku.sku)}</b>. Agora é <b>${esc(atual.sku)}</b>, no local <b>${esc(atual.lugar)}</b>.`
+      :deEan?`Esse é o código do produto. Primeiro bipe a <b>etiqueta do local</b> de ${esc(atual.sku)} (${esc(atual.lugar)}).`
+      :`Essa etiqueta não é de nenhum produto deste pedido. Procure ${esc(atual.sku)} no local <b>${esc(atual.lugar)}</b>.<br><br><span class="mono" style="font-size:12px">Lido: ${esc(cod.slice(0,60))}</span>`);return;}
+  }else{
+    if(deEan===atual){atual.n++;som(true);}
+    else{som(false);erro('PRODUTO ERRADO',deEan?`Esse código é de <b>${esc(deEan.sku)}</b>, não de ${esc(atual.sku)}.`:`Esse código não é de ${esc(atual.nome)}. Confira se pegou o produto certo.<br><br><span class="mono" style="font-size:12px">Lido: ${esc(cod.slice(0,60))}</span>`);return;}
+  }
+  if(!it.some(x=>!x.local||(x.eans.length&&x.n<x.qtd))){
+    try{await chamar('prepRegistrarSeparacao',{shipmentId:exec.id,itens:it.map(x=>({sku:x.sku,qtd:x.qtd,local:x.lugar,porCodigo:x.n}))});}
+    catch(e){console.warn('prepRegistrarSeparacao',e);}
+    exec.sep.feito=true;
+    const pe=pedidos.find(x=>String(x.shipmentId)===exec.id);if(pe)pe.separacao={em:new Date().toISOString()};
+  }
+  desenharExec();
+}
+
 // A etiqueta bipada tem que ser exatamente a do pedido em execucao
 async function conferirEtiqueta(lido){
   if(!exec)return;
