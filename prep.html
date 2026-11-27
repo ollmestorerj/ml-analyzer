@@ -407,7 +407,31 @@ document.querySelectorAll('.logo').forEach(e=>{e.textContent=NOME_SISTEMA.trim()
 firebase.initializeApp({apiKey:"AIzaSyAv4knEI4IgKH6fRpr_3BuiuijvP2Ul2ms",authDomain:"calculadora-real-ecom.firebaseapp.com",projectId:"calculadora-real-ecom",storageBucket:"calculadora-real-ecom.firebasestorage.app",messagingSenderId:"845239286688",appId:"1:845239286688:web:71018a44cabee0025842c5"});
 const auth=firebase.auth();
 const fns=firebase.app().functions('southamerica-east1');
-const chamar=(fn,args={},seg=70)=>fns.httpsCallable(fn,{timeout:seg*1000})(args).then(r=>r.data).catch(e=>{throw traduzErro(e,fn);});
+const chamar=(fn,args={},seg=70)=>fns.httpsCallable(fn,{timeout:seg*1000})(args).then(r=>r.data).catch(async e=>{
+  const t=traduzErro(e,fn);
+  // "internal" sem texto: pergunta direto ao servidor o que houve (fechada, quebrou, nao existe)
+  if(String(e?.code)==='functions/internal'&&/^internal$/i.test(String(e?.message||'').trim())){
+    try{t.message+=' '+(await diagnosticarFuncao(fn,args));}catch(_){}
+  }
+  throw t;});
+async function diagnosticarFuncao(fn,args){ // bate na funcao SEM dados: nao repete a operacao
+  const url=`https://southamerica-east1-calculadora-real-ecom.cloudfunctions.net/${fn}`;
+  const tok=await firebase.auth().currentUser?.getIdToken().catch(()=>null);
+  let r;
+  try{r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:JSON.stringify({data:{}})});}
+  catch(_){
+    // Sem resposta legivel: o Google barrou antes de chegar no codigo
+    let pub='';try{await fetch(url,{method:'GET',mode:'no-cors'});pub=' (o endereço responde, mas bloqueia o navegador)';}catch(_){}
+    return `[Diagnóstico: o navegador foi barrado antes de chegar na função${pub}. Quase sempre é a função sem permissão pública: no Google Cloud, adicione "allUsers" como "Invocador do Cloud Functions" em ${fn}.]`;
+  }
+  const corpo=(await r.text().catch(()=>'')).slice(0,300);
+  if(r.status===403||r.status===401)return `[Diagnóstico: ${r.status}, a função existe mas está fechada. No Google Cloud, adicione "allUsers" como "Invocador do Cloud Functions" em ${fn}.]`;
+  if(r.status===404)return `[Diagnóstico: 404, a função não existe nesse endereço.]`;
+  if(r.status===413)return `[Diagnóstico: arquivo grande demais para o servidor. Mande um print menor.]`;
+  let tam=0;try{tam=JSON.stringify(args).length;}catch(_){}
+  if(r.status<500)return `[Diagnóstico: a função está no ar e responde (${r.status}). O erro aconteceu com os dados enviados${tam>900000?': o arquivo anexado é grande demais':''}. Tente sem comprovante para ver se salva.]`;
+  return `[Diagnóstico: o servidor respondeu ${r.status}: ${corpo.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,200)}]`;
+}
 // Erros do servidor em portugues, com o que fazer
 function traduzErro(e,fn){
   const c=String(e?.code||''),m=String(e?.message||'');
